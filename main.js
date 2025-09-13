@@ -27,6 +27,8 @@ class PackersTracker {
         }
         const data = await response.json();
         console.log('API Response:', data);
+        console.log('Team events:', data.team?.events);
+        console.log('Team nextEvent:', data.team?.nextEvent);
         this.processData(data);
     }
 
@@ -87,37 +89,43 @@ class PackersTracker {
         const nextGameEl = document.getElementById('next-game');
         const nextGameInfoEl = document.getElementById('next-game-info');
         
-        // Find next upcoming game from events
+        console.log('Looking for next game in team data:', team);
+        
         let nextGame = null;
         const now = new Date();
         
-        // Look in team.events for upcoming games
-        if (team.events && Array.isArray(team.events)) {
-            const upcomingGames = team.events
-                .filter(event => new Date(event.date) > now)
+        // Try multiple possible locations for game data
+        const possibleEventSources = [
+            team.events,
+            team.nextEvent ? [team.nextEvent] : null,
+            team.schedule?.events,
+            team.upcomingEvents
+        ].filter(source => source && Array.isArray(source));
+        
+        console.log('Possible event sources:', possibleEventSources);
+        
+        for (const eventSource of possibleEventSources) {
+            console.log('Checking event source:', eventSource);
+            const upcomingGames = eventSource
+                .filter(event => {
+                    const gameDate = new Date(event.date);
+                    console.log('Event date:', event.date, 'Parsed:', gameDate, 'Now:', now, 'Future?', gameDate > now);
+                    return gameDate > now;
+                })
                 .sort((a, b) => new Date(a.date) - new Date(b.date));
+            
+            console.log('Upcoming games found:', upcomingGames);
             
             if (upcomingGames.length > 0) {
                 nextGame = upcomingGames[0];
+                break;
             }
         }
         
-        // Also check nextEvent as backup
-        if (!nextGame && team.nextEvent) {
-            const nextEventArray = Array.isArray(team.nextEvent) ? team.nextEvent : [team.nextEvent];
-            for (const event of nextEventArray) {
-                if (new Date(event.date) > now) {
-                    nextGame = event;
-                    break;
-                }
-            }
-        }
-        
-        // Debug: log what we found
-        console.log('Next game found:', nextGame);
+        console.log('Final next game found:', nextGame);
         
         if (!nextGame) {
-            console.log('No next game found, hiding next game section');
+            console.log('No next game found, showing placeholder');
             nextGameInfoEl.innerHTML = '<div style="font-size: 1.2rem; opacity: 0.7;">No upcoming games scheduled</div>';
             nextGameEl.style.display = 'block';
             return;
@@ -178,26 +186,42 @@ class PackersTracker {
         const previousGameEl = document.getElementById('previous-game');
         const previousGameInfoEl = document.getElementById('previous-game-info');
         
-        // Find most recent completed game from events
+        console.log('Looking for previous game in team data:', team);
+        
         let recentGame = null;
         const now = new Date();
         
-        if (team.events && Array.isArray(team.events)) {
-            const completedGames = team.events
+        // Try multiple possible locations for game data
+        const possibleEventSources = [
+            team.events,
+            team.schedule?.events,
+            team.recentEvents
+        ].filter(source => source && Array.isArray(source));
+        
+        console.log('Possible event sources for previous games:', possibleEventSources);
+        
+        for (const eventSource of possibleEventSources) {
+            console.log('Checking event source for previous games:', eventSource);
+            const completedGames = eventSource
                 .filter(event => {
                     const gameDate = new Date(event.date);
+                    console.log('Event date:', event.date, 'Parsed:', gameDate, 'Now:', now, 'Past?', gameDate < now);
                     return gameDate < now;
                 })
                 .sort((a, b) => new Date(b.date) - new Date(a.date));
             
+            console.log('Completed games found:', completedGames);
+            
             if (completedGames.length > 0) {
                 recentGame = completedGames[0];
+                break;
             }
         }
         
-        console.log('Previous game found:', recentGame);
+        console.log('Final previous game found:', recentGame);
         
         if (!recentGame) {
+            console.log('No previous game found, showing placeholder');
             previousGameInfoEl.innerHTML = '<div style="font-size: 1.2rem; opacity: 0.7;">No recent games found</div>';
             previousGameEl.style.display = 'block';
             return;
