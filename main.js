@@ -39,6 +39,7 @@ class PackersTracker {
         
         this.displayResult(isUndefeated, wins, losses, ties);
         this.displayNextGame(team);
+        this.displayPreviousGame(team);
     }
 
     displayResult(isUndefeated, wins, losses, ties) {
