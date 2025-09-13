@@ -250,12 +250,21 @@ class PackersTracker {
         
         console.log('Getting game result for competition:', competition);
         console.log('Competitors:', competitors);
+        console.log('Competitors array length:', competitors.length);
+        
+        // Log the entire structure of each competitor
+        competitors.forEach((competitor, index) => {
+            console.log(`Competitor ${index}:`, JSON.stringify(competitor, null, 2));
+        });
         
         for (const competitor of competitors) {
             const team = competitor.team || {};
             
             // Get score directly from competitor.score
             const score = parseInt(competitor.score) || 0;
+            
+            console.log('Raw competitor.score:', competitor.score);
+            console.log('Parsed score:', score);
             
             console.log('Processing competitor:', {
                 teamName: team.displayName,
