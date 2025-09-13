@@ -48,6 +48,7 @@ class PackersTracker {
             competitors.forEach(competitor => {
                 console.log('Full competitor object:', competitor);
                 console.log('Score object:', competitor.score);
+               console.log('Team info:', competitor.team);
                 if (competitor.abbreviation === 'GB') {
                     packersScore = parseInt(competitor.score.value) || 0;
                 } else {
