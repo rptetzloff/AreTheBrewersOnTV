@@ -293,11 +293,11 @@ class PackersTracker {
             let countdownText = '⏰ ';
             
             if (days > 0) {
-                countdownText += `${days}d ${hours}h ${minutes}m ${seconds}s`;
+                countdownText += `${days}d ${hours}h ${minutes}m`;
             } else if (hours > 0) {
-                countdownText += `${hours}h ${minutes}m ${seconds}s`;
+                countdownText += `${hours}h ${minutes}m`;
             } else {
-                countdownText += `${minutes}m ${seconds}s`;
+                countdownText += `${minutes}m`;
             }
             
             countdownEl.textContent = countdownText;
