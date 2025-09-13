@@ -247,7 +247,6 @@ class PackersTracker {
         let packersScore = 0;
         let opponentScore = 0;
         let won = false;
-        let tied = false;
         
         console.log('Getting game result for competition:', competition);
         console.log('Competitors:', competitors);
