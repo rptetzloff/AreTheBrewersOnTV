@@ -263,16 +263,26 @@ class PackersTracker {
         
         const packersScore = packersData?.competitorScore?.value || 0;
         const opponentScore = opponentData?.competitorScore?.value || 0;
-        console.log(`Packers: ${packersScore}, Opponent: ${opponentScore}`);
         
-        const won = packersScore > opponentScore;
-        const tied = packersScore === opponentScore && packersScore > 0;
+        // Try different possible score properties
+        const packersScoreAlt = packersData?.score || packersData?.points || 0;
+        const opponentScoreAlt = opponentData?.score || opponentData?.points || 0;
+        
+        console.log(`Packers: ${packersScore}, Opponent: ${opponentScore}`);
+        console.log(`Alt scores - Packers: ${packersScoreAlt}, Opponent: ${opponentScoreAlt}`);
+        
+        // Use whichever score property has actual values
+        const finalPackersScore = packersScore || packersScoreAlt;
+        const finalOpponentScore = opponentScore || opponentScoreAlt;
+        
+        const won = finalPackersScore > finalOpponentScore;
+        const tied = finalPackersScore === finalOpponentScore && finalPackersScore > 0;
         
         console.log(`Result: Won=${won}, Tied=${tied}`);
         
         return {
-            packersScore,
-            opponentScore,
+            packersScore: finalPackersScore,
+            opponentScore: finalOpponentScore,
             won,
             tied
         };
