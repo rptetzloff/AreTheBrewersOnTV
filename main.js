@@ -40,13 +40,12 @@ class PackersTracker {
             console.log('Processing game:', event.name);
             const competition = event.competitions[0];
             const competitors = competition.competitors;
-            console.log('Competitors:', competitors);
             
             let packersScore = 0;
             let opponentScore = 0;
             
+            // Find Packers and opponent scores
             competitors.forEach(competitor => {
-                console.log('Competitor:', competitor.abbreviation, 'Score:', competitor.score);
                 if (competitor.abbreviation === 'GB') {
                     packersScore = parseInt(competitor.score) || 0;
                 } else {
@@ -56,10 +55,11 @@ class PackersTracker {
             
             console.log('Packers:', packersScore, 'Opponent:', opponentScore);
             
+            // Only count the result once per game
             if (packersScore > opponentScore) {
                 wins++;
                 console.log('Packers won this game');
-            } else if (opponentScore > packersScore) {
+            } else if (packersScore < opponentScore) {
                 losses++;
                 console.log('Packers lost this game');
             } else {
