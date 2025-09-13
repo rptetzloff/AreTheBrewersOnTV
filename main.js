@@ -266,11 +266,47 @@ class PackersTracker {
     }
     
     shareToBluesky() {
+        this.copyTextForBluesky();
+    }
+    
+    async copyTextForBluesky() {
+        const blueskyBtn = document.getElementById('share-bluesky');
         const message = this.getShareMessage();
         const url = window.location.href;
         const shareText = `${message}\n\nCheck it out: ${url}`;
-        const blueskyUrl = `https://bsky.app/intent/compose?text=${encodeURIComponent(shareText)}`;
-        window.open(blueskyUrl, '_blank', 'width=600,height=500');
+        
+        try {
+            await navigator.clipboard.writeText(shareText);
+            
+            // Visual feedback
+            const originalText = blueskyBtn.innerHTML;
+            blueskyBtn.innerHTML = '<span class="share-icon">✅</span>Copied!';
+            blueskyBtn.classList.add('copy-success');
+            
+            setTimeout(() => {
+                blueskyBtn.innerHTML = originalText;
+                blueskyBtn.classList.remove('copy-success');
+            }, 2000);
+            
+        } catch (err) {
+            // Fallback for older browsers
+            const textArea = document.createElement('textarea');
+            textArea.value = shareText;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            
+            // Visual feedback
+            const originalText = blueskyBtn.innerHTML;
+            blueskyBtn.innerHTML = '<span class="share-icon">✅</span>Copied!';
+            blueskyBtn.classList.add('copy-success');
+            
+            setTimeout(() => {
+                blueskyBtn.innerHTML = originalText;
+                blueskyBtn.classList.remove('copy-success');
+            }, 2000);
+        }
     }
     
     async copyLink() {
