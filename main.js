@@ -150,6 +150,88 @@ class PackersTracker {
         this.startCountdown(date, nextGameInfoEl);
     }
 
+    displayPreviousGame(team) {
+        const previousGameEl = document.getElementById('previous-game');
+        const previousGameInfoEl = document.getElementById('previous-game-info');
+        
+        // Find the most recent completed game
+        let previousGame = null;
+        const now = new Date();
+        
+        if (team.events && Array.isArray(team.events)) {
+            for (const event of team.events) {
+                const gameDate = new Date(event.date);
+                if (gameDate < now) {
+                    if (!previousGame || gameDate > new Date(previousGame.date)) {
+                        previousGame = event;
+                    }
+                }
+            }
+        }
+        
+        if (!previousGame) {
+            previousGameEl.style.display = 'none';
+            return;
+        }
+
+        const competitions = previousGame.competitions || [];
+        const competition = competitions[0];
+        if (!competition) {
+            previousGameEl.style.display = 'none';
+            return;
+        }
+
+        const date = new Date(previousGame.date);
+        const opponent = this.getOpponent(competition);
+        const isHome = this.isHomeGame(competition);
+        const gameResult = this.getGameResult(competition);
+        
+        const gameInfo = `
+            <div style="font-size: 1.2rem; margin-bottom: 0.5rem;">
+                ${isHome ? 'vs' : '@'} ${opponent}
+            </div>
+            <div style="font-size: 1.3rem; color: ${gameResult.won ? '#4CAF50' : '#f44336'}; font-weight: bold; margin-bottom: 0.5rem;">
+                ${gameResult.won ? 'W' : 'L'} ${gameResult.packersScore}-${gameResult.opponentScore}
+            </div>
+            <div style="font-size: 1rem; opacity: 0.9;">
+                ${date.toLocaleDateString('en-US', { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                })}
+            </div>
+        `;
+        
+        previousGameInfoEl.innerHTML = gameInfo;
+        previousGameEl.style.display = 'block';
+    }
+
+    getGameResult(competition) {
+        const competitors = competition.competitors || [];
+        let packersScore = 0;
+        let opponentScore = 0;
+        let packersWon = false;
+        
+        for (const competitor of competitors) {
+            const team = competitor.team || {};
+            const score = parseInt(competitor.score || '0');
+            
+            if (team.abbreviation === 'GB') {
+                packersScore = score;
+                packersWon = competitor.winner === true;
+            } else {
+                opponentScore = score;
+            }
+        }
+        
+        return {
+            packersScore,
+            opponentScore,
+            won: packersWon
+        };
+    }
+
     getTimeUntilGame(gameDate) {
         const now = new Date();
         const timeDiff = gameDate - now;
