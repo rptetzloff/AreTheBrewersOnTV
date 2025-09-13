@@ -33,48 +33,36 @@ class PackersTracker {
     }
 
     processStandingsData(data) {
-        // Simple approach: just look for any standings data and filter for NFC North teams
         console.log('Processing standings data...');
         
-        // Try to find standings data anywhere in the response
-        let allTeams = [];
-        
-        // Function to extract team data from any standings structure
-        const extractTeams = (obj) => {
-            if (!obj) return;
-            
-            if (obj.entries && Array.isArray(obj.entries)) {
-                obj.entries.forEach(entry => {
-                    if (entry.team && entry.stats) {
-                        allTeams.push(entry);
-                    }
-                });
-            }
-            
-            // Recursively search through all properties
-            Object.values(obj).forEach(value => {
-                if (typeof value === 'object' && value !== null) {
-                    extractTeams(value);
-                }
-            });
-        };
-        
-        extractTeams(data);
-        
-        console.log('Found teams:', allTeams.length);
-        
-        // Filter for NFC North teams
-        const nfcNorthTeams = ['GB', 'CHI', 'DET', 'MIN'];
-        const nfcNorthStandings = allTeams.filter(entry => 
-            nfcNorthTeams.includes(entry.team.abbreviation)
-        );
-        
-        console.log('NFC North teams found:', nfcNorthStandings.length);
-        
-        if (nfcNorthStandings.length === 0) {
-            console.error('Could not find any NFC North teams in standings data');
+        // Navigate directly through the expected ESPN API structure
+        if (!data.children || !Array.isArray(data.children)) {
+            console.error('No children found in standings data');
             return;
         }
+        
+        // Find NFC conference
+        const nfcConference = data.children.find(conference => 
+            conference.name === 'NFC' || conference.abbreviation === 'NFC'
+        );
+        
+        if (!nfcConference || !nfcConference.children) {
+            console.error('Could not find NFC conference');
+            return;
+        }
+        
+        // Find NFC North division
+        const nfcNorthDivision = nfcConference.children.find(division => 
+            division.name === 'NFC North' || division.name === 'North'
+        );
+        
+        if (!nfcNorthDivision || !nfcNorthDivision.standings || !nfcNorthDivision.standings.entries) {
+            console.error('Could not find NFC North division or standings');
+            return;
+        }
+        
+        const nfcNorthStandings = nfcNorthDivision.standings.entries;
+        console.log('NFC North teams found:', nfcNorthStandings.length);
         
         const standings = nfcNorthStandings.map(entry => {
             const team = entry.team;
