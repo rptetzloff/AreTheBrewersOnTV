@@ -121,16 +121,16 @@
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            padding: 0.75rem 1.5rem;
+            padding: 0.6rem 1rem;
             border: none;
             border-radius: 8px;
-            font-size: 1rem;
+            font-size: 0.9rem;
             font-weight: bold;
             cursor: pointer;
             transition: all 0.3s ease;
             text-decoration: none;
             color: white;
-            min-width: 120px;
+            min-width: 100px;
             justify-content: center;
         }
         
@@ -180,7 +180,7 @@
         }
         
         .share-icon {
-            font-size: 1.2rem;
+            font-size: 1rem;
         }
         
         .copy-success {
@@ -188,13 +188,24 @@
         }
         
         @media (max-width: 600px) {
+            .share-section h3 {
+                font-size: 1.1rem;
+            }
+            
             .share-buttons {
-                flex-direction: column;
-                align-items: center;
+                gap: 0.5rem;
             }
             
             .share-btn {
-                width: 200px;
+                padding: 0.5rem 0.8rem;
+                font-size: 0.8rem;
+                min-width: 80px;
+                flex: 1;
+                max-width: 120px;
+            }
+            
+            .share-icon {
+                font-size: 0.9rem;
             }
         }
     </style>
