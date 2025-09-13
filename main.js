@@ -1,6 +1,7 @@
 class PackersTracker {
     constructor() {
         this.apiUrl = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/gb/schedule';
+        this.countdownInterval = null;
         this.init();
     }
 
@@ -205,9 +206,59 @@ class PackersTracker {
             <div style="font-size: 1rem; opacity: 0.9; margin-top: 0.5rem;">
                 📺 ${network}
             </div>
+            <div id="countdown" class="countdown"></div>
         `;
         
         el.style.display = 'block';
+        
+        // Start countdown timer
+        this.startCountdown(date);
+    }
+    
+    startCountdown(gameDate) {
+        // Clear any existing countdown
+        if (this.countdownInterval) {
+            clearInterval(this.countdownInterval);
+        }
+        
+        const countdownEl = document.getElementById('countdown');
+        if (!countdownEl) return;
+        
+        const updateCountdown = () => {
+            const now = new Date().getTime();
+            const gameTime = gameDate.getTime();
+            const timeLeft = gameTime - now;
+            
+            if (timeLeft <= 0) {
+                countdownEl.innerHTML = '🏈 Game Time!';
+                clearInterval(this.countdownInterval);
+                return;
+            }
+            
+            const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+            
+            let countdownText = '⏰ ';
+            
+            if (days > 0) {
+                countdownText += `${days}d ${hours}h ${minutes}m`;
+            } else if (hours > 0) {
+                countdownText += `${hours}h ${minutes}m ${seconds}s`;
+            } else if (minutes > 0) {
+                countdownText += `${minutes}m ${seconds}s`;
+            } else {
+                countdownText += `${seconds}s`;
+            }
+            
+            countdownText += ' until kickoff';
+            countdownEl.innerHTML = countdownText;
+        };
+        
+        // Update immediately and then every second
+        updateCountdown();
+        this.countdownInterval = setInterval(updateCountdown, 1000);
     }
 
     showLastUpdated() {
