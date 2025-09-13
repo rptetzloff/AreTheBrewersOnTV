@@ -1,14 +1,12 @@
 class PackersTracker {
     constructor() {
         this.apiUrl = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/gb/schedule';
-        this.standingsUrl = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/standings';
         this.init();
     }
 
     async init() {
         try {
             await this.fetchPackersData();
-            await this.fetchStandingsData();
         } catch (error) {
             this.showError('Failed to load Packers data');
             console.error('Error:', error);
@@ -19,138 +17,6 @@ class PackersTracker {
         const response = await fetch(this.apiUrl);
         const data = await response.json();
         this.processScheduleData(data);
-    }
-
-    async fetchStandingsData() {
-        try {
-            const response = await fetch(this.standingsUrl);
-            const data = await response.json();
-            console.log('Full standings API response:', JSON.stringify(data, null, 2));
-            this.processStandingsData(data);
-        } catch (error) {
-            console.error('Failed to fetch standings:', error);
-        }
-    }
-
-    processStandingsData(data) {
-        console.log('Processing standings data...');
-        
-        // Navigate directly through the expected ESPN API structure
-        if (!data.children || !Array.isArray(data.children)) {
-            console.error('No children found in standings data');
-            return;
-        }
-        
-        // Find NFC conference
-        const nfcConference = data.children.find(conference => 
-            conference.name === 'NFC' || conference.abbreviation === 'NFC'
-        );
-        
-        if (!nfcConference || !nfcConference.children) {
-            console.error('Could not find NFC conference');
-            return;
-        }
-        
-        // Find NFC North division
-        const nfcNorthDivision = nfcConference.children.find(division => 
-            division.name === 'NFC North' || division.name === 'North'
-        );
-        
-        if (!nfcNorthDivision || !nfcNorthDivision.standings || !nfcNorthDivision.standings.entries) {
-            console.error('Could not find NFC North division or standings');
-            return;
-        }
-        
-        const nfcNorthStandings = nfcNorthDivision.standings.entries;
-        console.log('NFC North teams found:', nfcNorthStandings.length);
-        
-        const standings = nfcNorthStandings.map(entry => {
-            const team = entry.team;
-            const stats = entry.stats;
-            
-            // Find wins, losses, and other relevant stats
-            const wins = stats.find(stat => stat.name === 'wins')?.value || 0;
-            const losses = stats.find(stat => stat.name === 'losses')?.value || 0;
-            const winPercent = stats.find(stat => stat.name === 'winPercent')?.value || 0;
-            const divisionRecord = stats.find(stat => stat.name === 'divisionWinPercent')?.displayValue || '0-0';
-            
-            return {
-                name: team.displayName,
-                abbreviation: team.abbreviation,
-                wins,
-                losses,
-                winPercent: parseFloat(winPercent),
-                divisionRecord,
-                isPackers: team.abbreviation === 'GB'
-            };
-        }).sort((a, b) => b.winPercent - a.winPercent);
-
-        this.displayStandings(standings);
-        this.displayPlayoffPicture(standings);
-    }
-
-    displayStandings(standings) {
-        const standingsEl = document.getElementById('standings');
-        const standingsInfo = document.getElementById('standings-info');
-        
-        let standingsHtml = '<div class="standings-table">';
-        standingsHtml += '<div class="standings-header">NFC North Standings</div>';
-        
-        standings.forEach((team, index) => {
-            const position = index + 1;
-            const rowClass = team.isPackers ? 'packers-row' : '';
-            
-            standingsHtml += `
-                <div class="standings-row ${rowClass}">
-                    <div class="team-position">${position}.</div>
-                    <div class="team-name">${team.name}</div>
-                    <div class="team-record">${team.wins}-${team.losses}</div>
-                    <div class="team-division">${team.divisionRecord}</div>
-                </div>
-            `;
-        });
-        
-        standingsHtml += '</div>';
-        standingsInfo.innerHTML = standingsHtml;
-        standingsEl.style.display = 'block';
-    }
-
-    displayPlayoffPicture(standings) {
-        const playoffEl = document.getElementById('playoff-picture');
-        const playoffInfo = document.getElementById('playoff-info');
-        
-        const packersTeam = standings.find(team => team.isPackers);
-        if (!packersTeam) return;
-        
-        const position = standings.indexOf(packersTeam) + 1;
-        let playoffStatus = '';
-        let statusClass = '';
-        
-        if (position === 1) {
-            playoffStatus = '🏆 Leading NFC North';
-            statusClass = 'leading';
-        } else if (position === 2) {
-            playoffStatus = '🥈 2nd in NFC North';
-            statusClass = 'second';
-        } else if (position === 3) {
-            playoffStatus = '🥉 3rd in NFC North';
-            statusClass = 'third';
-        } else {
-            playoffStatus = '📉 Last in NFC North';
-            statusClass = 'last';
-        }
-        
-        const playoffHtml = `
-            <div class="playoff-status ${statusClass}">
-                <div class="playoff-title">Playoff Picture</div>
-                <div class="playoff-position">${playoffStatus}</div>
-                <div class="playoff-record">Record: ${packersTeam.wins}-${packersTeam.losses}</div>
-                <div class="playoff-division">Division: ${packersTeam.divisionRecord}</div>
-            </div>
-        `;
-        
-        playoffInfo.innerHTML = playoffHtml;
-        playoffEl.style.display = 'block';
     }
 
     processScheduleData(data) {
