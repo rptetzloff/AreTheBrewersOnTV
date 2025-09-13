@@ -172,7 +172,7 @@ class PackersTracker {
         console.log(`=== RENDERING ${type.toUpperCase()} GAME ===`);
         console.log('Game object:', JSON.stringify(game, null, 2));
         
-        const competitions = recentGame.competitions || [];
+        const competitions = game.competitions || [];
         console.log('Competitions found:', competitions.length);
         
         const competition = competitions[0];
@@ -396,13 +396,6 @@ class PackersTracker {
         document.getElementById('previous-game-info').innerHTML = '<div style="font-size: 1.2rem; opacity: 0.7;">Unable to load game data</div>';
         document.getElementById('next-game').style.display = 'block';
         document.getElementById('previous-game').style.display = 'block';
-    }
-}
-
-// Initialize the tracker when the page loads
-document.addEventListener('DOMContentLoaded', () => {
-    new PackersTracker();
-});
     }
 }
 
