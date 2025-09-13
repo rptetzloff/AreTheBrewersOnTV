@@ -79,6 +79,9 @@ class PackersTracker {
         
         // Show last updated
         this.showLastUpdated();
+        
+        // Setup share buttons
+        this.setupShareButtons();
     }
 
     displayResult(isUndefeated, wins, losses) {
@@ -211,6 +214,83 @@ class PackersTracker {
         const el = document.getElementById('last-updated');
         const now = new Date();
         el.textContent = `Last updated: ${now.toLocaleDateString()} at ${now.toLocaleTimeString()}`;
+    }
+    
+    setupShareButtons() {
+        const twitterBtn = document.getElementById('share-twitter');
+        const facebookBtn = document.getElementById('share-facebook');
+        const copyBtn = document.getElementById('share-copy');
+        
+        twitterBtn.addEventListener('click', () => this.shareToTwitter());
+        facebookBtn.addEventListener('click', () => this.shareToFacebook());
+        copyBtn.addEventListener('click', () => this.copyLink());
+    }
+    
+    getShareMessage() {
+        const answerEl = document.getElementById('answer');
+        const recordEl = document.getElementById('record');
+        
+        const isUndefeated = answerEl.textContent.includes('YES');
+        const record = recordEl.textContent;
+        
+        if (isUndefeated) {
+            return `🧀 The Green Bay Packers are UNDEFEATED! ${record} 🧀 #GoPackGo`;
+        } else {
+            return `The Green Bay Packers are ${record} this season. #GoPackGo`;
+        }
+    }
+    
+    shareToTwitter() {
+        const message = this.getShareMessage();
+        const url = window.location.href;
+        const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(message)}&url=${encodeURIComponent(url)}`;
+        window.open(twitterUrl, '_blank', 'width=550,height=420');
+    }
+    
+    shareToFacebook() {
+        const url = window.location.href;
+        const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
+        window.open(facebookUrl, '_blank', 'width=580,height=296');
+    }
+    
+    async copyLink() {
+        const copyBtn = document.getElementById('share-copy');
+        const message = this.getShareMessage();
+        const url = window.location.href;
+        const shareText = `${message}\n\nCheck it out: ${url}`;
+        
+        try {
+            await navigator.clipboard.writeText(shareText);
+            
+            // Visual feedback
+            const originalText = copyBtn.innerHTML;
+            copyBtn.innerHTML = '<span class="share-icon">✅</span>Copied!';
+            copyBtn.classList.add('copy-success');
+            
+            setTimeout(() => {
+                copyBtn.innerHTML = originalText;
+                copyBtn.classList.remove('copy-success');
+            }, 2000);
+            
+        } catch (err) {
+            // Fallback for older browsers
+            const textArea = document.createElement('textarea');
+            textArea.value = shareText;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            
+            // Visual feedback
+            const originalText = copyBtn.innerHTML;
+            copyBtn.innerHTML = '<span class="share-icon">✅</span>Copied!';
+            copyBtn.classList.add('copy-success');
+            
+            setTimeout(() => {
+                copyBtn.innerHTML = originalText;
+                copyBtn.classList.remove('copy-success');
+            }, 2000);
+        }
     }
 
     showError(message) {
