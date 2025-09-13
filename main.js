@@ -1,6 +1,6 @@
 class PackersTracker {
     constructor() {
-        this.apiUrl = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/gb';
+        this.apiUrl = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/9';
         this.init();
     }
 
@@ -14,19 +14,36 @@ class PackersTracker {
     }
 
     async fetchPackersData() {
-        const response = await fetch(this.apiUrl);
+        console.log('Fetching data from:', this.apiUrl);
+        const response = await fetch(this.apiUrl, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+            }
+        });
+        console.log('Response status:', response.status);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         const data = await response.json();
+        console.log('API Response:', data);
         this.processData(data);
     }
 
     processData(data) {
+        console.log('Processing data:', data);
         const team = data.team;
+        
+        if (!team) {
+            console.error('No team data found');
+            this.showError('No team data available');
+            return;
+        }
+        
         const record = team.record?.items?.[0];
         
         if (!record) {
+            console.error('No record found:', team.record);
             this.showError('Could not find season record');
             return;
         }
@@ -34,6 +51,8 @@ class PackersTracker {
         const losses = parseInt(record.stats?.find(stat => stat.name === 'losses')?.value || '0');
         const wins = parseInt(record.stats?.find(stat => stat.name === 'wins')?.value || '0');
         const ties = parseInt(record.stats?.find(stat => stat.name === 'ties')?.value || '0');
+        
+        console.log('Record stats:', { wins, losses, ties });
         
         const isUndefeated = losses === 0;
         
@@ -327,8 +346,12 @@ class PackersTracker {
 
     showError(message) {
         const answerEl = document.getElementById('answer');
-        answerEl.textContent = message;
+        answerEl.innerHTML = `<div style="color: #ff6b6b; font-size: 1.5rem;">${message}</div>`;
         answerEl.className = 'answer error';
+        
+        // Hide game sections on error
+        document.getElementById('next-game').style.display = 'none';
+        document.getElementById('previous-game').style.display = 'none';
     }
 }
 
