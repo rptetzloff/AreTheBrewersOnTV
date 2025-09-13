@@ -47,7 +47,7 @@ class PackersTracker {
         const body = document.body;
         
         if (isUndefeated) {
-            answerEl.textContent = '😊 YES!!! 😊';
+            answerEl.textContent = '😊😊😊 YES!!! 😊😊😊';
             body.classList.add('undefeated');
         } else {
             answerEl.textContent = 'NO 😢';
@@ -67,15 +67,16 @@ class PackersTracker {
         const nextGameEl = document.getElementById('next-game');
         const nextGameInfoEl = document.getElementById('next-game-info');
         
-        // Get the next game from the schedule
-        const schedule = team.nextEvent?.[0];
+        const events = team.nextEvent || [];
+        const schedule = events[0];
         
         if (!schedule) {
             nextGameEl.style.display = 'none';
             return;
         }
 
-        const competition = schedule.competitions?.[0];
+        const competitions = schedule.competitions || [];
+        const competition = competitions[0];
         if (!competition) {
             nextGameEl.style.display = 'none';
             return;
@@ -117,8 +118,9 @@ class PackersTracker {
     getOpponent(competition) {
         const competitors = competition.competitors || [];
         for (const competitor of competitors) {
-            if (competitor.team?.abbreviation !== 'GB') {
-                return competitor.team?.displayName || 'Unknown';
+            const team = competitor.team || {};
+            if (team.abbreviation !== 'GB') {
+                return team.displayName || 'Unknown';
             }
         }
         return 'Unknown';
@@ -126,56 +128,41 @@ class PackersTracker {
 
     isHomeGame(competition) {
         const competitors = competition.competitors || [];
-        const packersCompetitor = competitors.find(c => c.team?.abbreviation === 'GB');
-        return packersCompetitor?.homeAway === 'home';
+        const packersCompetitor = competitors.find(c => {
+            const team = c.team || {};
+            return team.abbreviation === 'GB';
+        });
+        return packersCompetitor ? packersCompetitor.homeAway === 'home' : false;
     }
 
     extractTVNetwork(competition) {
-        console.log('Full competition data:', competition);
-        
-        // Check broadcasts array
         if (competition.broadcasts && competition.broadcasts.length > 0) {
-            console.log('Broadcasts found:', competition.broadcasts);
-            
             for (const broadcast of competition.broadcasts) {
-                console.log('Checking broadcast:', broadcast);
-                
-                // Check for network property
                 if (broadcast.network) {
-                    console.log('Found network:', broadcast.network);
                     return broadcast.network;
                 }
                 
-                // Check for names array
                 if (broadcast.names && broadcast.names.length > 0) {
-                    console.log('Found names:', broadcast.names);
                     return broadcast.names[0];
                 }
                 
-                // Check for media property
                 if (broadcast.media && broadcast.media.shortName) {
-                    console.log('Found media shortName:', broadcast.media.shortName);
                     return broadcast.media.shortName;
                 }
                 
-                // Check for television property
                 if (broadcast.television) {
-                    console.log('Found television:', broadcast.television);
                     return broadcast.television;
                 }
             }
         }
         
-        // Check geoBroadcasts
         if (competition.geoBroadcasts && competition.geoBroadcasts.length > 0) {
-            console.log('GeoBroadcasts found:', competition.geoBroadcasts);
             const geoBroadcast = competition.geoBroadcasts[0];
             if (geoBroadcast.media && geoBroadcast.media.shortName) {
                 return geoBroadcast.media.shortName;
             }
         }
         
-        console.log('No TV network found, returning TBD');
         return 'TBD';
     }
 
