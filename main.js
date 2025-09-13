@@ -76,6 +76,9 @@ class PackersTracker {
         
         // Show games
         this.showGames(events);
+        
+        // Show last updated
+        this.showLastUpdated();
     }
 
     displayResult(isUndefeated, wins, losses) {
@@ -202,6 +205,12 @@ class PackersTracker {
         `;
         
         el.style.display = 'block';
+    }
+
+    showLastUpdated() {
+        const el = document.getElementById('last-updated');
+        const now = new Date();
+        el.textContent = `Last updated: ${now.toLocaleDateString()} at ${now.toLocaleTimeString()}`;
     }
 
     showError(message) {
