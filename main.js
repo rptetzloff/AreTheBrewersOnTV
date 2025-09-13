@@ -295,7 +295,7 @@ class PackersTracker {
             if (days > 0) {
                 countdownText += `${days}d ${hours}h`;
             } else if (hours > 0) {
-                countdownText += `${hours}h ${minutes}m`;
+                countdownText += `${hours}h ${minutes}m ${seconds}s`;
             } else {
                 countdownText += `${minutes}m ${seconds}s`;
             }
