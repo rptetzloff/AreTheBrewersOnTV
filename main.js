@@ -44,8 +44,16 @@ class PackersTracker {
     displayResult(isUndefeated, wins, losses, ties) {
         const answerEl = document.getElementById('answer');
         const recordEl = document.getElementById('record');
+        const body = document.body;
         
-        answerEl.textContent = isUndefeated ? 'YES! 🎉' : 'NO 😢';
+        if (isUndefeated) {
+            answerEl.textContent = '😊 YES!!! 😊';
+            body.classList.add('undefeated');
+        } else {
+            answerEl.textContent = 'NO 😢';
+            body.classList.remove('undefeated');
+        }
+        
         answerEl.className = `answer ${isUndefeated ? 'yes' : 'no'}`;
         
         let recordText = `${wins}-${losses}`;
