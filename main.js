@@ -55,7 +55,9 @@ class PackersTracker {
         let ties = 0;
 
         completedGames.forEach(event => {
-            const result = this.getGameResult(event.competitions[0]);
+            const competition = event.competitions[0];
+            const result = this.getGameResult(competition);
+            console.log('Game result:', result);
             if (result.won) {
                 wins++;
             } else if (result.tied) {
