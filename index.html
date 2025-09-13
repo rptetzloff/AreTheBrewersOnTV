@@ -85,6 +85,57 @@
             border-radius: 5px;
         }
         
+        .live-game {
+            background: rgba(255, 0, 0, 0.1) !important;
+            border: 2px solid #ff0000 !important;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(255, 0, 0, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }
+        }
+        
+        .live-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: #ff0000;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+            animation: blink 1s infinite;
+        }
+        
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0.3; }
+        }
+        
+        .game-status {
+            font-size: 1rem;
+            color: #ff0000;
+            font-weight: bold;
+            margin: 0.5rem 0;
+        }
+        
+        .score-display {
+            font-size: 1.4rem;
+            font-weight: bold;
+            margin: 0.5rem 0;
+            padding: 0.5rem;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 5px;
+        }
+        
+        .packers-score {
+            color: #ffb612;
+        }
+        
+        .opponent-score {
+            color: #ffffff;
+        }
+        
         .loading {
             font-size: 1.2rem;
             opacity: 0.8;
@@ -171,7 +222,7 @@
         <div id="answer" class="answer loading">Loading...</div>
         <div id="record" class="record"></div>
         <div id="next-game" class="next-game" style="display: none;">
-            <h3>📺 Next Game</h3>
+            <h3 id="game-header">📺 Next Game</h3>
             <div id="next-game-info"></div>
         </div>
         <div id="previous-game" class="next-game" style="display: none;">

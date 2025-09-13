@@ -2,6 +2,7 @@ class PackersTracker {
     constructor() {
         this.apiUrl = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/gb/schedule';
         this.countdownInterval = null;
+        this.liveUpdateInterval = null;
         this.init();
     }
 
@@ -105,6 +106,17 @@ class PackersTracker {
     showGames(events) {
         const now = new Date();
         
+        // Check for live game first
+        const liveGame = events.find(event => {
+            const status = event.competitions?.[0]?.status?.type?.name;
+            return status === 'STATUS_IN_PROGRESS' || status === 'STATUS_HALFTIME';
+        });
+        
+        if (liveGame) {
+            this.displayLiveGame(liveGame);
+            return;
+        }
+        
         // Previous game
         const previousGames = events.filter(event => {
             const status = event.competitions?.[0]?.status?.type?.name;
@@ -169,9 +181,88 @@ class PackersTracker {
         el.style.display = 'block';
     }
 
+    displayLiveGame(game) {
+        const el = document.getElementById('next-game');
+        const header = document.getElementById('game-header');
+        const info = document.getElementById('next-game-info');
+        
+        // Add live styling
+        el.classList.add('live-game');
+        header.innerHTML = '<span class="live-indicator"></span>🔴 LIVE GAME';
+        
+        this.updateLiveGameInfo(game, info);
+        el.style.display = 'block';
+        
+        // Start live updates every 30 seconds
+        this.startLiveUpdates();
+    }
+    
+    updateLiveGameInfo(game, infoElement) {
+        const competition = game.competitions[0];
+        const competitors = competition.competitors;
+        const status = competition.status;
+        
+        let packersScore = 0;
+        let opponentScore = 0;
+        let opponent = '';
+        let isHome = false;
+        
+        competitors.forEach(competitor => {
+            if (competitor.team.abbreviation === 'GB') {
+                packersScore = parseInt(competitor.score.value) || 0;
+                isHome = competitor.homeAway === 'home';
+            } else {
+                opponentScore = parseInt(competitor.score.value) || 0;
+                opponent = competitor.team.displayName;
+            }
+        });
+        
+        const period = status.period || 1;
+        const clock = status.displayClock || '';
+        const statusText = status.type.description || 'In Progress';
+        
+        infoElement.innerHTML = `
+            <div style="font-size: 1.2rem; margin-bottom: 0.5rem;">
+                ${isHome ? 'vs' : '@'} ${opponent}
+            </div>
+            <div class="score-display">
+                <span class="packers-score">GB ${packersScore}</span> - 
+                <span class="opponent-score">${opponentScore}</span>
+            </div>
+            <div class="game-status">
+                ${statusText}${period ? ` - Q${period}` : ''}${clock ? ` ${clock}` : ''}
+            </div>
+        `;
+    }
+    
+    startLiveUpdates() {
+        // Clear any existing intervals
+        if (this.liveUpdateInterval) {
+            clearInterval(this.liveUpdateInterval);
+        }
+        if (this.countdownInterval) {
+            clearInterval(this.countdownInterval);
+        }
+        
+        // Update every 30 seconds during live games
+        this.liveUpdateInterval = setInterval(async () => {
+            try {
+                console.log('Updating live game data...');
+                await this.fetchPackersData();
+            } catch (error) {
+                console.error('Error updating live game:', error);
+            }
+        }, 30000);
+    }
+
     displayNextGame(game) {
         const el = document.getElementById('next-game');
+        const header = document.getElementById('game-header');
         const info = document.getElementById('next-game-info');
+        
+        // Reset styling for non-live games
+        el.classList.remove('live-game');
+        header.innerHTML = '📺 Next Game';
         
         const competition = game.competitions[0];
         const competitors = competition.competitors;
@@ -219,6 +310,9 @@ class PackersTracker {
         // Clear any existing countdown
         if (this.countdownInterval) {
             clearInterval(this.countdownInterval);
+        }
+        if (this.liveUpdateInterval) {
+            clearInterval(this.liveUpdateInterval);
         }
         
         const countdownEl = document.getElementById('countdown');
