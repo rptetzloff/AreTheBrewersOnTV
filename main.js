@@ -268,7 +268,7 @@ class PackersTracker {
     shareToBluesky() {
         const message = this.getShareMessage();
         const url = window.location.href;
-        const shareText = `${message}\n\n${url}`;
+        const shareText = `${message}\n\nCheck it out: ${url}`;
         const blueskyUrl = `https://bsky.app/intent/compose?text=${encodeURIComponent(shareText)}`;
         window.open(blueskyUrl, '_blank', 'width=600,height=500');
     }
