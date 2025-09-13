@@ -249,9 +249,21 @@ class PackersTracker {
         let won = false;
         let tied = false;
         
+        console.log('Getting game result for competition:', competition);
+        console.log('Competitors:', competitors);
+        
         for (const competitor of competitors) {
             const team = competitor.team || {};
-            const score = parseInt(competitor.score || '0');
+            const score = parseInt(competitor.score) || 0;
+            
+            console.log('Processing competitor:', {
+                teamName: team.displayName,
+                abbreviation: team.abbreviation,
+                score: competitor.score,
+                parsedScore: score,
+                winner: competitor.winner,
+                homeAway: competitor.homeAway
+            });
             
             if (team.abbreviation === 'GB' || team.abbreviation === 'GNB') {
                 packersScore = score;
@@ -262,6 +274,13 @@ class PackersTracker {
         }
         
         tied = packersScore === opponentScore;
+        
+        console.log('Final game result:', {
+            packersScore,
+            opponentScore,
+            won: won && !tied,
+            tied: tied
+        });
         
         return {
             packersScore,
