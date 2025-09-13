@@ -244,45 +244,23 @@ class PackersTracker {
 
     getGameResult(competition) {
         const competitors = competition.competitors || [];
-        let packersScore = 0;
-        let opponentScore = 0;
-        let packersWon = false;
         
-        console.log('Getting game result for competition:', competition);
-        console.log('Competitors:', competitors);
-        console.log('Competitors array length:', competitors.length);
-        
-        // Log the entire structure of each competitor
-        competitors.forEach((competitor, index) => {
-            console.log(`Competitor ${index}:`, JSON.stringify(competitor, null, 2));
-        });
+        // Find Packers and opponent
+        let packersData = null;
+        let opponentData = null;
         
         for (const competitor of competitors) {
-            const team = competitor.team || {};
-            
-            // Get score from competitor.competitorScore.value
-            const score = competitor.competitorScore?.value || 0;
-            
-            console.log('Team:', team.abbreviation, 'Score:', score, 'Raw competitorScore:', competitor.competitorScore);
-            
-            if (team.abbreviation === 'GB' || team.abbreviation === 'GNB') {
-                packersScore = score;
-                packersWon = competitor.winner === true;
+            if (competitor.abbreviation === 'GB') {
+                packersData = competitor;
             } else {
-                opponentScore = score;
+                opponentData = competitor;
             }
         }
         
+        const packersScore = packersData?.competitorScore?.value || 0;
+        const opponentScore = opponentData?.competitorScore?.value || 0;
+        const won = packersData?.winner === true;
         const tied = packersScore === opponentScore && packersScore > 0;
-        const won = packersWon && !tied;
-        
-        console.log('Final game result:', {
-            packersScore,
-            opponentScore,
-            won,
-            tied,
-            packersWon
-        });
         
         return {
             packersScore,
