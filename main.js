@@ -95,28 +95,30 @@ class PackersTracker {
         const now = new Date();
         let nextGame = null;
         
-        // First try nextEvent
-        if (team.nextEvent && Array.isArray(team.nextEvent) && team.nextEvent.length > 0) {
-            console.log('Found nextEvent array:', team.nextEvent);
-            nextGame = team.nextEvent[0];
-        } else if (team.nextEvent && typeof team.nextEvent === 'object') {
-            console.log('Found nextEvent object:', team.nextEvent);
-            nextGame = team.nextEvent;
-        }
-        
-        // If no nextEvent, try events array
-        if (!nextGame && team.events && Array.isArray(team.events)) {
+        // Search events array for future games
+        if (team.events && Array.isArray(team.events)) {
             console.log('Searching events array for future games:', team.events.length, 'events');
             const futureGames = team.events.filter(event => {
                 const gameDate = new Date(event.date);
                 const isFuture = gameDate > now;
-                console.log(`Event ${event.date}: ${isFuture ? 'FUTURE' : 'PAST'}`);
+                console.log(`Event ${event.date} (${gameDate.toLocaleDateString()}): ${isFuture ? 'FUTURE' : 'PAST'}`);
                 return isFuture;
             }).sort((a, b) => new Date(a.date) - new Date(b.date));
             
             if (futureGames.length > 0) {
                 nextGame = futureGames[0];
                 console.log('Found next game from events:', nextGame);
+            }
+        }
+        
+        // Fallback to nextEvent if no future games found in events
+        if (!nextGame) {
+            if (team.nextEvent && Array.isArray(team.nextEvent) && team.nextEvent.length > 0) {
+                console.log('Using nextEvent array:', team.nextEvent);
+                nextGame = team.nextEvent[0];
+            } else if (team.nextEvent && typeof team.nextEvent === 'object') {
+                console.log('Using nextEvent object:', team.nextEvent);
+                nextGame = team.nextEvent;
             }
         }
         
@@ -146,7 +148,9 @@ class PackersTracker {
             const pastGames = team.events.filter(event => {
                 const gameDate = new Date(event.date);
                 const isPast = gameDate < now;
-                console.log(`Event ${event.date}: ${isPast ? 'PAST' : 'FUTURE'}`);
+                const competition = event.competitions?.[0];
+                const status = competition?.status?.type?.name;
+                console.log(`Event ${event.date} (${gameDate.toLocaleDateString()}): ${isPast ? 'PAST' : 'FUTURE'}, Status: ${status}`);
                 return isPast;
             }).sort((a, b) => new Date(b.date) - new Date(a.date));
             
@@ -258,7 +262,7 @@ class PackersTracker {
             console.log('Checking team:', team.abbreviation, team.displayName);
             if (team.abbreviation !== 'GB' && team.abbreviation !== 'GNB') {
                 console.log('Found opponent:', team.displayName);
-                return team.displayName || team.name || 'Unknown';
+                return team.displayName || team.name || team.shortDisplayName || 'Unknown';
             }
         }
         return 'Unknown';
