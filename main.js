@@ -91,8 +91,8 @@ class PackersTracker {
         const recordEl = document.getElementById('record');
         
         if (isUndefeated) {
-            const cheeseBlocks = '🧀 '.repeat(wins).trim();
-            answerEl.innerHTML = `${cheeseBlocks}<br>YES!!!<br>${cheeseBlocks}`;
+            const cheeseBlocks = wins > 0 ? '🧀 '.repeat(wins).trim() : '';
+            answerEl.innerHTML = `${cheeseBlocks}<br>YES!!!`;
             answerEl.className = 'answer yes';
             document.body.classList.add('undefeated');
         } else {
