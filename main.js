@@ -118,7 +118,8 @@ class PackersTracker {
         
         if (!nextGame) {
             console.log('No next game found, hiding next game section');
-            nextGameEl.style.display = 'none';
+            nextGameInfoEl.innerHTML = '<div style="font-size: 1.2rem; opacity: 0.7;">No upcoming games scheduled</div>';
+            nextGameEl.style.display = 'block';
             return;
         }
 
@@ -126,7 +127,8 @@ class PackersTracker {
         const competition = competitions[0];
         if (!competition) {
             console.log('No competition data found');
-            nextGameEl.style.display = 'none';
+            nextGameInfoEl.innerHTML = '<div style="font-size: 1.2rem; opacity: 0.7;">Game details not available</div>';
+            nextGameEl.style.display = 'block';
             return;
         }
 
@@ -196,14 +198,16 @@ class PackersTracker {
         console.log('Previous game found:', recentGame);
         
         if (!recentGame) {
-            previousGameEl.style.display = 'none';
+            previousGameInfoEl.innerHTML = '<div style="font-size: 1.2rem; opacity: 0.7;">No recent games found</div>';
+            previousGameEl.style.display = 'block';
             return;
         }
 
         const competitions = recentGame.competitions || [];
         const competition = competitions[0];
         if (!competition) {
-            previousGameEl.style.display = 'none';
+            previousGameInfoEl.innerHTML = '<div style="font-size: 1.2rem; opacity: 0.7;">Game details not available</div>';
+            previousGameEl.style.display = 'block';
             return;
         }
 
@@ -360,9 +364,11 @@ class PackersTracker {
         answerEl.innerHTML = `<div style="color: #ff6b6b; font-size: 1.5rem;">${message}</div>`;
         answerEl.className = 'answer error';
         
-        // Hide game sections on error
-        document.getElementById('next-game').style.display = 'none';
-        document.getElementById('previous-game').style.display = 'none';
+        // Show placeholder messages on error
+        document.getElementById('next-game-info').innerHTML = '<div style="font-size: 1.2rem; opacity: 0.7;">Unable to load game data</div>';
+        document.getElementById('previous-game-info').innerHTML = '<div style="font-size: 1.2rem; opacity: 0.7;">Unable to load game data</div>';
+        document.getElementById('next-game').style.display = 'block';
+        document.getElementById('previous-game').style.display = 'block';
     }
 }
 
