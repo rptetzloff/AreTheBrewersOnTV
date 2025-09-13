@@ -32,12 +32,31 @@ class PackersTracker {
     }
 
     processStandingsData(data) {
-        // Find NFC North division
-        const nfcNorth = data.standings?.groups?.[0]?.standings?.groups?.find(conference => 
-            conference.name === 'National Football Conference'
-        )?.standings?.groups?.find(division => 
-            division.name === 'NFC North'
-        );
+        // Find NFC North division with robust search
+        let nfcNorth = null;
+        
+        if (data.standings && data.standings.groups) {
+            // Iterate through all groups to find conferences
+            for (const group of data.standings.groups) {
+                if (group.standings && group.standings.groups) {
+                    // Look for National Football Conference
+                    for (const conference of group.standings.groups) {
+                        if (conference.name === 'National Football Conference' && 
+                            conference.standings && conference.standings.groups) {
+                            // Look for NFC North division
+                            for (const division of conference.standings.groups) {
+                                if (division.name === 'NFC North') {
+                                    nfcNorth = division;
+                                    break;
+                                }
+                            }
+                            if (nfcNorth) break;
+                        }
+                    }
+                    if (nfcNorth) break;
+                }
+            }
+        }
 
         if (!nfcNorth) {
             console.error('Could not find NFC North standings');
