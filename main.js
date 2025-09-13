@@ -259,7 +259,7 @@ class PackersTracker {
         
         const packersScore = packersData?.competitorScore?.value || 0;
         const opponentScore = opponentData?.competitorScore?.value || 0;
-        const won = packersData?.winner === true;
+        const won = packersScore > opponentScore;
         const tied = packersScore === opponentScore && packersScore > 0;
         
         return {
