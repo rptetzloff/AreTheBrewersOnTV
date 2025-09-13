@@ -139,27 +139,6 @@ class PackersTracker {
         } else if (nextGame) {
             this.startCountdownUpdates(nextGame);
         }
-        
-        // Previous game
-        const previousGames = events.filter(event => {
-            const status = event.competitions?.[0]?.status?.type?.name;
-            return status === 'STATUS_FINAL';
-        }).sort((a, b) => new Date(b.date) - new Date(a.date));
-
-        if (previousGames.length > 0) {
-            this.displayPreviousGame(previousGames[0]);
-        }
-
-        // Next game
-        const upcomingGames = events.filter(event => {
-            const gameDate = new Date(event.date);
-            const status = event.competitions?.[0]?.status?.type?.name;
-            return gameDate > now && status === 'STATUS_SCHEDULED';
-        }).sort((a, b) => new Date(a.date) - new Date(b.date));
-
-        if (upcomingGames.length > 0) {
-            this.displayNextGame(upcomingGames[0]);
-        }
     }
     
     createGameItem(event, nextGame, liveGame, now) {
