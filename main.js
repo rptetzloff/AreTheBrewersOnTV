@@ -252,17 +252,24 @@ class PackersTracker {
         let opponentData = null;
         
         for (const competitor of competitors) {
-            if (competitor.abbreviation === 'GB') {
+            if (competitor.abbreviation === 'GB' || competitor.abbreviation === 'GNB') {
                 packersData = competitor;
             } else {
                 opponentData = competitor;
             }
         }
         
+        console.log('Packers data:', packersData);
+        console.log('Opponent data:', opponentData);
+        
         const packersScore = packersData?.competitorScore?.value || 0;
         const opponentScore = opponentData?.competitorScore?.value || 0;
+        console.log(`Packers: ${packersScore}, Opponent: ${opponentScore}`);
+        
         const won = packersScore > opponentScore;
         const tied = packersScore === opponentScore && packersScore > 0;
+        
+        console.log(`Result: Won=${won}, Tied=${tied}`);
         
         return {
             packersScore,
