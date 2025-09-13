@@ -261,7 +261,7 @@ class PackersTracker {
             const team = competitor.team || {};
             
             // Get score from competitor.competitorScore.value
-            const score = competitor.competitorScore?.value || 0;
+            const score = parseInt(competitor.competitorScore?.value) || 0;
             
             console.log('Raw competitor.competitorScore:', competitor.competitorScore);
             console.log('Parsed score:', score);
@@ -269,7 +269,7 @@ class PackersTracker {
             console.log('Processing competitor:', {
                 teamName: team.displayName,
                 abbreviation: team.abbreviation,
-                competitorScore: competitor.score,
+                competitorScore: competitor.competitorScore,
                 finalScore: score,
                 winner: competitor.winner,
                 homeAway: competitor.homeAway
