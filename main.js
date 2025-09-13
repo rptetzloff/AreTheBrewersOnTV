@@ -224,9 +224,8 @@ class PackersTracker {
         const competitors = competition.competitors || [];
         
         for (const competitor of competitors) {
-            const team = competitor.team || {};
-            if (team.abbreviation !== 'GB' && team.abbreviation !== 'GNB') {
-                return team.displayName || team.name || team.shortDisplayName || 'Unknown';
+            if (competitor.abbreviation !== 'GB' && competitor.abbreviation !== 'GNB') {
+                return competitor.displayName || competitor.name || competitor.shortDisplayName || 'Unknown';
             }
         }
         return 'Unknown';
@@ -236,8 +235,7 @@ class PackersTracker {
         const competitors = competition.competitors || [];
         
         for (const competitor of competitors) {
-            const team = competitor.team || {};
-            if (team.abbreviation === 'GB' || team.abbreviation === 'GNB') {
+            if (competitor.abbreviation === 'GB' || competitor.abbreviation === 'GNB') {
                 return competitor.homeAway === 'home';
             }
         }
