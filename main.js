@@ -176,7 +176,7 @@ class PackersTracker {
         console.log('Broadcasts array:', competition.broadcasts);
         console.log('First broadcast:', broadcast);
         
-        const network = broadcast?.names?.[0] || 'TBD';
+        const network = broadcast?.media?.shortName || 'TBD';
         
         let opponent = '';
         let isHome = false;
