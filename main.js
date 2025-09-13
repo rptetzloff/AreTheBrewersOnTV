@@ -246,7 +246,7 @@ class PackersTracker {
         const competitors = competition.competitors || [];
         let packersScore = 0;
         let opponentScore = 0;
-        let won = false;
+        let packersWon = false;
         
         console.log('Getting game result for competition:', competition);
         console.log('Competitors:', competitors);
