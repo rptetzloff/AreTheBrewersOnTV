@@ -89,165 +89,107 @@ class PackersTracker {
         const nextGameEl = document.getElementById('next-game');
         const nextGameInfoEl = document.getElementById('next-game-info');
         
-        console.log('Looking for next game in team data:', team);
+        console.log('=== NEXT GAME DEBUG ===');
+        console.log('Full team object:', JSON.stringify(team, null, 2));
         
-        let nextGame = null;
         const now = new Date();
+        let nextGame = null;
         
-        // Try multiple possible locations for game data
-        const possibleEventSources = [
-            team.events,
-            team.nextEvent ? [team.nextEvent] : null,
-            team.schedule?.events,
-            team.upcomingEvents
-        ].filter(source => source && Array.isArray(source));
+        // First try nextEvent
+        if (team.nextEvent && Array.isArray(team.nextEvent) && team.nextEvent.length > 0) {
+            console.log('Found nextEvent array:', team.nextEvent);
+            nextGame = team.nextEvent[0];
+        } else if (team.nextEvent && typeof team.nextEvent === 'object') {
+            console.log('Found nextEvent object:', team.nextEvent);
+            nextGame = team.nextEvent;
+        }
         
-        console.log('Possible event sources:', possibleEventSources);
-        
-        for (const eventSource of possibleEventSources) {
-            console.log('Checking event source:', eventSource);
-            const upcomingGames = eventSource
-                .filter(event => {
-                    const gameDate = new Date(event.date);
-                    console.log('Event date:', event.date, 'Parsed:', gameDate, 'Now:', now, 'Future?', gameDate > now);
-                    return gameDate > now;
-                })
-                .sort((a, b) => new Date(a.date) - new Date(b.date));
+        // If no nextEvent, try events array
+        if (!nextGame && team.events && Array.isArray(team.events)) {
+            console.log('Searching events array for future games:', team.events.length, 'events');
+            const futureGames = team.events.filter(event => {
+                const gameDate = new Date(event.date);
+                const isFuture = gameDate > now;
+                console.log(`Event ${event.date}: ${isFuture ? 'FUTURE' : 'PAST'}`);
+                return isFuture;
+            }).sort((a, b) => new Date(a.date) - new Date(b.date));
             
-            console.log('Upcoming games found:', upcomingGames);
-            
-            if (upcomingGames.length > 0) {
-                nextGame = upcomingGames[0];
-                break;
+            if (futureGames.length > 0) {
+                nextGame = futureGames[0];
+                console.log('Found next game from events:', nextGame);
             }
         }
         
-        console.log('Final next game found:', nextGame);
+        console.log('=== FINAL NEXT GAME ===', nextGame);
         
         if (!nextGame) {
-            console.log('No next game found, showing placeholder');
-            nextGameInfoEl.innerHTML = '<div style="font-size: 1.2rem; opacity: 0.7;">No upcoming games scheduled</div>';
+            nextGameInfoEl.innerHTML = '<div style="font-size: 1.2rem; opacity: 0.7;">No upcoming games found</div>';
             nextGameEl.style.display = 'block';
             return;
         }
 
-        const competitions = nextGame.competitions || [];
-        const competition = competitions[0];
-        if (!competition) {
-            console.log('No competition data found');
-            nextGameInfoEl.innerHTML = '<div style="font-size: 1.2rem; opacity: 0.7;">Game details not available</div>';
-            nextGameEl.style.display = 'block';
-            return;
-        }
-
-        const date = new Date(nextGame.date);
-        const opponent = this.getOpponent(competition);
-        const isHome = this.isHomeGame(competition);
-        const tvNetwork = this.extractTVNetwork(competition);
-        const timeUntil = this.getTimeUntilGame(date);
-        
-        console.log('Game details:', { date, opponent, isHome, tvNetwork, timeUntil });
-        
-        const gameInfo = `
-            <div style="font-size: 1.2rem; margin-bottom: 0.5rem;">
-                ${isHome ? 'vs' : '@'} ${opponent}
-            </div>
-            <div style="font-size: 1.1rem; color: #ffb612; font-weight: bold; margin-bottom: 0.5rem;">
-                ${timeUntil}
-            </div>
-            <div style="font-size: 1rem; opacity: 0.9;">
-                ${date.toLocaleDateString('en-US', { 
-                    weekday: 'long', 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
-                })}
-            </div>
-            <div style="font-size: 1rem; opacity: 0.9;">
-                ${date.toLocaleTimeString('en-US', { 
-                    hour: 'numeric', 
-                    minute: '2-digit',
-                    timeZoneName: 'short'
-                })}
-            </div>
-            <div style="font-size: 1rem; opacity: 0.9; margin-top: 0.5rem;">
-                📺 ${tvNetwork}
-            </div>
-        `;
-        
-        nextGameInfoEl.innerHTML = gameInfo;
+        this.renderGameInfo(nextGame, nextGameInfoEl, 'next');
         nextGameEl.style.display = 'block';
-        
-        // Update countdown every minute
-        this.startCountdown(date, nextGameInfoEl);
     }
 
     displayPreviousGame(team) {
         const previousGameEl = document.getElementById('previous-game');
         const previousGameInfoEl = document.getElementById('previous-game-info');
         
-        console.log('Looking for previous game in team data:', team);
+        console.log('=== PREVIOUS GAME DEBUG ===');
         
-        let recentGame = null;
         const now = new Date();
+        let recentGame = null;
         
-        // Try multiple possible locations for game data
-        const possibleEventSources = [
-            team.events,
-            team.schedule?.events,
-            team.recentEvents
-        ].filter(source => source && Array.isArray(source));
-        
-        console.log('Possible event sources for previous games:', possibleEventSources);
-        
-        for (const eventSource of possibleEventSources) {
-            console.log('Checking event source for previous games:', eventSource);
-            const completedGames = eventSource
-                .filter(event => {
-                    const gameDate = new Date(event.date);
-                    console.log('Event date:', event.date, 'Parsed:', gameDate, 'Now:', now, 'Past?', gameDate < now);
-                    return gameDate < now;
-                })
-                .sort((a, b) => new Date(b.date) - new Date(a.date));
+        if (team.events && Array.isArray(team.events)) {
+            console.log('Searching events array for past games:', team.events.length, 'events');
+            const pastGames = team.events.filter(event => {
+                const gameDate = new Date(event.date);
+                const isPast = gameDate < now;
+                console.log(`Event ${event.date}: ${isPast ? 'PAST' : 'FUTURE'}`);
+                return isPast;
+            }).sort((a, b) => new Date(b.date) - new Date(a.date));
             
-            console.log('Completed games found:', completedGames);
-            
-            if (completedGames.length > 0) {
-                recentGame = completedGames[0];
-                break;
+            if (pastGames.length > 0) {
+                recentGame = pastGames[0];
+                console.log('Found recent game from events:', recentGame);
             }
         }
         
-        console.log('Final previous game found:', recentGame);
+        console.log('=== FINAL PREVIOUS GAME ===', recentGame);
         
         if (!recentGame) {
-            console.log('No previous game found, showing placeholder');
             previousGameInfoEl.innerHTML = '<div style="font-size: 1.2rem; opacity: 0.7;">No recent games found</div>';
             previousGameEl.style.display = 'block';
             return;
         }
 
+        this.renderGameInfo(recentGame, previousGameInfoEl, 'previous');
+        previousGameEl.style.display = 'block';
+    }
+
+    renderGameInfo(game, containerEl, type) {
+        console.log(`=== RENDERING ${type.toUpperCase()} GAME ===`);
+        console.log('Game object:', JSON.stringify(game, null, 2));
+        
         const competitions = recentGame.competitions || [];
+        console.log('Competitions found:', competitions.length);
+        
         const competition = competitions[0];
         if (!competition) {
-            previousGameInfoEl.innerHTML = '<div style="font-size: 1.2rem; opacity: 0.7;">Game details not available</div>';
-            previousGameEl.style.display = 'block';
+            containerEl.innerHTML = '<div style="font-size: 1.2rem; opacity: 0.7;">Game details not available</div>';
             return;
         }
 
-        const date = new Date(recentGame.date);
+        console.log('Competition data:', JSON.stringify(competition, null, 2));
+        
+        const date = new Date(game.date);
         const opponent = this.getOpponent(competition);
         const isHome = this.isHomeGame(competition);
-        const gameResult = this.getGameResult(competition);
         
-        console.log('Game result:', gameResult);
-        
-        const gameInfo = `
+        let gameInfo = `
             <div style="font-size: 1.2rem; margin-bottom: 0.5rem;">
                 ${isHome ? 'vs' : '@'} ${opponent}
-            </div>
-            <div style="font-size: 1.3rem; color: ${gameResult.won ? '#4CAF50' : '#f44336'}; font-weight: bold; margin-bottom: 0.5rem;">
-                ${gameResult.won ? 'W' : 'L'} ${gameResult.packersScore}-${gameResult.opponentScore}
             </div>
             <div style="font-size: 1rem; opacity: 0.9;">
                 ${date.toLocaleDateString('en-US', { 
@@ -259,21 +201,101 @@ class PackersTracker {
             </div>
         `;
         
-        previousGameInfoEl.innerHTML = gameInfo;
-        previousGameEl.style.display = 'block';
+        if (type === 'previous') {
+            const gameResult = this.getGameResult(competition);
+            console.log('Game result:', gameResult);
+            
+            gameInfo = `
+                <div style="font-size: 1.2rem; margin-bottom: 0.5rem;">
+                    ${isHome ? 'vs' : '@'} ${opponent}
+                </div>
+                <div style="font-size: 1.3rem; color: ${gameResult.won ? '#4CAF50' : '#f44336'}; font-weight: bold; margin-bottom: 0.5rem;">
+                    ${gameResult.won ? 'W' : 'L'} ${gameResult.packersScore}-${gameResult.opponentScore}
+                </div>
+                <div style="font-size: 1rem; opacity: 0.9;">
+                    ${date.toLocaleDateString('en-US', { 
+                        weekday: 'long', 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                    })}
+                </div>
+            `;
+        } else {
+            const tvNetwork = this.extractTVNetwork(competition);
+            const timeUntil = this.getTimeUntilGame(date);
+            
+            gameInfo += `
+                <div style="font-size: 1.1rem; color: #ffb612; font-weight: bold; margin-bottom: 0.5rem;">
+                    ${timeUntil}
+                </div>
+                <div style="font-size: 1rem; opacity: 0.9;">
+                    ${date.toLocaleTimeString('en-US', { 
+                        hour: 'numeric', 
+                        minute: '2-digit',
+                        timeZoneName: 'short'
+                    })}
+                </div>
+                <div style="font-size: 1rem; opacity: 0.9; margin-top: 0.5rem;">
+                    📺 ${tvNetwork}
+                </div>
+            `;
+            
+            // Start countdown for next games
+            this.startCountdown(date, containerEl);
+        }
+        
+        containerEl.innerHTML = gameInfo;
+    }
+
+    getOpponent(competition) {
+        console.log('=== GETTING OPPONENT ===');
+        const competitors = competition.competitors || [];
+        console.log('Competitors:', competitors);
+        
+        for (const competitor of competitors) {
+            const team = competitor.team || {};
+            console.log('Checking team:', team.abbreviation, team.displayName);
+            if (team.abbreviation !== 'GB' && team.abbreviation !== 'GNB') {
+                console.log('Found opponent:', team.displayName);
+                return team.displayName || team.name || 'Unknown';
+            }
+        }
+        return 'Unknown';
+    }
+
+    isHomeGame(competition) {
+        console.log('=== CHECKING HOME/AWAY ===');
+        const competitors = competition.competitors || [];
+        
+        for (const competitor of competitors) {
+            const team = competitor.team || {};
+            console.log('Team:', team.abbreviation, 'HomeAway:', competitor.homeAway);
+            if (team.abbreviation === 'GB' || team.abbreviation === 'GNB') {
+                const isHome = competitor.homeAway === 'home';
+                console.log('Packers are:', isHome ? 'HOME' : 'AWAY');
+                return isHome;
+            }
+        }
+        return false;
     }
 
     getGameResult(competition) {
+        console.log('=== GETTING GAME RESULT ===');
         const competitors = competition.competitors || [];
         let packersScore = 0;
         let opponentScore = 0;
         let won = false;
         
+        console.log('All competitors:', competitors);
+        
         for (const competitor of competitors) {
             const team = competitor.team || {};
             const score = parseInt(competitor.score || '0');
             
-            if (team.abbreviation === 'GB') {
+            console.log(`Team: ${team.abbreviation}, Score: ${score}, Winner: ${competitor.winner}`);
+            
+            if (team.abbreviation === 'GB' || team.abbreviation === 'GNB') {
                 packersScore = score;
                 won = competitor.winner === true;
             } else {
@@ -281,13 +303,45 @@ class PackersTracker {
             }
         }
         
-        console.log('Score details:', { packersScore, opponentScore, won });
+        console.log('Final result:', { packersScore, opponentScore, won });
         
         return {
             packersScore,
             opponentScore,
             won: won
         };
+    }
+
+    extractTVNetwork(competition) {
+        console.log('=== EXTRACTING TV NETWORK ===');
+        console.log('Competition broadcasts:', competition.broadcasts);
+        
+        if (competition.broadcasts && competition.broadcasts.length > 0) {
+            for (const broadcast of competition.broadcasts) {
+                console.log('Broadcast:', broadcast);
+                
+                if (broadcast.network) {
+                    return broadcast.network;
+                }
+                
+                if (broadcast.names && broadcast.names.length > 0) {
+                    return broadcast.names[0];
+                }
+                
+                if (broadcast.media && broadcast.media.shortName) {
+                    return broadcast.media.shortName;
+                }
+            }
+        }
+        
+        if (competition.geoBroadcasts && competition.geoBroadcasts.length > 0) {
+            const geoBroadcast = competition.geoBroadcasts[0];
+            if (geoBroadcast.media && geoBroadcast.media.shortName) {
+                return geoBroadcast.media.shortName;
+            }
+        }
+        
+        return 'TBD';
     }
 
     getTimeUntilGame(gameDate) {
@@ -332,57 +386,6 @@ class PackersTracker {
         }, 60000); // Update every minute
     }
 
-    getOpponent(competition) {
-        const competitors = competition.competitors || [];
-        for (const competitor of competitors) {
-            const team = competitor.team || {};
-            if (team.abbreviation !== 'GB') {
-                return team.displayName || 'Unknown';
-            }
-        }
-        return 'Unknown';
-    }
-
-    isHomeGame(competition) {
-        const competitors = competition.competitors || [];
-        const packersCompetitor = competitors.find(c => {
-            const team = c.team || {};
-            return team.abbreviation === 'GB';
-        });
-        return packersCompetitor ? packersCompetitor.homeAway === 'home' : false;
-    }
-
-    extractTVNetwork(competition) {
-        if (competition.broadcasts && competition.broadcasts.length > 0) {
-            for (const broadcast of competition.broadcasts) {
-                if (broadcast.network) {
-                    return broadcast.network;
-                }
-                
-                if (broadcast.names && broadcast.names.length > 0) {
-                    return broadcast.names[0];
-                }
-                
-                if (broadcast.media && broadcast.media.shortName) {
-                    return broadcast.media.shortName;
-                }
-                
-                if (broadcast.television) {
-                    return broadcast.television;
-                }
-            }
-        }
-        
-        if (competition.geoBroadcasts && competition.geoBroadcasts.length > 0) {
-            const geoBroadcast = competition.geoBroadcasts[0];
-            if (geoBroadcast.media && geoBroadcast.media.shortName) {
-                return geoBroadcast.media.shortName;
-            }
-        }
-        
-        return 'TBD';
-    }
-
     showError(message) {
         const answerEl = document.getElementById('answer');
         answerEl.innerHTML = `<div style="color: #ff6b6b; font-size: 1.5rem;">${message}</div>`;
@@ -393,6 +396,13 @@ class PackersTracker {
         document.getElementById('previous-game-info').innerHTML = '<div style="font-size: 1.2rem; opacity: 0.7;">Unable to load game data</div>';
         document.getElementById('next-game').style.display = 'block';
         document.getElementById('previous-game').style.display = 'block';
+    }
+}
+
+// Initialize the tracker when the page loads
+document.addEventListener('DOMContentLoaded', () => {
+    new PackersTracker();
+});
     }
 }
 
