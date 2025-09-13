@@ -68,6 +68,7 @@ class PackersTracker {
         });
 
         const isUndefeated = losses === 0;
+        console.log(`Final record calculation: ${wins}-${losses}-${ties}, isUndefeated: ${isUndefeated}`);
         this.displayResult(isUndefeated, wins, losses, ties);
 
         // Find next and previous games
@@ -111,7 +112,7 @@ class PackersTracker {
         const body = document.body;
         
         if (isUndefeated) {
-            answerEl.innerHTML = '😊😊😊<br>YES!!!<br>😊😊😊';
+            answerEl.innerHTML = '🧀🧀🧀<br>YES!!!<br>🧀🧀🧀';
             body.classList.add('undefeated');
         } else {
             answerEl.textContent = 'NO 😢';
