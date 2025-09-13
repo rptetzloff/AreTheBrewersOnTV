@@ -253,18 +253,33 @@ class PackersTracker {
         
         for (const competitor of competitors) {
             const team = competitor.team || {};
-            // Try multiple ways to get the score
             let score = 0;
-            if (competitor.score !== undefined && competitor.score !== null) {
+            
+            // Try multiple ways to get the score - ESPN API can have scores in various places
+            if (competitor.score !== undefined && competitor.score !== null && competitor.score !== '') {
                 score = parseInt(competitor.score);
-            } else if (competitor.team && competitor.team.score !== undefined) {
+            } else if (competitor.team?.score !== undefined && competitor.team.score !== null && competitor.team.score !== '') {
                 score = parseInt(competitor.team.score);
-            } else if (competition.competitors && competition.competitors.length > 0) {
-                // Sometimes scores are in a different structure
-                const competitorData = competition.competitors.find(c => c.id === competitor.id);
-                if (competitorData && competitorData.score) {
-                    score = parseInt(competitorData.score);
+            } else if (competitor.statistics && competitor.statistics.length > 0) {
+                // Sometimes scores are in statistics
+                const scoreStats = competitor.statistics.find(stat => stat.name === 'points' || stat.name === 'score');
+                if (scoreStats) {
+                    score = parseInt(scoreStats.value);
                 }
+            } else if (competition.status?.displayClock && competition.competitors) {
+                // Try to find score in the competition status or other locations
+                const competitorIndex = competition.competitors.findIndex(c => c.id === competitor.id);
+                if (competitorIndex !== -1 && competition.competitors[competitorIndex].score) {
+                    score = parseInt(competition.competitors[competitorIndex].score);
+                }
+            }
+            
+            // Also check if there's a linescores array (quarter by quarter scores)
+            if ((isNaN(score) || score === 0) && competitor.linescores && competitor.linescores.length > 0) {
+                score = competitor.linescores.reduce((total, quarter) => {
+                    const quarterScore = parseInt(quarter.value || quarter.displayValue || 0);
+                    return total + (isNaN(quarterScore) ? 0 : quarterScore);
+                }, 0);
             }
             
             // Ensure score is a valid number
@@ -277,6 +292,8 @@ class PackersTracker {
                 abbreviation: team.abbreviation,
                 rawScore: competitor.score,
                 teamScore: competitor.team?.score,
+                statistics: competitor.statistics,
+                linescores: competitor.linescores,
                 finalScore: score,
                 winner: competitor.winner,
                 homeAway: competitor.homeAway
@@ -288,6 +305,13 @@ class PackersTracker {
             } else {
                 opponentScore = score;
             }
+        }
+        
+        // Additional logging to see the full competition object structure
+        console.log('Full competition object keys:', Object.keys(competition));
+        console.log('Competition status:', competition.status);
+        if (competition.boxscore) {
+            console.log('Boxscore data:', competition.boxscore);
         }
         
         const tied = packersScore === opponentScore && packersScore > 0;
