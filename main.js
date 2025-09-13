@@ -305,7 +305,7 @@ class PackersTracker {
         
         console.log('Final result:', { packersScore, opponentScore, won });
         
-        return\ {
+        return {
             packersScore,
             opponentScore,
             won: won
@@ -313,10 +313,10 @@ class PackersTracker {
     }
 
     extractTVNetwork(competition) {
-        conso\le.log('=== EXTRACTING TV NETWORK ===');
+        console.log('=== EXTRACTING TV NETWORK ===');
         console.log('Competition broadcasts:', competition.broadcasts);
         
-        if (comp\etition.broadcasts && competition.broadcasts.length > 0) {
+        if (competition.broadcasts && competition.broadcasts.length > 0) {
             for (const broadcast of competition.broadcasts) {
                 console.log('Broadcast:', broadcast);
                 
