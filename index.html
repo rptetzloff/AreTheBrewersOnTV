@@ -121,66 +121,27 @@
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            padding: 0.6rem 1rem;
+            padding: 0.8rem 1.5rem;
             border: none;
             border-radius: 8px;
-            font-size: 0.9rem;
+            font-size: 1rem;
             font-weight: bold;
             cursor: pointer;
             transition: all 0.3s ease;
             text-decoration: none;
             color: white;
-            min-width: 100px;
+            background: #28a745;
             justify-content: center;
         }
         
         .share-btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        }
-        
-        .share-btn.twitter {
-            background: #1da1f2;
-        }
-        
-        .share-btn.twitter:hover {
-            background: #0d8bd9;
-        }
-        
-        .share-btn.facebook {
-            background: #4267b2;
-        }
-        
-        .share-btn.facebook:hover {
-            background: #365899;
-        }
-        
-        .share-btn.copy {
-            background: #28a745;
-        }
-        
-        .share-btn.copy:hover {
             background: #218838;
         }
         
-        .share-btn.reddit {
-            background: #ff4500;
-        }
-        
-        .share-btn.reddit:hover {
-            background: #e03d00;
-        }
-        
-        .share-btn.bluesky {
-            background: #00a8e8;
-        }
-        
-        .share-btn.bluesky:hover {
-            background: #0087c7;
-        }
-        
         .share-icon {
-            font-size: 1rem;
+            font-size: 1.2rem;
         }
         
         .copy-success {
@@ -188,23 +149,8 @@
         }
         
         @media (max-width: 600px) {
-            .share-section h3 {
-                font-size: 1.1rem;
-            }
-            
-            .share-buttons {
-                gap: 0.5rem;
-            }
-            
             .share-btn {
-                padding: 0.5rem 0.8rem;
-                font-size: 0.8rem;
-                min-width: 80px;
-                flex: 1;
-                max-width: 120px;
-            }
-            
-            .share-icon {
+                padding: 0.7rem 1.2rem;
                 font-size: 0.9rem;
             }
         }
@@ -225,27 +171,11 @@
         <div id="last-updated" class="last-updated"></div>
         
         <div class="share-section">
-            <h3>Share the Status</h3>
+            <h3>Share</h3>
             <div class="share-buttons">
-                <button id="share-twitter" class="share-btn twitter">
-                    <span class="share-icon">🐦</span>
-                    Twitter
-                </button>
-                <button id="share-facebook" class="share-btn facebook">
-                    <span class="share-icon">📘</span>
-                    Facebook
-                </button>
-                <button id="share-copy" class="share-btn copy">
+                <button id="share-copy" class="share-btn">
                     <span class="share-icon">📋</span>
-                    Copy Link
-                </button>
-                <button id="share-reddit" class="share-btn reddit">
-                    <span class="share-icon">🤖</span>
-                    Reddit
-                </button>
-                <button id="share-bluesky" class="share-btn bluesky">
-                    <span class="share-icon">🦋</span>
-                    Bluesky
+                    Copy to Share
                 </button>
             </div>
         </div>
