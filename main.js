@@ -87,25 +87,28 @@ class PackersTracker {
         const nextGameEl = document.getElementById('next-game');
         const nextGameInfoEl = document.getElementById('next-game-info');
         
-        // Try to get next game from multiple possible locations in the API response
+        // Find next upcoming game from events
         let nextGame = null;
+        const now = new Date();
         
-        // Check team.nextEvent first
-        if (team.nextEvent && Array.isArray(team.nextEvent) && team.nextEvent.length > 0) {
-            nextGame = team.nextEvent[0];
-        } else if (team.nextEvent && !Array.isArray(team.nextEvent)) {
-            nextGame = team.nextEvent;
+        // Look in team.events for upcoming games
+        if (team.events && Array.isArray(team.events)) {
+            const upcomingGames = team.events
+                .filter(event => new Date(event.date) > now)
+                .sort((a, b) => new Date(a.date) - new Date(b.date));
+            
+            if (upcomingGames.length > 0) {
+                nextGame = upcomingGames[0];
+            }
         }
         
-        // If no nextEvent, try to find from events array
-        if (!nextGame && team.events && Array.isArray(team.events)) {
-            const now = new Date();
-            for (const event of team.events) {
-                const gameDate = new Date(event.date);
-                if (gameDate > now) {
-                    if (!nextGame || gameDate < new Date(nextGame.date)) {
-                        nextGame = event;
-                    }
+        // Also check nextEvent as backup
+        if (!nextGame && team.nextEvent) {
+            const nextEventArray = Array.isArray(team.nextEvent) ? team.nextEvent : [team.nextEvent];
+            for (const event of nextEventArray) {
+                if (new Date(event.date) > now) {
+                    nextGame = event;
+                    break;
                 }
             }
         }
@@ -173,37 +176,43 @@ class PackersTracker {
         const previousGameEl = document.getElementById('previous-game');
         const previousGameInfoEl = document.getElementById('previous-game-info');
         
-        // Find the most recent completed game
-        let previousGame = null;
+        // Find most recent completed game from events
+        let recentGame = null;
         const now = new Date();
         
         if (team.events && Array.isArray(team.events)) {
-            for (const event of team.events) {
-                const gameDate = new Date(event.date);
-                if (gameDate < now) {
-                    if (!previousGame || gameDate > new Date(previousGame.date)) {
-                        previousGame = event;
-                    }
-                }
+            const completedGames = team.events
+                .filter(event => {
+                    const gameDate = new Date(event.date);
+                    return gameDate < now;
+                })
+                .sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            if (completedGames.length > 0) {
+                recentGame = completedGames[0];
             }
         }
         
-        if (!previousGame) {
+        console.log('Previous game found:', recentGame);
+        
+        if (!recentGame) {
             previousGameEl.style.display = 'none';
             return;
         }
 
-        const competitions = previousGame.competitions || [];
+        const competitions = recentGame.competitions || [];
         const competition = competitions[0];
         if (!competition) {
             previousGameEl.style.display = 'none';
             return;
         }
 
-        const date = new Date(previousGame.date);
+        const date = new Date(recentGame.date);
         const opponent = this.getOpponent(competition);
         const isHome = this.isHomeGame(competition);
         const gameResult = this.getGameResult(competition);
+        
+        console.log('Game result:', gameResult);
         
         const gameInfo = `
             <div style="font-size: 1.2rem; margin-bottom: 0.5rem;">
@@ -230,7 +239,7 @@ class PackersTracker {
         const competitors = competition.competitors || [];
         let packersScore = 0;
         let opponentScore = 0;
-        let packersWon = false;
+        let won = false;
         
         for (const competitor of competitors) {
             const team = competitor.team || {};
@@ -238,16 +247,18 @@ class PackersTracker {
             
             if (team.abbreviation === 'GB') {
                 packersScore = score;
-                packersWon = competitor.winner === true;
+                won = competitor.winner === true;
             } else {
                 opponentScore = score;
             }
         }
         
+        console.log('Score details:', { packersScore, opponentScore, won });
+        
         return {
             packersScore,
             opponentScore,
-            won: packersWon
+            won: won
         };
     }
 
