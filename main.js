@@ -261,19 +261,9 @@ class PackersTracker {
             const team = competitor.team || {};
             
             // Get score from competitor.competitorScore.value
-            const score = parseInt(competitor.competitorScore?.value) || 0;
+            const score = competitor.competitorScore?.value || 0;
             
-            console.log('Raw competitor.competitorScore:', competitor.competitorScore);
-            console.log('Parsed score:', score);
-            
-            console.log('Processing competitor:', {
-                teamName: team.displayName,
-                abbreviation: team.abbreviation,
-                competitorScore: competitor.competitorScore,
-                finalScore: score,
-                winner: competitor.winner,
-                homeAway: competitor.homeAway
-            });
+            console.log('Team:', team.abbreviation, 'Score:', score, 'Raw competitorScore:', competitor.competitorScore);
             
             if (team.abbreviation === 'GB' || team.abbreviation === 'GNB') {
                 packersScore = score;
