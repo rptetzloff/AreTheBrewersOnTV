@@ -25,6 +25,7 @@ class PackersTracker {
         try {
             const response = await fetch(this.standingsUrl);
             const data = await response.json();
+            console.log('Full standings API response:', JSON.stringify(data, null, 2));
             this.processStandingsData(data);
         } catch (error) {
             console.error('Failed to fetch standings:', error);
@@ -32,42 +33,50 @@ class PackersTracker {
     }
 
     processStandingsData(data) {
-        // Recursive helper function to find NFC North division
-        const findNFCNorth = (obj) => {
-            if (!obj || typeof obj !== 'object') return null;
+        // Simple approach: just look for any standings data and filter for NFC North teams
+        console.log('Processing standings data...');
+        
+        // Try to find standings data anywhere in the response
+        let allTeams = [];
+        
+        // Function to extract team data from any standings structure
+        const extractTeams = (obj) => {
+            if (!obj) return;
             
-            // Check if current object is NFC North division
-            if (obj.name === 'NFC North' && obj.standings && obj.standings.entries) {
-                return obj;
+            if (obj.entries && Array.isArray(obj.entries)) {
+                obj.entries.forEach(entry => {
+                    if (entry.team && entry.stats) {
+                        allTeams.push(entry);
+                    }
+                });
             }
             
-            // Search in groups array if it exists
-            if (obj.groups && Array.isArray(obj.groups)) {
-                for (const group of obj.groups) {
-                    const result = findNFCNorth(group);
-                    if (result) return result;
+            // Recursively search through all properties
+            Object.values(obj).forEach(value => {
+                if (typeof value === 'object' && value !== null) {
+                    extractTeams(value);
                 }
-            }
-            
-            // Search in standings.groups if it exists
-            if (obj.standings && obj.standings.groups && Array.isArray(obj.standings.groups)) {
-                for (const group of obj.standings.groups) {
-                    const result = findNFCNorth(group);
-                    if (result) return result;
-                }
-            }
-            
-            return null;
+            });
         };
         
-        const nfcNorth = findNFCNorth(data);
-
-        if (!nfcNorth) {
-            console.error('Could not find NFC North standings');
+        extractTeams(data);
+        
+        console.log('Found teams:', allTeams.length);
+        
+        // Filter for NFC North teams
+        const nfcNorthTeams = ['GB', 'CHI', 'DET', 'MIN'];
+        const nfcNorthStandings = allTeams.filter(entry => 
+            nfcNorthTeams.includes(entry.team.abbreviation)
+        );
+        
+        console.log('NFC North teams found:', nfcNorthStandings.length);
+        
+        if (nfcNorthStandings.length === 0) {
+            console.error('Could not find any NFC North teams in standings data');
             return;
         }
-
-        const standings = nfcNorth.standings.entries.map(entry => {
+        
+        const standings = nfcNorthStandings.map(entry => {
             const team = entry.team;
             const stats = entry.stats;
             
