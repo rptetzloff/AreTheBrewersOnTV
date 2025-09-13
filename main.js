@@ -245,46 +245,23 @@ class PackersTracker {
 
     getGameResult(competition) {
         const competitors = competition.competitors || [];
+        let packersScore = 0;
+        let opponentScore = 0;
         
-        // Find Packers and opponent
-        let packersData = null;
-        let opponentData = null;
-        
-        for (const competitor of competitors) {
-            if (competitor.abbreviation === 'GB' || competitor.abbreviation === 'GNB') {
-                packersData = competitor;
+        competitors.forEach(competitor => {
+            const score = competitor.score || 0;
+            if (competitor.abbreviation === 'GB') {
+                packersScore = score;
             } else {
-                opponentData = competitor;
+                opponentScore = score;
             }
-        }
-        
-        console.log('Packers data:', packersData);
-        console.log('Opponent data:', opponentData);
-        
-        const packersScore = packersData?.competitorScore?.value || 0;
-        const opponentScore = opponentData?.competitorScore?.value || 0;
-        
-        // Try different possible score properties
-        const packersScoreAlt = packersData?.score || packersData?.points || 0;
-        const opponentScoreAlt = opponentData?.score || opponentData?.points || 0;
-        
-        console.log(`Packers: ${packersScore}, Opponent: ${opponentScore}`);
-        console.log(`Alt scores - Packers: ${packersScoreAlt}, Opponent: ${opponentScoreAlt}`);
-        
-        // Use whichever score property has actual values
-        const finalPackersScore = packersScore || packersScoreAlt;
-        const finalOpponentScore = opponentScore || opponentScoreAlt;
-        
-        const won = finalPackersScore > finalOpponentScore;
-        const tied = finalPackersScore === finalOpponentScore && finalPackersScore > 0;
-        
-        console.log(`Result: Won=${won}, Tied=${tied}`);
+        });
         
         return {
-            packersScore: finalPackersScore,
-            opponentScore: finalOpponentScore,
-            won,
-            tied
+            packersScore,
+            opponentScore,
+            won: packersScore > opponentScore,
+            tied: packersScore === opponentScore && packersScore > 0
         };
     }
 
