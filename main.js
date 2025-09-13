@@ -170,6 +170,12 @@ class PackersTracker {
         const competitors = competition.competitors;
         const date = new Date(game.date);
         const broadcast = competition.broadcasts?.[0];
+        
+        // Debug broadcast data
+        console.log('Full competition object:', competition);
+        console.log('Broadcasts array:', competition.broadcasts);
+        console.log('First broadcast:', broadcast);
+        
         const network = broadcast?.names?.[0] || 'TBD';
         
         let opponent = '';
