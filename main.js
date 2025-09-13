@@ -285,26 +285,28 @@ class PackersTracker {
             
             if (team.abbreviation === 'GB' || team.abbreviation === 'GNB') {
                 packersScore = score;
-                won = competitor.winner === true;
+                packersWon = competitor.winner === true;
             } else {
                 opponentScore = score;
             }
         }
         
-        tied = packersScore === opponentScore;
+        const tied = packersScore === opponentScore && packersScore > 0;
+        const won = packersWon && !tied;
         
         console.log('Final game result:', {
             packersScore,
             opponentScore,
-            won: won && !tied,
-            tied: tied
+            won,
+            tied,
+            packersWon
         });
         
         return {
             packersScore,
             opponentScore,
-            won: won && !tied,
-            tied: tied
+            won,
+            tied
         };
     }
 
