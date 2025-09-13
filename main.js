@@ -169,6 +169,8 @@ class PackersTracker {
         const competition = game.competitions[0];
         const competitors = competition.competitors;
         const date = new Date(game.date);
+        const broadcast = competition.broadcasts?.[0];
+        const network = broadcast?.names?.[0] || 'TBD';
         
         let opponent = '';
         let isHome = false;
@@ -187,6 +189,9 @@ class PackersTracker {
             </div>
             <div style="font-size: 1rem; opacity: 0.9;">
                 ${date.toLocaleDateString()} at ${date.toLocaleTimeString()}
+            </div>
+            <div style="font-size: 1rem; opacity: 0.9; margin-top: 0.5rem;">
+                📺 ${network}
             </div>
         `;
         
