@@ -47,7 +47,7 @@ class PackersTracker {
         const body = document.body;
         
         if (isUndefeated) {
-            answerEl.textContent = '😊😊😊 YES!!! 😊😊😊';
+            answerEl.innerHTML = '😊😊😊<br>YES!!!<br>😊😊😊';
             body.classList.add('undefeated');
         } else {
             answerEl.textContent = 'NO 😢';
@@ -67,23 +67,34 @@ class PackersTracker {
         const nextGameEl = document.getElementById('next-game');
         const nextGameInfoEl = document.getElementById('next-game-info');
         
-        // Get all events from the team data
-        const events = team.nextEvent || team.events || [];
-        const now = new Date();
-        
-        // Find the next upcoming game
+        // Try to get next game from multiple possible locations in the API response
         let nextGame = null;
         
-        for (const event of events) {
-            const gameDate = new Date(event.date);
-            if (gameDate > now) {
-                if (!nextGame || gameDate < new Date(nextGame.date)) {
-                    nextGame = event;
+        // Check team.nextEvent first
+        if (team.nextEvent && Array.isArray(team.nextEvent) && team.nextEvent.length > 0) {
+            nextGame = team.nextEvent[0];
+        } else if (team.nextEvent && !Array.isArray(team.nextEvent)) {
+            nextGame = team.nextEvent;
+        }
+        
+        // If no nextEvent, try to find from events array
+        if (!nextGame && team.events && Array.isArray(team.events)) {
+            const now = new Date();
+            for (const event of team.events) {
+                const gameDate = new Date(event.date);
+                if (gameDate > now) {
+                    if (!nextGame || gameDate < new Date(nextGame.date)) {
+                        nextGame = event;
+                    }
                 }
             }
         }
         
+        // Debug: log what we found
+        console.log('Next game found:', nextGame);
+        
         if (!nextGame) {
+            console.log('No next game found, hiding next game section');
             nextGameEl.style.display = 'none';
             return;
         }
@@ -91,6 +102,7 @@ class PackersTracker {
         const competitions = nextGame.competitions || [];
         const competition = competitions[0];
         if (!competition) {
+            console.log('No competition data found');
             nextGameEl.style.display = 'none';
             return;
         }
@@ -100,6 +112,8 @@ class PackersTracker {
         const isHome = this.isHomeGame(competition);
         const tvNetwork = this.extractTVNetwork(competition);
         const timeUntil = this.getTimeUntilGame(date);
+        
+        console.log('Game details:', { date, opponent, isHome, tvNetwork, timeUntil });
         
         const gameInfo = `
             <div style="font-size: 1.2rem; margin-bottom: 0.5rem;">
