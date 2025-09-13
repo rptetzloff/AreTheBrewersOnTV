@@ -68,7 +68,13 @@ class PackersTracker {
         const nextGameInfoEl = document.getElementById('next-game-info');
         
         const events = team.nextEvent || [];
-        const schedule = events[0];
+        const now = new Date();
+        
+        // Find the next game that hasn't happened yet
+        const schedule = events.find(event => {
+            const gameDate = new Date(event.date);
+            return gameDate > now;
+        });
         
         if (!schedule) {
             nextGameEl.style.display = 'none';
