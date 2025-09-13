@@ -22,24 +22,31 @@ class PackersTracker {
     processScheduleData(data) {
         const events = data.events || [];
         
+        console.log('Total events:', events.length);
+        
         // Get completed games
         const completedGames = events.filter(event => {
             const status = event.competitions?.[0]?.status?.type?.name;
             return status === 'STATUS_FINAL';
         });
 
+        console.log('Completed games:', completedGames.length);
+        
         let wins = 0;
         let losses = 0;
 
         // Check each completed game
         completedGames.forEach(event => {
+            console.log('Processing game:', event.name);
             const competition = event.competitions[0];
             const competitors = competition.competitors;
+            console.log('Competitors:', competitors);
             
             let packersScore = 0;
             let opponentScore = 0;
             
             competitors.forEach(competitor => {
+                console.log('Competitor:', competitor.abbreviation, 'Score:', competitor.score);
                 if (competitor.abbreviation === 'GB') {
                     packersScore = parseInt(competitor.score) || 0;
                 } else {
@@ -47,13 +54,19 @@ class PackersTracker {
                 }
             });
             
+            console.log('Packers:', packersScore, 'Opponent:', opponentScore);
+            
             if (packersScore > opponentScore) {
                 wins++;
+                console.log('Packers won this game');
             } else {
                 losses++;
+                console.log('Packers lost this game');
             }
         });
 
+        console.log('Final record - Wins:', wins, 'Losses:', losses);
+        
         // Display result
         const isUndefeated = losses === 0 && wins > 0;
         this.displayResult(isUndefeated, wins, losses);
