@@ -254,13 +254,31 @@ class PackersTracker {
         
         for (const competitor of competitors) {
             const team = competitor.team || {};
-            const score = parseInt(competitor.score) || 0;
+            // Try multiple ways to get the score
+            let score = 0;
+            if (competitor.score !== undefined && competitor.score !== null) {
+                score = parseInt(competitor.score);
+            } else if (competitor.team && competitor.team.score !== undefined) {
+                score = parseInt(competitor.team.score);
+            } else if (competition.competitors && competition.competitors.length > 0) {
+                // Sometimes scores are in a different structure
+                const competitorData = competition.competitors.find(c => c.id === competitor.id);
+                if (competitorData && competitorData.score) {
+                    score = parseInt(competitorData.score);
+                }
+            }
+            
+            // Ensure score is a valid number
+            if (isNaN(score)) {
+                score = 0;
+            }
             
             console.log('Processing competitor:', {
                 teamName: team.displayName,
                 abbreviation: team.abbreviation,
-                score: competitor.score,
-                parsedScore: score,
+                rawScore: competitor.score,
+                teamScore: competitor.team?.score,
+                finalScore: score,
                 winner: competitor.winner,
                 homeAway: competitor.homeAway
             });
