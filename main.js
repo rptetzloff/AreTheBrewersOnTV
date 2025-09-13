@@ -59,9 +59,11 @@ class PackersTracker {
             if (packersScore > opponentScore) {
                 wins++;
                 console.log('Packers won this game');
-            } else {
+            } else if (opponentScore > packersScore) {
                 losses++;
                 console.log('Packers lost this game');
+            } else {
+                console.log('Game was a tie');
             }
         });
 
