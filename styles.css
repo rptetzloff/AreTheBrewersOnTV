@@ -333,7 +333,9 @@ h1 {
     }
     
     .container {
-        padding: 0;
+        padding: 1rem;
+        width: 100%;
+        box-sizing: border-box;
     }
     
     .game-item {
@@ -349,8 +351,9 @@ h1 {
     
     .schedule-section {
         padding: 1rem;
-        margin: 0.25rem;
+        margin: 1rem 0;
         width: 100%;
+        box-sizing: border-box;
         border-radius: 10px;
     }
     
