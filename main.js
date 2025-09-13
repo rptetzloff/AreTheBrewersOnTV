@@ -288,6 +288,7 @@ class PackersTracker {
             const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
             const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
             const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
             
             let countdownText = '⏰ ';
             
@@ -296,7 +297,7 @@ class PackersTracker {
             } else if (hours > 0) {
                 countdownText += `${hours}h ${minutes}m`;
             } else {
-                countdownText += `${minutes}m`;
+                countdownText += `${minutes}m ${seconds}s`;
             }
             
             countdownEl.textContent = countdownText;
