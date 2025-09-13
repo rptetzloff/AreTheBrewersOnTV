@@ -86,7 +86,7 @@ class PackersTracker {
         const recordEl = document.getElementById('record');
         
         if (isUndefeated) {
-            answerEl.innerHTML = '🧀🧀🧀<br>YES!!!<br>🧀🧀🧀';
+            answerEl.innerHTML = '🧀 🧀 🧀<br>YES!!!<br>🧀 🧀 🧀';
             answerEl.className = 'answer yes';
             document.body.classList.add('undefeated');
         } else {
