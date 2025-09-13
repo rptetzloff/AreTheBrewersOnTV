@@ -220,10 +220,14 @@ class PackersTracker {
         const twitterBtn = document.getElementById('share-twitter');
         const facebookBtn = document.getElementById('share-facebook');
         const copyBtn = document.getElementById('share-copy');
+        const redditBtn = document.getElementById('share-reddit');
+        const blueskyBtn = document.getElementById('share-bluesky');
         
         twitterBtn.addEventListener('click', () => this.shareToTwitter());
         facebookBtn.addEventListener('click', () => this.shareToFacebook());
         copyBtn.addEventListener('click', () => this.copyLink());
+        redditBtn.addEventListener('click', () => this.shareToReddit());
+        blueskyBtn.addEventListener('click', () => this.shareToBluesky());
     }
     
     getShareMessage() {
@@ -251,6 +255,22 @@ class PackersTracker {
         const url = window.location.href;
         const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
         window.open(facebookUrl, '_blank', 'width=580,height=296');
+    }
+    
+    shareToReddit() {
+        const message = this.getShareMessage();
+        const url = window.location.href;
+        const title = 'Are The Green Bay Packers Undefeated?';
+        const redditUrl = `https://www.reddit.com/submit?url=${encodeURIComponent(url)}&title=${encodeURIComponent(title)}&text=${encodeURIComponent(message)}`;
+        window.open(redditUrl, '_blank', 'width=600,height=500');
+    }
+    
+    shareToBluesky() {
+        const message = this.getShareMessage();
+        const url = window.location.href;
+        const shareText = `${message}\n\n${url}`;
+        const blueskyUrl = `https://bsky.app/intent/compose?text=${encodeURIComponent(shareText)}`;
+        window.open(blueskyUrl, '_blank', 'width=600,height=500');
     }
     
     async copyLink() {
