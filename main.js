@@ -67,35 +67,46 @@ class PackersTracker {
         const nextGameEl = document.getElementById('next-game');
         const nextGameInfoEl = document.getElementById('next-game-info');
         
-        const events = team.nextEvent || [];
+        // Get all events from the team data
+        const events = team.nextEvent || team.events || [];
         const now = new Date();
         
-        // Find the next game that hasn't happened yet
-        const schedule = events.find(event => {
-            const gameDate = new Date(event.date);
-            return gameDate > now;
-        });
+        // Find the next upcoming game
+        let nextGame = null;
         
-        if (!schedule) {
+        for (const event of events) {
+            const gameDate = new Date(event.date);
+            if (gameDate > now) {
+                if (!nextGame || gameDate < new Date(nextGame.date)) {
+                    nextGame = event;
+                }
+            }
+        }
+        
+        if (!nextGame) {
             nextGameEl.style.display = 'none';
             return;
         }
 
-        const competitions = schedule.competitions || [];
+        const competitions = nextGame.competitions || [];
         const competition = competitions[0];
         if (!competition) {
             nextGameEl.style.display = 'none';
             return;
         }
 
-        const date = new Date(schedule.date);
+        const date = new Date(nextGame.date);
         const opponent = this.getOpponent(competition);
         const isHome = this.isHomeGame(competition);
         const tvNetwork = this.extractTVNetwork(competition);
+        const timeUntil = this.getTimeUntilGame(date);
         
         const gameInfo = `
             <div style="font-size: 1.2rem; margin-bottom: 0.5rem;">
                 ${isHome ? 'vs' : '@'} ${opponent}
+            </div>
+            <div style="font-size: 1.1rem; color: #ffb612; font-weight: bold; margin-bottom: 0.5rem;">
+                ${timeUntil}
             </div>
             <div style="font-size: 1rem; opacity: 0.9;">
                 ${date.toLocaleDateString('en-US', { 
@@ -119,6 +130,51 @@ class PackersTracker {
         
         nextGameInfoEl.innerHTML = gameInfo;
         nextGameEl.style.display = 'block';
+        
+        // Update countdown every minute
+        this.startCountdown(date, nextGameInfoEl);
+    }
+
+    getTimeUntilGame(gameDate) {
+        const now = new Date();
+        const timeDiff = gameDate - now;
+        
+        if (timeDiff <= 0) {
+            return 'Game in progress or completed';
+        }
+        
+        const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+        
+        if (days > 0) {
+            return `${days} day${days !== 1 ? 's' : ''}, ${hours} hour${hours !== 1 ? 's' : ''} until kickoff`;
+        } else if (hours > 0) {
+            return `${hours} hour${hours !== 1 ? 's' : ''}, ${minutes} minute${minutes !== 1 ? 's' : ''} until kickoff`;
+        } else {
+            return `${minutes} minute${minutes !== 1 ? 's' : ''} until kickoff`;
+        }
+    }
+
+    startCountdown(gameDate, containerEl) {
+        // Clear any existing countdown
+        if (this.countdownInterval) {
+            clearInterval(this.countdownInterval);
+        }
+        
+        this.countdownInterval = setInterval(() => {
+            const now = new Date();
+            if (now >= gameDate) {
+                clearInterval(this.countdownInterval);
+                return;
+            }
+            
+            const timeUntil = this.getTimeUntilGame(gameDate);
+            const countdownEl = containerEl.querySelector('div:nth-child(2)');
+            if (countdownEl) {
+                countdownEl.textContent = timeUntil;
+            }
+        }, 60000); // Update every minute
     }
 
     getOpponent(competition) {
