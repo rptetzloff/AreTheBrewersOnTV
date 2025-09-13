@@ -58,15 +58,13 @@ class PackersTracker {
             
             console.log('Packers:', packersScore, 'Opponent:', opponentScore);
             
-            // Only count the result once per game
+            // Count the result for this game
             if (packersScore > opponentScore) {
                 wins++;
                 console.log('Packers won this game');
             } else if (packersScore < opponentScore) {
                 losses++;
                 console.log('Packers lost this game');
-            } else {
-                console.log('Game was a tie');
             }
         });
 
