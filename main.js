@@ -33,10 +33,10 @@ class PackersTracker {
 
     processStandingsData(data) {
         // Find NFC North division
-        const nfcNorth = data.children?.find(conference => 
+        const nfcNorth = data.standings?.groups?.[0]?.standings?.groups?.find(conference => 
             conference.name === 'National Football Conference'
-        )?.children?.find(division => 
-            division.name === 'North'
+        )?.standings?.groups?.find(division => 
+            division.name === 'NFC North'
         );
 
         if (!nfcNorth) {
