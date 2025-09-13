@@ -32,31 +32,35 @@ class PackersTracker {
     }
 
     processStandingsData(data) {
-        // Find NFC North division with robust search
-        let nfcNorth = null;
-        
-        if (data.standings && data.standings.groups) {
-            // Iterate through all groups to find conferences
-            for (const group of data.standings.groups) {
-                if (group.standings && group.standings.groups) {
-                    // Look for National Football Conference
-                    for (const conference of group.standings.groups) {
-                        if (conference.name === 'National Football Conference' && 
-                            conference.standings && conference.standings.groups) {
-                            // Look for NFC North division
-                            for (const division of conference.standings.groups) {
-                                if (division.name === 'NFC North') {
-                                    nfcNorth = division;
-                                    break;
-                                }
-                            }
-                            if (nfcNorth) break;
-                        }
-                    }
-                    if (nfcNorth) break;
+        // Recursive helper function to find NFC North division
+        const findNFCNorth = (obj) => {
+            if (!obj || typeof obj !== 'object') return null;
+            
+            // Check if current object is NFC North division
+            if (obj.name === 'NFC North' && obj.standings && obj.standings.entries) {
+                return obj;
+            }
+            
+            // Search in groups array if it exists
+            if (obj.groups && Array.isArray(obj.groups)) {
+                for (const group of obj.groups) {
+                    const result = findNFCNorth(group);
+                    if (result) return result;
                 }
             }
-        }
+            
+            // Search in standings.groups if it exists
+            if (obj.standings && obj.standings.groups && Array.isArray(obj.standings.groups)) {
+                for (const group of obj.standings.groups) {
+                    const result = findNFCNorth(group);
+                    if (result) return result;
+                }
+            }
+            
+            return null;
+        };
+        
+        const nfcNorth = findNFCNorth(data);
 
         if (!nfcNorth) {
             console.error('Could not find NFC North standings');
