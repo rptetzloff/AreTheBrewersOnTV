@@ -91,11 +91,14 @@ class PackersTracker {
         const recordEl = document.getElementById('record');
         
         if (isUndefeated) {
-            answerEl.innerHTML = '🧀 🧀 🧀<br>YES!!!<br>🧀 🧀 🧀';
+            const cheeseBlocks = '🧀 '.repeat(wins).trim();
+            answerEl.innerHTML = `${cheeseBlocks}<br>YES!!!<br>${cheeseBlocks}`;
             answerEl.className = 'answer yes';
             document.body.classList.add('undefeated');
         } else {
-            answerEl.textContent = 'NO 😢';
+            const cheeseBlocks = wins > 0 ? '🧀 '.repeat(wins).trim() + '<br>' : '';
+            const frownFaces = losses > 0 ? '<br>' + '😢 '.repeat(losses).trim() : '';
+            answerEl.innerHTML = `${cheeseBlocks}NO${frownFaces}`;
             answerEl.className = 'answer no';
             document.body.classList.remove('undefeated');
         }
