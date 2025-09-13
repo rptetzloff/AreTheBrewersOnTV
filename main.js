@@ -48,9 +48,9 @@ class PackersTracker {
             competitors.forEach(competitor => {
                 console.log('Full competitor object:', competitor);
                 if (competitor.abbreviation === 'GB') {
-                    packersScore = parseInt(competitor.score) || 0;
+                    packersScore = parseInt(competitor.score.value) || 0;
                 } else {
-                    opponentScore = parseInt(competitor.score) || 0;
+                    opponentScore = parseInt(competitor.score.value) || 0;
                 }
             });
             
