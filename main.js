@@ -288,7 +288,7 @@ class PackersTracker {
             const statusText = status.type.detail || status.type.shortDetail || 'Live';
             statusDiv.textContent = statusText;
             
-            gameInfo.appendChild(statusDiv);
+            gameDetails.appendChild(statusDiv);
         }
         
         // Add countdown for next game
@@ -329,7 +329,6 @@ class PackersTracker {
         gameResult.className = 'game-result';
         
         gameItem.appendChild(gameInfo);
-        gameItem.appendChild(gameResult);
         
         if (isCompleted || isLive || isInProgress) {
             const scoreDiv = document.createElement('div');
@@ -344,7 +343,19 @@ class PackersTracker {
             }
             
             scoreDiv.textContent = `${packersScore}-${opponentScore}`;
-            gameResult.appendChild(scoreDiv);
+            
+            // For live games, add score to the bottom and center it
+            if (isLive || isInProgress) {
+                scoreDiv.style.textAlign = 'center';
+                scoreDiv.style.marginTop = '0.5rem';
+                scoreDiv.style.width = '100%';
+                gameItem.appendChild(scoreDiv);
+            } else {
+                gameResult.appendChild(scoreDiv);
+                gameItem.appendChild(gameResult);
+            }
+        } else {
+            gameItem.appendChild(gameResult);
         }
         
         return gameItem;
