@@ -147,20 +147,55 @@ class PackersTracker {
         const status = competition.status;
         const date = new Date(event.date);
         
+        // Debug live game data structure
+        const isLive = liveGame && event.id === liveGame.id;
+        if (isLive) {
+            console.log('=== LIVE GAME DEBUG ===');
+            console.log('Full event object:', event);
+            console.log('Competition object:', competition);
+            console.log('Status object:', status);
+            console.log('Competitors array:', competitors);
+            competitors.forEach((comp, index) => {
+                console.log(`Competitor ${index}:`, comp);
+                console.log(`Team:`, comp.team);
+                console.log(`All properties:`, Object.keys(comp));
+            });
+        }
+        
         let packersScore = 0;
         let opponentScore = 0;
         let opponent = '';
         let isHome = false;
         
         competitors.forEach(competitor => {
-            console.log('Live game competitor:', competitor);
-            console.log('Live game score:', competitor.score);
             if (competitor.team.abbreviation === 'GB') {
-                packersScore = parseInt(competitor.score?.value || competitor.score || 0);
+                // Try multiple ways to get the score
+                packersScore = parseInt(
+                    competitor.score?.value || 
+                    competitor.score?.displayValue ||
+                    competitor.score || 
+                    competitor.points ||
+                    0
+                );
                 isHome = competitor.homeAway === 'home';
+                if (isLive) {
+                    console.log('Packers competitor full object:', competitor);
+                    console.log('Packers score found:', packersScore);
+                }
             } else {
-                opponentScore = parseInt(competitor.score?.value || competitor.score || 0);
+                // Try multiple ways to get the score
+                opponentScore = parseInt(
+                    competitor.score?.value || 
+                    competitor.score?.displayValue ||
+                    competitor.score || 
+                    competitor.points ||
+                    0
+                );
                 opponent = competitor.team.displayName;
+                if (isLive) {
+                    console.log('Opponent competitor full object:', competitor);
+                    console.log('Opponent score found:', opponentScore);
+                }
             }
         });
         
@@ -168,7 +203,6 @@ class PackersTracker {
         gameItem.className = 'game-item';
         
         // Determine game status and styling
-        const isLive = liveGame && event.id === liveGame.id;
         const isNext = nextGame && event.id === nextGame.id && !isLive;
         const isCompleted = status.type.name === 'STATUS_FINAL';
         const isInProgress = status.type.name === 'STATUS_IN_PROGRESS' || status.type.name === 'STATUS_HALFTIME';
