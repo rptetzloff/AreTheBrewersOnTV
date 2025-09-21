@@ -236,8 +236,10 @@ class PackersTracker {
             scheduleGrid.appendChild(gameItem);
         });
         
-        // Auto-scroll to the most recent completed game
-        this.autoScrollToRecentGame(scheduleGrid, sortedEvents, now);
+        // Auto-scroll to the most recent completed game after DOM is ready
+        setTimeout(() => {
+            this.autoScrollToRecentGame(scheduleGrid, sortedEvents, now);
+        }, 500);
         
         // Start live updates if there's a live game
         if (liveGame) {
@@ -246,31 +248,37 @@ class PackersTracker {
     }
     
     autoScrollToRecentGame(scheduleGrid, sortedEvents, now) {
-        // Find the most recent completed game
+        console.log('Auto-scrolling to recent game...');
+        
+        // Find the most recent completed game or live game
         let mostRecentCompletedIndex = -1;
         
         for (let i = sortedEvents.length - 1; i >= 0; i--) {
             const event = sortedEvents[i];
-            const gameDate = new Date(event.date);
             const status = event.competitions?.[0]?.status?.type?.name;
             
-            if (gameDate <= now && status === 'STATUS_FINAL') {
+            // Prioritize live games, then most recent completed games
+            if (status === 'STATUS_IN_PROGRESS' || 
+                status === 'STATUS_HALFTIME' || 
+                status === 'STATUS_DELAYED' ||
+                status === 'STATUS_FINAL') {
                 mostRecentCompletedIndex = i;
                 break;
             }
         }
         
-        // If we found a recent completed game, scroll to it
+        console.log('Most recent game index:', mostRecentCompletedIndex);
+        
+        // If we found a recent game, scroll to it
         if (mostRecentCompletedIndex >= 0) {
-            setTimeout(() => {
-                const gameItems = scheduleGrid.children;
-                if (gameItems[mostRecentCompletedIndex]) {
-                    gameItems[mostRecentCompletedIndex].scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'center'
-                    });
-                }
-            }, 100); // Small delay to ensure DOM is fully rendered
+            const gameItems = scheduleGrid.children;
+            if (gameItems[mostRecentCompletedIndex]) {
+                console.log('Scrolling to game item:', gameItems[mostRecentCompletedIndex]);
+                gameItems[mostRecentCompletedIndex].scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center'
+                });
+            }
         }
     }
     
