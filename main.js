@@ -391,65 +391,32 @@ class PackersTracker {
     }
     
     startCountdownUpdates(nextGame) {
-        // Clear any existing intervals
-        if (this.countdownInterval) {
-            clearInterval(this.countdownInterval);
-        }
-        if (this.liveUpdateInterval) {
-            clearInterval(this.liveUpdateInterval);
-        }
+        const countdownEl = document.getElementById(`countdown-${nextGame.id}`);
+        if (!countdownEl) return;
         
         const gameDate = new Date(nextGame.date);
-        console.log('Starting countdown for game date:', gameDate);
+        const now = new Date();
+        const timeLeft = gameDate - now;
         
-        const updateCountdown = () => {
-            const countdownEl = document.getElementById(`countdown-${nextGame.id}`);
-            
-            if (!countdownEl) {
-                console.log('Countdown element not found for game:', nextGame.id);
-                return;
-            }
-            
-            const now = new Date().getTime();
-            const gameTime = gameDate.getTime();
-            const timeLeft = gameTime - now;
-            
-            console.log('Countdown update:', {
-                now: new Date(now),
-                gameTime: new Date(gameTime),
-                timeLeft,
-                timeLeftHours: timeLeft / (1000 * 60 * 60)
-            });
-            
-            if (timeLeft <= 0) {
-                countdownEl.textContent = '🏈 Game Time!';
-                clearInterval(this.countdownInterval);
-                return;
-            }
-            
-            const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
-            const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-            const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
-            
-            let countdownText = '⏰ ';
-            
-            if (days > 0) {
-                countdownText += `${days}d ${hours}h ${minutes}m`;
-            } else if (hours > 0) {
-                countdownText += `${hours}h ${minutes}m`;
-            } else {
-                countdownText += `${minutes}m`;
-            }
-            
-            console.log('Setting countdown text:', countdownText);
-            countdownEl.textContent = countdownText;
-        };
+        if (timeLeft <= 0) {
+            countdownEl.textContent = '🏈 Game Time!';
+            return;
+        }
         
-        // Initial update with a small delay to ensure DOM is ready
-        setTimeout(() => {
-            updateCountdown();
-            this.countdownInterval = setInterval(updateCountdown, 30000);
-        }, 200);
+        const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+        
+        let countdownText = '⏰ ';
+        if (days > 0) {
+            countdownText += `${days}d ${hours}h`;
+        } else if (hours > 0) {
+            countdownText += `${hours}h ${minutes}m`;
+        } else {
+            countdownText += `${minutes}m`;
+        }
+        
+        countdownEl.textContent = countdownText;
     }
 
     startLiveUpdates() {
