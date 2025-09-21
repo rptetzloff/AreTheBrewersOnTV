@@ -202,6 +202,18 @@ h1 {
     background: #20c997 !important;
 }
 
+.screenshot-btn {
+    background: #6f42c1 !important;
+}
+
+.screenshot-btn:hover {
+    background: #5a32a3 !important;
+}
+
+.screenshot-success {
+    background: #20c997 !important;
+}
+
 .schedule-section {
     background: rgba(32, 55, 49, 0.8);
     margin: 0.25rem 0;

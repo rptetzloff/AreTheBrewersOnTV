@@ -404,8 +404,10 @@ class PackersTracker {
     
     setupShareButtons() {
         const copyBtn = document.getElementById('share-copy');
+        const screenshotBtn = document.getElementById('share-screenshot');
         
         copyBtn.addEventListener('click', () => this.copyLink());
+        screenshotBtn.addEventListener('click', () => this.takeScreenshot());
     }
     
     getShareMessage() {
@@ -460,6 +462,154 @@ class PackersTracker {
                 copyBtn.classList.remove('copy-success');
             }, 2000);
         }
+    }
+    
+    async takeScreenshot() {
+        const screenshotBtn = document.getElementById('share-screenshot');
+        
+        try {
+            // Check if the browser supports the Screen Capture API
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+                throw new Error('Screenshot not supported in this browser');
+            }
+            
+            // Visual feedback - show loading state
+            const originalText = screenshotBtn.innerHTML;
+            screenshotBtn.innerHTML = '<span class="share-icon">📷</span>Taking...';
+            screenshotBtn.disabled = true;
+            
+            // Request screen capture
+            const stream = await navigator.mediaDevices.getDisplayMedia({
+                video: {
+                    mediaSource: 'screen'
+                }
+            });
+            
+            // Create video element to capture the frame
+            const video = document.createElement('video');
+            video.srcObject = stream;
+            video.play();
+            
+            // Wait for video to load
+            await new Promise((resolve) => {
+                video.onloadedmetadata = resolve;
+            });
+            
+            // Create canvas and capture frame
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0);
+            
+            // Stop the stream
+            stream.getTracks().forEach(track => track.stop());
+            
+            // Convert to blob and download
+            canvas.toBlob((blob) => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `packers-status-${new Date().toISOString().split('T')[0]}.png`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                // Success feedback
+                screenshotBtn.innerHTML = '<span class="share-icon">✅</span>Saved!';
+                screenshotBtn.classList.add('screenshot-success');
+                
+                setTimeout(() => {
+                    screenshotBtn.innerHTML = originalText;
+                    screenshotBtn.classList.remove('screenshot-success');
+                    screenshotBtn.disabled = false;
+                }, 2000);
+            }, 'image/png');
+            
+        } catch (error) {
+            console.error('Screenshot failed:', error);
+            
+            // Fallback: Use html2canvas if available, or show alternative
+            try {
+                await this.fallbackScreenshot();
+            } catch (fallbackError) {
+                // Show user-friendly error
+                const originalText = screenshotBtn.innerHTML;
+                screenshotBtn.innerHTML = '<span class="share-icon">❌</span>Not Available';
+                screenshotBtn.disabled = false;
+                
+                setTimeout(() => {
+                    screenshotBtn.innerHTML = originalText;
+                }, 3000);
+                
+                // Show helpful message
+                alert('Screenshot feature requires screen sharing permission. Please try again and allow screen sharing when prompted.');
+            }
+        }
+    }
+    
+    async fallbackScreenshot() {
+        // Alternative approach: Create a simplified image using Canvas API
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Set canvas size
+        canvas.width = 800;
+        canvas.height = 600;
+        
+        // Fill background
+        ctx.fillStyle = '#203731';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Get current data
+        const answerEl = document.getElementById('answer');
+        const recordEl = document.getElementById('record');
+        
+        const answer = answerEl.textContent.replace(/🧀/g, '').trim();
+        const record = recordEl.textContent;
+        const isUndefeated = answer.includes('YES');
+        
+        // Draw title
+        ctx.fillStyle = '#ffb612';
+        ctx.font = 'bold 48px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('Are the Packers Undefeated?', canvas.width / 2, 100);
+        
+        // Draw answer
+        ctx.fillStyle = isUndefeated ? '#ffffff' : '#f44336';
+        ctx.font = 'bold 72px Arial';
+        ctx.fillText(answer, canvas.width / 2, 250);
+        
+        // Draw record
+        ctx.fillStyle = '#ffb612';
+        ctx.font = '32px Arial';
+        ctx.fillText(record, canvas.width / 2, 350);
+        
+        // Draw cheese emojis for wins (simplified as text)
+        if (isUndefeated) {
+            const wins = parseInt(record.split('-')[0]) || 0;
+            const cheeseText = '🧀 '.repeat(Math.min(wins, 10)); // Limit to 10 for display
+            ctx.font = '24px Arial';
+            ctx.fillText(cheeseText, canvas.width / 2, 400);
+        }
+        
+        // Draw footer
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '20px Arial';
+        ctx.fillText('AreThePackersUndefeated.com', canvas.width / 2, 550);
+        
+        // Convert to blob and download
+        canvas.toBlob((blob) => {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `packers-status-${new Date().toISOString().split('T')[0]}.png`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }, 'image/png');
     }
 
     showError(message) {
