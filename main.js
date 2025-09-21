@@ -505,20 +505,75 @@ class PackersTracker {
             // Stop the stream
             stream.getTracks().forEach(track => track.stop());
             
-            // Convert to blob and download
+            // Convert to blob and copy to clipboard
             canvas.toBlob((blob) => {
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `packers-status-${new Date().toISOString().split('T')[0]}.png`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-                
-                // Success feedback
-                screenshotBtn.innerHTML = '<span class="share-icon">✅</span>Saved!';
-                screenshotBtn.classList.add('screenshot-success');
+                try {
+                    // Copy to clipboard using the Clipboard API
+                    await navigator.clipboard.write([
+                        new ClipboardItem({
+                            'image/png': blob
+                        })
+                    ]);
+                    
+                    // Success feedback
+                    screenshotBtn.innerHTML = '<span class="share-icon">✅</span>Copied!';
+                    screenshotBtn.classList.add('screenshot-success');
+                } catch (clipboardError) {
+                    // Fallback: show instructions to user
+                    screenshotBtn.innerHTML = '<span class="share-icon">📋</span>Right-click to copy';
+                    
+                    // Create a temporary image element for right-click copying
+                    const img = document.createElement('img');
+                    img.src = URL.createObjectURL(blob);
+                    img.style.position = 'fixed';
+                    img.style.top = '50%';
+                    img.style.left = '50%';
+                    img.style.transform = 'translate(-50%, -50%)';
+                    img.style.zIndex = '10000';
+                    img.style.maxWidth = '90vw';
+                    img.style.maxHeight = '90vh';
+                    img.style.border = '3px solid #ffb612';
+                    img.style.borderRadius = '8px';
+                    img.style.boxShadow = '0 0 20px rgba(0,0,0,0.8)';
+                    
+                    // Add backdrop
+                    const backdrop = document.createElement('div');
+                    backdrop.style.position = 'fixed';
+                    backdrop.style.top = '0';
+                    backdrop.style.left = '0';
+                    backdrop.style.width = '100%';
+                    backdrop.style.height = '100%';
+                    backdrop.style.backgroundColor = 'rgba(0,0,0,0.8)';
+                    backdrop.style.zIndex = '9999';
+                    backdrop.style.display = 'flex';
+                    backdrop.style.alignItems = 'center';
+                    backdrop.style.justifyContent = 'center';
+                    backdrop.style.flexDirection = 'column';
+                    
+                    const instructions = document.createElement('div');
+                    instructions.style.color = 'white';
+                    instructions.style.textAlign = 'center';
+                    instructions.style.marginBottom = '1rem';
+                    instructions.style.fontSize = '1.2rem';
+                    instructions.innerHTML = 'Right-click the image below and select "Copy image"<br><span style="font-size: 0.9rem; opacity: 0.8;">Click anywhere to close</span>';
+                    
+                    backdrop.appendChild(instructions);
+                    backdrop.appendChild(img);
+                    document.body.appendChild(backdrop);
+                    
+                    // Close on click
+                    backdrop.addEventListener('click', () => {
+                        document.body.removeChild(backdrop);
+                        URL.revokeObjectURL(img.src);
+                    });
+                    
+                    setTimeout(() => {
+                        if (document.body.contains(backdrop)) {
+                            document.body.removeChild(backdrop);
+                            URL.revokeObjectURL(img.src);
+                        }
+                    }, 30000); // Auto-close after 30 seconds
+                }
                 
                 setTimeout(() => {
                     screenshotBtn.innerHTML = originalText;
@@ -599,16 +654,46 @@ class PackersTracker {
         ctx.font = '20px Arial';
         ctx.fillText('AreThePackersUndefeated.com', canvas.width / 2, 550);
         
-        // Convert to blob and download
+        // Convert to blob and copy to clipboard
         canvas.toBlob((blob) => {
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `packers-status-${new Date().toISOString().split('T')[0]}.png`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
+            try {
+                await navigator.clipboard.write([
+                    new ClipboardItem({
+                        'image/png': blob
+                    })
+                ]);
+            } catch (error) {
+                // If clipboard fails, show the image for manual copying
+                const img = document.createElement('img');
+                img.src = URL.createObjectURL(blob);
+                img.style.position = 'fixed';
+                img.style.top = '50%';
+                img.style.left = '50%';
+                img.style.transform = 'translate(-50%, -50%)';
+                img.style.zIndex = '10000';
+                img.style.border = '3px solid #ffb612';
+                img.style.borderRadius = '8px';
+                
+                const backdrop = document.createElement('div');
+                backdrop.style.position = 'fixed';
+                backdrop.style.top = '0';
+                backdrop.style.left = '0';
+                backdrop.style.width = '100%';
+                backdrop.style.height = '100%';
+                backdrop.style.backgroundColor = 'rgba(0,0,0,0.8)';
+                backdrop.style.zIndex = '9999';
+                backdrop.style.display = 'flex';
+                backdrop.style.alignItems = 'center';
+                backdrop.style.justifyContent = 'center';
+                
+                backdrop.appendChild(img);
+                document.body.appendChild(backdrop);
+                
+                backdrop.addEventListener('click', () => {
+                    document.body.removeChild(backdrop);
+                    URL.revokeObjectURL(img.src);
+                });
+            }
         }, 'image/png');
     }
 
