@@ -47,7 +47,7 @@ class PackersTracker {
             
             // Try the scoreboard API first
             const scoreboardUrl = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard`;
-            const response = await fetch(boxscoreUrl);
+            const response = await fetch(scoreboardUrl);
             const scoreboardData = await response.json();
             
             console.log('Scoreboard data:', scoreboardData);
