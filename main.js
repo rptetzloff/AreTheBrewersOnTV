@@ -41,27 +41,62 @@ class PackersTracker {
     
     async fetchLiveGameScore(liveGame, scheduleData) {
         try {
-            // Try to get live score from the boxscore API
-            const boxscoreUrl = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${liveGame.id}`;
+            // Try multiple ESPN APIs for live scores
+            const gameId = liveGame.id;
+            console.log('Trying to fetch live score for game ID:', gameId);
+            
+            // Try the scoreboard API first
+            const scoreboardUrl = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard`;
             const response = await fetch(boxscoreUrl);
-            const boxscoreData = await response.json();
+            const scoreboardData = await response.json();
             
-            console.log('Boxscore data:', boxscoreData);
+            console.log('Scoreboard data:', scoreboardData);
             
-            // Update the live game with boxscore data
-            if (boxscoreData.boxscore?.teams) {
-                const teams = boxscoreData.boxscore.teams;
-                teams.forEach(team => {
-                    const teamId = team.team.id;
-                    const score = team.statistics?.find(stat => stat.name === 'points')?.displayValue || '0';
+            // Find the current game in scoreboard data
+            const currentGame = scoreboardData.events?.find(event => event.id === gameId);
+            if (currentGame && currentGame.competitions?.[0]?.competitors) {
+                console.log('Found current game in scoreboard:', currentGame);
+                
+                // Update the live game with scoreboard data
+                currentGame.competitions[0].competitors.forEach(competitor => {
+                    const teamId = competitor.team.id;
+                    const score = competitor.score;
+                    
+                    console.log(`Team ${competitor.team.abbreviation} score:`, score);
                     
                     // Find corresponding competitor in schedule data
-                    const competitor = liveGame.competitions[0].competitors.find(comp => comp.team.id === teamId);
-                    if (competitor) {
-                        competitor.score = { value: score, displayValue: score };
-                        console.log(`Updated ${team.team.abbreviation} score to ${score}`);
+                    const scheduleCompetitor = liveGame.competitions[0].competitors.find(comp => comp.team.id === teamId);
+                    if (scheduleCompetitor && score) {
+                        scheduleCompetitor.score = score;
+                        console.log(`Updated ${competitor.team.abbreviation} score to ${score.value || score}`);
                     }
                 });
+            } else {
+                console.log('Game not found in scoreboard data, trying boxscore API...');
+                
+                // Fallback to boxscore API
+                const boxscoreUrl = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${gameId}`;
+                const boxResponse = await fetch(boxscoreUrl);
+                const boxscoreData = await boxResponse.json();
+                
+                console.log('Boxscore data:', boxscoreData);
+                
+                // Try to extract scores from boxscore
+                if (boxscoreData.header?.competitions?.[0]?.competitors) {
+                    boxscoreData.header.competitions[0].competitors.forEach(competitor => {
+                        const teamId = competitor.team.id;
+                        const score = competitor.score;
+                        
+                        console.log(`Boxscore team ${competitor.team.abbreviation} score:`, score);
+                        
+                        // Find corresponding competitor in schedule data
+                        const scheduleCompetitor = liveGame.competitions[0].competitors.find(comp => comp.team.id === teamId);
+                        if (scheduleCompetitor && score) {
+                            scheduleCompetitor.score = score;
+                            console.log(`Updated ${competitor.team.abbreviation} score to ${score.value || score}`);
+                        }
+                    });
+                }
             }
             
             this.processScheduleData(scheduleData);
@@ -225,13 +260,13 @@ class PackersTracker {
                     competitor.score?.value || 
                     competitor.score?.displayValue ||
                     competitor.score || 
-                    competitor.points ||
                     0
                 );
                 isHome = competitor.homeAway === 'home';
                 if (isLive) {
                     console.log('Packers competitor full object:', competitor);
                     console.log('Packers score found:', packersScore);
+                    console.log('Packers score object:', competitor.score);
                 }
             } else {
                 // Try multiple ways to get the score
@@ -239,13 +274,13 @@ class PackersTracker {
                     competitor.score?.value || 
                     competitor.score?.displayValue ||
                     competitor.score || 
-                    competitor.points ||
                     0
                 );
                 opponent = competitor.team.displayName;
                 if (isLive) {
                     console.log('Opponent competitor full object:', competitor);
                     console.log('Opponent score found:', opponentScore);
+                    console.log('Opponent score object:', competitor.score);
                 }
             }
         });
