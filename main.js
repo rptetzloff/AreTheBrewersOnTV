@@ -123,7 +123,7 @@ class PackersTracker {
         // Check for live game
         const liveGame = sortedEvents.find(event => {
             const status = event.competitions?.[0]?.status?.type?.name;
-            return status === 'STATUS_IN_PROGRESS' || status === 'STATUS_HALFTIME';
+            return status === 'STATUS_IN_PROGRESS' || status === 'STATUS_HALFTIME' || status === 'STATUS_DELAYED';
         });
         
         scheduleGrid.innerHTML = '';
@@ -169,6 +169,7 @@ class PackersTracker {
         const isLive = liveGame && event.id === liveGame.id;
         const isNext = nextGame && event.id === nextGame.id && !isLive;
         const isCompleted = status.type.name === 'STATUS_FINAL';
+        const isInProgress = status.type.name === 'STATUS_IN_PROGRESS' || status.type.name === 'STATUS_HALFTIME';
         
         if (isLive) {
             gameItem.classList.add('live');
@@ -196,6 +197,8 @@ class PackersTracker {
         
         if (isLive) {
             dateDiv.innerHTML = `<span class="live-indicator-small"></span>LIVE NOW`;
+        } else if (isInProgress) {
+            dateDiv.innerHTML = `<span class="live-indicator-small"></span>LIVE NOW`;
         } else {
             dateDiv.textContent = date.toLocaleDateString('en-US', {
                 weekday: 'short',
@@ -221,11 +224,11 @@ class PackersTracker {
         const gameResult = document.createElement('div');
         gameResult.className = 'game-result';
         
-        if (isCompleted || isLive) {
+        if (isCompleted || isLive || isInProgress) {
             const scoreDiv = document.createElement('div');
             scoreDiv.className = 'game-score';
             
-            if (isLive) {
+            if (isLive || isInProgress) {
                 scoreDiv.classList.add('live');
             } else if (packersScore > opponentScore) {
                 scoreDiv.classList.add('win');
@@ -236,7 +239,7 @@ class PackersTracker {
             scoreDiv.textContent = `${packersScore}-${opponentScore}`;
             gameResult.appendChild(scoreDiv);
             
-            if (isLive) {
+            if (isLive || isInProgress) {
                 const statusDiv = document.createElement('div');
                 statusDiv.className = 'game-status';
                 const period = status.period || 1;
