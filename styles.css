@@ -346,6 +346,7 @@ h1 {
     
     .game-result {
         text-align: right;
+        align-self: flex-end;
         min-width: auto;
     }
     
