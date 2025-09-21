@@ -412,6 +412,13 @@ class PackersTracker {
             const gameTime = gameDate.getTime();
             const timeLeft = gameTime - now;
             
+            console.log('Countdown update:', {
+                now: new Date(now),
+                gameTime: new Date(gameTime),
+                timeLeft,
+                timeLeftHours: timeLeft / (1000 * 60 * 60)
+            });
+            
             if (timeLeft <= 0) {
                 countdownEl.textContent = '🏈 Game Time!';
                 clearInterval(this.countdownInterval);
@@ -433,11 +440,12 @@ class PackersTracker {
                 countdownText += `${minutes}m`;
             }
             
+            console.log('Setting countdown text:', countdownText);
             countdownEl.textContent = countdownText;
         };
         
         updateCountdown();
-        this.countdownInterval = setInterval(updateCountdown, 30000); // Update every 30 seconds
+        this.countdownInterval = setInterval(updateCountdown, 60000); // Update every minute
     }
 
     startLiveUpdates() {
