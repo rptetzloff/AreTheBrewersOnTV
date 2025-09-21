@@ -41,14 +41,18 @@ class PackersTracker {
         try {
             // Try multiple ESPN APIs for live scores
             const gameId = liveGame.id;
+            console.log('Live game detected:', gameId);
             
             // Try the scoreboard API first
             const scoreboardUrl = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard`;
             const response = await fetch(scoreboardUrl);
             const scoreboardData = await response.json();
+            console.log('Scoreboard data:', scoreboardData);
             
             // Find the current game in scoreboard data
             const currentGame = scoreboardData.events?.find(event => event.id === gameId);
+            console.log('Current game from scoreboard:', currentGame);
+            
             if (currentGame && currentGame.competitions?.[0]?.competitors) {
                 // Update the live game with scoreboard data
                 currentGame.competitions[0].competitors.forEach(competitor => {
@@ -64,6 +68,7 @@ class PackersTracker {
                 
                 // Try to get last play information
                 if (currentGame.competitions?.[0]?.situation) {
+                    console.log('Situation data:', currentGame.competitions[0].situation);
                     liveGame.lastPlay = currentGame.competitions[0].situation;
                 }
             } else {
@@ -71,6 +76,7 @@ class PackersTracker {
                 const boxscoreUrl = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${gameId}`;
                 const boxResponse = await fetch(boxscoreUrl);
                 const boxscoreData = await boxResponse.json();
+                console.log('Boxscore data:', boxscoreData);
                 
                 // Try to extract scores from boxscore
                 if (boxscoreData.header?.competitions?.[0]?.competitors) {
@@ -89,6 +95,7 @@ class PackersTracker {
                 // Try to get last play from boxscore
                 if (boxscoreData.drives?.current?.plays?.length > 0) {
                     const lastPlay = boxscoreData.drives.current.plays[boxscoreData.drives.current.plays.length - 1];
+                    console.log('Last play from drives:', lastPlay);
                     liveGame.lastPlay = {
                         lastPlay: lastPlay.text || lastPlay.description,
                         down: boxscoreData.situation?.down,
@@ -97,6 +104,7 @@ class PackersTracker {
                         possession: boxscoreData.situation?.possession
                     };
                 } else if (boxscoreData.situation) {
+                    console.log('Situation from boxscore:', boxscoreData.situation);
                     liveGame.lastPlay = boxscoreData.situation;
                 }
             }
@@ -329,6 +337,7 @@ class PackersTracker {
             
             // Add last play information if available
             if (event.lastPlay) {
+                console.log('Processing last play data:', event.lastPlay);
                 const lastPlayDiv = document.createElement('div');
                 lastPlayDiv.className = 'last-play';
                 
@@ -346,15 +355,20 @@ class PackersTracker {
                 // Add last play description
                 if (event.lastPlay.lastPlay) {
                     playText += event.lastPlay.lastPlay;
+                    console.log('Using lastPlay field:', event.lastPlay.lastPlay);
                 } else if (typeof event.lastPlay === 'string') {
                     playText += event.lastPlay;
+                    console.log('Using string lastPlay:', event.lastPlay);
                 } else if (event.lastPlay.text) {
                     playText += event.lastPlay.text;
+                    console.log('Using text field:', event.lastPlay.text);
                 } else if (event.lastPlay.description) {
                     playText += event.lastPlay.description;
+                    console.log('Using description field:', event.lastPlay.description);
                 } else {
                     // If we can't find readable text, don't show the play description
                     playText = playText.replace(/\n$/, ''); // Remove trailing newline if no description
+                    console.log('No readable play description found, available fields:', Object.keys(event.lastPlay));
                 }
                 
                 if (playText.trim()) {
