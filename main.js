@@ -274,9 +274,18 @@ class PackersTracker {
             const gameItems = scheduleGrid.children;
             if (gameItems[mostRecentCompletedIndex]) {
                 console.log('Scrolling to game item:', gameItems[mostRecentCompletedIndex]);
-                gameItems[mostRecentCompletedIndex].scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'center'
+                // Calculate the position to scroll to within the schedule grid
+                const gameItem = gameItems[mostRecentCompletedIndex];
+                const containerHeight = scheduleGrid.clientHeight;
+                const itemHeight = gameItem.offsetHeight;
+                const itemTop = gameItem.offsetTop;
+                
+                // Center the item in the container
+                const scrollTop = itemTop - (containerHeight / 2) + (itemHeight / 2);
+                
+                scheduleGrid.scrollTo({
+                    top: Math.max(0, scrollTop),
+                    behavior: 'smooth'
                 });
             }
         }
