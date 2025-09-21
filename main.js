@@ -383,6 +383,10 @@ class PackersTracker {
             
             scoreDiv.textContent = `${packersScore}-${opponentScore}`;
             gameResult.appendChild(scoreDiv);
+        
+        return gameItem;
+        }
+    }
     startLiveUpdates() {
         
         // Clear any existing intervals
