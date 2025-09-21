@@ -69,7 +69,12 @@ class PackersTracker {
                 // Try to get last play information
                 if (currentGame.competitions?.[0]?.situation) {
                     console.log('Situation data:', currentGame.competitions[0].situation);
-                    liveGame.lastPlay = currentGame.competitions[0].situation;
+                    const situation = currentGame.competitions[0].situation;
+                    liveGame.lastPlay = {
+                        downDistanceText: situation.downDistanceText,
+                        drive: situation.lastPlay?.drive,
+                        text: situation.lastPlay?.text
+                    };
                 }
             } else {
                 // Fallback to boxscore API
@@ -97,15 +102,17 @@ class PackersTracker {
                     const lastPlay = boxscoreData.drives.current.plays[boxscoreData.drives.current.plays.length - 1];
                     console.log('Last play from drives:', lastPlay);
                     liveGame.lastPlay = {
-                        lastPlay: lastPlay.text || lastPlay.description,
-                        down: boxscoreData.situation?.down,
-                        distance: boxscoreData.situation?.distance,
-                        yardLine: boxscoreData.situation?.yardLine,
-                        possession: boxscoreData.situation?.possession
+                        downDistanceText: boxscoreData.situation?.downDistanceText,
+                        drive: { description: boxscoreData.drives?.current?.description },
+                        text: lastPlay.text || lastPlay.description
                     };
                 } else if (boxscoreData.situation) {
                     console.log('Situation from boxscore:', boxscoreData.situation);
-                    liveGame.lastPlay = boxscoreData.situation;
+                    liveGame.lastPlay = {
+                        downDistanceText: boxscoreData.situation.downDistanceText,
+                        drive: boxscoreData.situation.lastPlay?.drive,
+                        text: boxscoreData.situation.lastPlay?.text
+                    };
                 }
             }
             
@@ -343,32 +350,20 @@ class PackersTracker {
                 
                 let playText = '';
                 
-                // Format down and distance info
-                if (event.lastPlay.down && event.lastPlay.distance) {
-                    playText += `${this.getOrdinal(event.lastPlay.down)} & ${event.lastPlay.distance}`;
-                    if (event.lastPlay.yardLine) {
-                        playText += ` at ${event.lastPlay.yardLine}`;
-                    }
+                // Add down and distance
+                if (event.lastPlay.downDistanceText) {
+                    playText += event.lastPlay.downDistanceText;
                     playText += '\n';
                 }
                 
-                // Add last play description
-                if (event.lastPlay.lastPlay) {
-                    playText += event.lastPlay.lastPlay;
-                    console.log('Using lastPlay field:', event.lastPlay.lastPlay);
-                } else if (typeof event.lastPlay === 'string') {
-                    playText += event.lastPlay;
-                    console.log('Using string lastPlay:', event.lastPlay);
-                } else if (event.lastPlay.text) {
+                // Add current drive description
+                if (event.lastPlay.drive?.description) {
+                    playText += `Drive: ${event.lastPlay.drive.description}\n`;
+                }
+                
+                // Add last play text
+                if (event.lastPlay.text) {
                     playText += event.lastPlay.text;
-                    console.log('Using text field:', event.lastPlay.text);
-                } else if (event.lastPlay.description) {
-                    playText += event.lastPlay.description;
-                    console.log('Using description field:', event.lastPlay.description);
-                } else {
-                    // If we can't find readable text, don't show the play description
-                    playText = playText.replace(/\n$/, ''); // Remove trailing newline if no description
-                    console.log('No readable play description found, available fields:', Object.keys(event.lastPlay));
                 }
                 
                 if (playText.trim()) {
@@ -444,11 +439,6 @@ class PackersTracker {
         }
             
         return gameItem;
-    }
-    
-    getOrdinal(num) {
-        const ordinals = ['', '1st', '2nd', '3rd', '4th'];
-        return ordinals[num] || `${num}th`;
     }
     startLiveUpdates() {
         
