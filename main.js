@@ -236,9 +236,41 @@ class PackersTracker {
             scheduleGrid.appendChild(gameItem);
         });
         
+        // Auto-scroll to the most recent completed game
+        this.autoScrollToRecentGame(scheduleGrid, sortedEvents, now);
+        
         // Start live updates if there's a live game
         if (liveGame) {
             this.startLiveUpdates();
+        }
+    }
+    
+    autoScrollToRecentGame(scheduleGrid, sortedEvents, now) {
+        // Find the most recent completed game
+        let mostRecentCompletedIndex = -1;
+        
+        for (let i = sortedEvents.length - 1; i >= 0; i--) {
+            const event = sortedEvents[i];
+            const gameDate = new Date(event.date);
+            const status = event.competitions?.[0]?.status?.type?.name;
+            
+            if (gameDate <= now && status === 'STATUS_FINAL') {
+                mostRecentCompletedIndex = i;
+                break;
+            }
+        }
+        
+        // If we found a recent completed game, scroll to it
+        if (mostRecentCompletedIndex >= 0) {
+            setTimeout(() => {
+                const gameItems = scheduleGrid.children;
+                if (gameItems[mostRecentCompletedIndex]) {
+                    gameItems[mostRecentCompletedIndex].scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'center'
+                    });
+                }
+            }, 100); // Small delay to ensure DOM is fully rendered
         }
     }
     
