@@ -400,59 +400,56 @@ class PackersTracker {
         }
         
         const gameDate = new Date(nextGame.date);
+        console.log('Starting countdown for game date:', gameDate);
         
-        // Wait a bit for the DOM to be updated, then find the countdown element
-        setTimeout(() => {
+        const updateCountdown = () => {
             const countdownEl = document.getElementById(`countdown-${nextGame.id}`);
             
             if (!countdownEl) {
                 console.log('Countdown element not found for game:', nextGame.id);
-                console.log('Available elements:', document.querySelectorAll('[id^="countdown-"]'));
                 return;
             }
             
-            console.log('Found countdown element:', countdownEl);
+            const now = new Date().getTime();
+            const gameTime = gameDate.getTime();
+            const timeLeft = gameTime - now;
             
-            const updateCountdown = () => {
-                const now = new Date().getTime();
-                const gameTime = gameDate.getTime();
-                const timeLeft = gameTime - now;
-                
-                console.log('Countdown update:', {
-                    now: new Date(now),
-                    gameTime: new Date(gameTime),
-                    timeLeft,
-                    timeLeftHours: timeLeft / (1000 * 60 * 60)
-                });
-                
-                if (timeLeft <= 0) {
-                    countdownEl.textContent = '🏈 Game Time!';
-                    clearInterval(this.countdownInterval);
-                    return;
-                }
-                
-                const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
-                const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
-                const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
-                
-                let countdownText = '⏰ ';
-                
-                if (days > 0) {
-                    countdownText += `${days}d ${hours}h ${minutes}m`;
-                } else if (hours > 0) {
-                    countdownText += `${hours}h ${minutes}m`;
-                } else {
-                    countdownText += `${minutes}m`;
-                }
-                
-                console.log('Setting countdown text:', countdownText);
-                countdownEl.textContent = countdownText;
-            };
+            console.log('Countdown update:', {
+                now: new Date(now),
+                gameTime: new Date(gameTime),
+                timeLeft,
+                timeLeftHours: timeLeft / (1000 * 60 * 60)
+            });
             
+            if (timeLeft <= 0) {
+                countdownEl.textContent = '🏈 Game Time!';
+                clearInterval(this.countdownInterval);
+                return;
+            }
+            
+            const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+            
+            let countdownText = '⏰ ';
+            
+            if (days > 0) {
+                countdownText += `${days}d ${hours}h ${minutes}m`;
+            } else if (hours > 0) {
+                countdownText += `${hours}h ${minutes}m`;
+            } else {
+                countdownText += `${minutes}m`;
+            }
+            
+            console.log('Setting countdown text:', countdownText);
+            countdownEl.textContent = countdownText;
+        };
+        
+        // Initial update with a small delay to ensure DOM is ready
+        setTimeout(() => {
             updateCountdown();
-            this.countdownInterval = setInterval(updateCountdown, 30000); // Update every 30 seconds
-        }, 100); // Wait 100ms for DOM to update
+            this.countdownInterval = setInterval(updateCountdown, 30000);
+        }, 200);
     }
 
     startLiveUpdates() {
