@@ -72,6 +72,7 @@ class PackersTracker {
                     const situation = currentGame.competitions[0].situation;
                     liveGame.lastPlay = {
                         downDistanceText: situation.downDistanceText,
+                        possession: situation.possession,
                         drive: situation.lastPlay?.drive,
                         text: situation.lastPlay?.text
                     };
@@ -103,6 +104,7 @@ class PackersTracker {
                     console.log('Last play from drives:', lastPlay);
                     liveGame.lastPlay = {
                         downDistanceText: boxscoreData.situation?.downDistanceText,
+                        possession: boxscoreData.situation?.possession,
                         drive: { description: boxscoreData.drives?.current?.description },
                         text: lastPlay.text || lastPlay.description
                     };
@@ -110,6 +112,7 @@ class PackersTracker {
                     console.log('Situation from boxscore:', boxscoreData.situation);
                     liveGame.lastPlay = {
                         downDistanceText: boxscoreData.situation.downDistanceText,
+                        possession: boxscoreData.situation.possession,
                         drive: boxscoreData.situation.lastPlay?.drive,
                         text: boxscoreData.situation.lastPlay?.text
                     };
@@ -349,6 +352,15 @@ class PackersTracker {
                 lastPlayDiv.className = 'last-play';
                 
                 let playText = '';
+                
+                // Add possession information
+                if (event.lastPlay.possession) {
+                    const possessionTeamId = event.lastPlay.possession;
+                    // Find the team name from competitors
+                    const possessionTeam = competitors.find(comp => comp.team.id == possessionTeamId);
+                    const teamName = possessionTeam ? possessionTeam.team.abbreviation : possessionTeamId;
+                    playText += `${teamName} Ball\n`;
+                }
                 
                 // Add down and distance
                 if (event.lastPlay.downDistanceText) {
