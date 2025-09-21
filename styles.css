@@ -198,7 +198,7 @@ h1 {
 .schedule-section {
     background: rgba(32, 55, 49, 0.8);
     margin: 0.25rem 0;
-    min-width: 600px;
+    min-width: 550px;
     padding: 1.5rem;
     backdrop-filter: blur(10px);
     border: 2px solid #ffb612;
