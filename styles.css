@@ -164,17 +164,8 @@ h1 {
     font-size: 1.2rem;
 }
 
-.share-buttons {
-    display: flex;
-    gap: 1rem;
-    justify-content: center;
-    width: 100%;
-    max-width: 360px;
-    margin: 0 auto;
-}
-
 .share-btn {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     gap: 0.5rem;
     padding: 0.8rem 1.5rem;
@@ -188,9 +179,6 @@ h1 {
     color: white;
     background: #28a745;
     justify-content: center;
-    width: 160px;
-    flex-shrink: 0;
-    white-space: nowrap;
 }
 
 .share-btn:hover {
@@ -204,18 +192,6 @@ h1 {
 }
 
 .copy-success {
-    background: #20c997 !important;
-}
-
-.screenshot-btn {
-    background: #6f42c1 !important;
-}
-
-.screenshot-btn:hover {
-    background: #5a32a3 !important;
-}
-
-.screenshot-success {
     background: #20c997 !important;
 }
 
