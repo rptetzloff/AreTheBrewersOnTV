@@ -330,34 +330,32 @@ class PackersTracker {
         
         gameItem.appendChild(gameInfo);
         
-        if (isCompleted || isLive || isInProgress) {
+        if (isCompleted) {
             const scoreDiv = document.createElement('div');
             scoreDiv.className = 'game-score';
             
-            if (isLive || isInProgress) {
-                scoreDiv.classList.add('live');
-            } else if (packersScore > opponentScore) {
+            if (packersScore > opponentScore) {
                 scoreDiv.classList.add('win');
             } else if (packersScore < opponentScore) {
                 scoreDiv.classList.add('loss');
             }
             
             scoreDiv.textContent = `${packersScore}-${opponentScore}`;
-            
-            // For live games, add score to the bottom and center it
-            if (isLive || isInProgress) {
-                scoreDiv.style.textAlign = 'center';
-                scoreDiv.style.marginTop = '0.5rem';
-                scoreDiv.style.width = '100%';
-                gameItem.appendChild(scoreDiv);
-            } else {
-                gameResult.appendChild(scoreDiv);
-                gameItem.appendChild(gameResult);
-            }
-        } else {
-            gameItem.appendChild(gameResult);
+            scoreDiv.style.textAlign = 'center';
+            scoreDiv.style.marginTop = '0.5rem';
+            scoreDiv.style.width = '100%';
+            gameItem.appendChild(scoreDiv);
+        } else if (isLive || isInProgress) {
+            const scoreDiv = document.createElement('div');
+            scoreDiv.className = 'game-score';
+            scoreDiv.classList.add('live');
+            scoreDiv.textContent = `${packersScore}-${opponentScore}`;
+            scoreDiv.style.textAlign = 'center';
+            scoreDiv.style.marginTop = '0.5rem';
+            scoreDiv.style.width = '100%';
+            gameItem.appendChild(scoreDiv);
         }
-        
+            
         return gameItem;
     }
     startLiveUpdates() {
