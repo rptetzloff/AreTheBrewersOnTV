@@ -355,8 +355,11 @@ class PackersTracker {
                 
                 // Add possession information
                 if (event.lastPlay.possession) {
-                    const possessionTeam = event.lastPlay.possession;
-                    playText += `${possessionTeam} Ball\n`;
+                    const possessionTeamId = event.lastPlay.possession;
+                    // Find the team name from competitors
+                    const possessionTeam = competitors.find(comp => comp.team.id == possessionTeamId);
+                    const teamName = possessionTeam ? possessionTeam.team.abbreviation : possessionTeamId;
+                    playText += `${teamName} Ball\n`;
                 }
                 
                 // Add down and distance
