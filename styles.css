@@ -332,6 +332,12 @@ h1 {
     white-space: pre-line;
     line-height: 1.3;
     border-left: 2px solid #ffb612;
+    font-family: 'Courier New', monospace;
+}
+
+.last-play strong {
+    color: #ffb612;
+    font-weight: bold;
 }
 
 @media (max-width: 600px) {

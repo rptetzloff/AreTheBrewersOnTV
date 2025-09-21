@@ -381,7 +381,7 @@ class PackersTracker {
                 
                 // Add last play text
                 if (event.lastPlay.text) {
-                    playText += event.lastPlay.text;
+                    playText += `\nLast Play:\n${event.lastPlay.text}`;
                 }
                 
                 if (playText.trim()) {
