@@ -370,7 +370,13 @@ class PackersTracker {
                 
                 // Add current drive description
                 if (event.lastPlay.drive?.description) {
-                    playText += `Drive: ${event.lastPlay.drive.description}\n`;
+                    // Try to determine whose drive it is
+                    let driveTeam = '';
+                    if (event.lastPlay.drive.team) {
+                        const driveTeamData = competitors.find(comp => comp.team.id == event.lastPlay.drive.team);
+                        driveTeam = driveTeamData ? `${driveTeamData.team.abbreviation} ` : '';
+                    }
+                    playText += `${driveTeam}Drive: ${event.lastPlay.drive.description}\n`;
                 }
                 
                 // Add last play text
