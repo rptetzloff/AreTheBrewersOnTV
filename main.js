@@ -16,9 +16,95 @@ class PackersTracker {
     }
 
     async fetchPackersData() {
-        const response = await fetch(this.apiUrl);
-        const data = await response.json();
-        this.processScheduleData(data);
+        try {
+            const response = await fetch(this.apiUrl);
+            const data = await response.json();
+            
+            // Check for live games and fetch their scores separately
+            const events = data.events || [];
+            const liveGame = events.find(event => {
+                const status = event.competitions?.[0]?.status?.type?.name;
+                return status === 'STATUS_IN_PROGRESS' || status === 'STATUS_HALFTIME' || status === 'STATUS_DELAYED';
+            });
+            
+            if (liveGame) {
+                console.log('Found live game, fetching detailed score...');
+                await this.fetchLiveGameScore(liveGame, data);
+            } else {
+                this.processScheduleData(data);
+            }
+        } catch (error) {
+            console.error('Error fetching data:', error);
+            this.processScheduleData({ events: [] });
+        }
+    }
+    
+    async fetchLiveGameScore(liveGame, scheduleData) {
+        try {
+            // Try multiple ESPN APIs for live scores
+            const gameId = liveGame.id;
+            console.log('Trying to fetch live score for game ID:', gameId);
+            
+            // Try the scoreboard API first
+            const scoreboardUrl = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard`;
+            const response = await fetch(scoreboardUrl);
+            const scoreboardData = await response.json();
+            
+            console.log('Scoreboard data:', scoreboardData);
+            
+            // Find the current game in scoreboard data
+            const currentGame = scoreboardData.events?.find(event => event.id === gameId);
+            if (currentGame && currentGame.competitions?.[0]?.competitors) {
+                console.log('Found current game in scoreboard:', currentGame);
+                
+                // Update the live game with scoreboard data
+                currentGame.competitions[0].competitors.forEach(competitor => {
+                    const teamId = competitor.team.id;
+                    const score = competitor.score;
+                    
+                    console.log(`Team ${competitor.team.abbreviation} score:`, score);
+                    
+                    // Find corresponding competitor in schedule data
+                    const scheduleCompetitor = liveGame.competitions[0].competitors.find(comp => comp.team.id === teamId);
+                    if (scheduleCompetitor && score) {
+                        scheduleCompetitor.score = score;
+                        console.log(`Updated ${competitor.team.abbreviation} score to ${score.value || score}`);
+                    }
+                });
+            } else {
+                console.log('Game not found in scoreboard data, trying boxscore API...');
+                
+                // Fallback to boxscore API
+                const boxscoreUrl = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${gameId}`;
+                const boxResponse = await fetch(boxscoreUrl);
+                const boxscoreData = await boxResponse.json();
+                
+                console.log('Boxscore data:', boxscoreData);
+                
+                // Try to extract scores from boxscore
+                if (boxscoreData.header?.competitions?.[0]?.competitors) {
+                    boxscoreData.header.competitions[0].competitors.forEach(competitor => {
+                        const teamId = competitor.team.id;
+                        const score = competitor.score;
+                        
+                        console.log(`Boxscore team ${competitor.team.abbreviation} score:`, score);
+                        
+                        // Find corresponding competitor in schedule data
+                        const scheduleCompetitor = liveGame.competitions[0].competitors.find(comp => comp.team.id === teamId);
+                        if (scheduleCompetitor && score) {
+                            scheduleCompetitor.score = score;
+                            console.log(`Updated ${competitor.team.abbreviation} score to ${score.value || score}`);
+                        }
+                    });
+                }
+            }
+            
+            this.processScheduleData(scheduleData);
+        } catch (error) {
+            console.error('Error fetching live score:', error);
+            // Fallback to schedule data without live scores
+            this.processScheduleData(scheduleData);
+        }
     }
 
     processScheduleData(data) {
@@ -123,7 +209,7 @@ class PackersTracker {
         // Check for live game
         const liveGame = sortedEvents.find(event => {
             const status = event.competitions?.[0]?.status?.type?.name;
-            return status === 'STATUS_IN_PROGRESS' || status === 'STATUS_HALFTIME';
+            return status === 'STATUS_IN_PROGRESS' || status === 'STATUS_HALFTIME' || status === 'STATUS_DELAYED';
         });
         
         scheduleGrid.innerHTML = '';
@@ -147,6 +233,21 @@ class PackersTracker {
         const status = competition.status;
         const date = new Date(event.date);
         
+        // Debug live game data structure
+        const isLive = liveGame && event.id === liveGame.id;
+        if (isLive) {
+            console.log('=== LIVE GAME DEBUG ===');
+            console.log('Full event object:', event);
+            console.log('Competition object:', competition);
+            console.log('Status object:', status);
+            console.log('Competitors array:', competitors);
+            competitors.forEach((comp, index) => {
+                console.log(`Competitor ${index}:`, comp);
+                console.log(`Team:`, comp.team);
+                console.log(`All properties:`, Object.keys(comp));
+            });
+        }
+        
         let packersScore = 0;
         let opponentScore = 0;
         let opponent = '';
@@ -154,11 +255,33 @@ class PackersTracker {
         
         competitors.forEach(competitor => {
             if (competitor.team.abbreviation === 'GB') {
-                packersScore = parseInt(competitor.score?.value) || 0;
+                // Try multiple ways to get the score
+                packersScore = parseInt(
+                    competitor.score?.value || 
+                    competitor.score?.displayValue ||
+                    competitor.score || 
+                    0
+                );
                 isHome = competitor.homeAway === 'home';
+                if (isLive) {
+                    console.log('Packers competitor full object:', competitor);
+                    console.log('Packers score found:', packersScore);
+                    console.log('Packers score object:', competitor.score);
+                }
             } else {
-                opponentScore = parseInt(competitor.score?.value) || 0;
+                // Try multiple ways to get the score
+                opponentScore = parseInt(
+                    competitor.score?.value || 
+                    competitor.score?.displayValue ||
+                    competitor.score || 
+                    0
+                );
                 opponent = competitor.team.displayName;
+                if (isLive) {
+                    console.log('Opponent competitor full object:', competitor);
+                    console.log('Opponent score found:', opponentScore);
+                    console.log('Opponent score object:', competitor.score);
+                }
             }
         });
         
@@ -166,9 +289,9 @@ class PackersTracker {
         gameItem.className = 'game-item';
         
         // Determine game status and styling
-        const isLive = liveGame && event.id === liveGame.id;
         const isNext = nextGame && event.id === nextGame.id && !isLive;
         const isCompleted = status.type.name === 'STATUS_FINAL';
+        const isInProgress = status.type.name === 'STATUS_IN_PROGRESS' || status.type.name === 'STATUS_HALFTIME';
         
         if (isLive) {
             gameItem.classList.add('live');
@@ -196,6 +319,8 @@ class PackersTracker {
         
         if (isLive) {
             dateDiv.innerHTML = `<span class="live-indicator-small"></span>LIVE NOW`;
+        } else if (isInProgress) {
+            dateDiv.innerHTML = `<span class="live-indicator-small"></span>LIVE NOW`;
         } else {
             dateDiv.textContent = date.toLocaleDateString('en-US', {
                 weekday: 'short',
@@ -221,11 +346,11 @@ class PackersTracker {
         const gameResult = document.createElement('div');
         gameResult.className = 'game-result';
         
-        if (isCompleted || isLive) {
+        if (isCompleted || isLive || isInProgress) {
             const scoreDiv = document.createElement('div');
             scoreDiv.className = 'game-score';
             
-            if (isLive) {
+            if (isLive || isInProgress) {
                 scoreDiv.classList.add('live');
             } else if (packersScore > opponentScore) {
                 scoreDiv.classList.add('win');
@@ -236,7 +361,7 @@ class PackersTracker {
             scoreDiv.textContent = `${packersScore}-${opponentScore}`;
             gameResult.appendChild(scoreDiv);
             
-            if (isLive) {
+            if (isLive || isInProgress) {
                 const statusDiv = document.createElement('div');
                 statusDiv.className = 'game-status';
                 const period = status.period || 1;
