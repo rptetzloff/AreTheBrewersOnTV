@@ -400,55 +400,63 @@ class PackersTracker {
         }
         
         const gameDate = new Date(nextGame.date);
-        const countdownEl = document.getElementById(`countdown-${nextGame.id}`);
         
-        if (!countdownEl) {
-            console.log('Countdown element not found for game:', nextGame.id);
-            return;
-        }
-        
-        const updateCountdown = () => {
-            const now = new Date().getTime();
-            const gameTime = gameDate.getTime();
-            const timeLeft = gameTime - now;
+        // Wait a bit for the DOM to be updated, then find the countdown element
+        setTimeout(() => {
+            const countdownEl = document.getElementById(`countdown-${nextGame.id}`);
             
-            console.log('Countdown update:', {
-                now: new Date(now),
-                gameTime: new Date(gameTime),
-                timeLeft,
-                timeLeftHours: timeLeft / (1000 * 60 * 60)
-            });
-            
-            if (timeLeft <= 0) {
-                countdownEl.textContent = '🏈 Game Time!';
-                clearInterval(this.countdownInterval);
+            if (!countdownEl) {
+                console.log('Countdown element not found for game:', nextGame.id);
+                console.log('Available elements:', document.querySelectorAll('[id^="countdown-"]'));
                 return;
             }
             
-            const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
-            const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-            const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
-            const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+            console.log('Found countdown element:', countdownEl);
             
-            let countdownText = '⏰ ';
+            const updateCountdown = () => {
+                const now = new Date().getTime();
+                const gameTime = gameDate.getTime();
+                const timeLeft = gameTime - now;
+                
+                console.log('Countdown update:', {
+                    now: new Date(now),
+                    gameTime: new Date(gameTime),
+                    timeLeft,
+                    timeLeftHours: timeLeft / (1000 * 60 * 60)
+                });
+                
+                if (timeLeft <= 0) {
+                    countdownEl.textContent = '🏈 Game Time!';
+                    clearInterval(this.countdownInterval);
+                    return;
+                }
+                
+                const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+                
+                let countdownText = '⏰ ';
+                
+                if (days > 0) {
+                    countdownText += `${days}d ${hours}h ${minutes}m`;
+                } else if (hours > 0) {
+                    countdownText += `${hours}h ${minutes}m`;
+                } else {
+                    countdownText += `${minutes}m`;
+                }
+                
+                console.log('Setting countdown text:', countdownText);
+                countdownEl.textContent = countdownText;
+            };
             
-            if (days > 0) {
-                countdownText += `${days}d ${hours}h ${minutes}m`;
-            } else if (hours > 0) {
-                countdownText += `${hours}h ${minutes}m`;
-            } else {
-                countdownText += `${minutes}m`;
-            }
-            
-            console.log('Setting countdown text:', countdownText);
-            countdownEl.textContent = countdownText;
-        };
-        
-        updateCountdown();
-        this.countdownInterval = setInterval(updateCountdown, 60000); // Update every minute
+            updateCountdown();
+            this.countdownInterval = setInterval(updateCountdown, 30000); // Update every 30 seconds
+        }, 100); // Wait 100ms for DOM to update
     }
 
     startLiveUpdates() {
+        
         // Clear any existing intervals
         if (this.liveUpdateInterval) {
             clearInterval(this.liveUpdateInterval);
