@@ -334,9 +334,6 @@ class PackersTracker {
         gameInfo.appendChild(opponentDiv);
         gameInfo.appendChild(dateDiv);
         
-        gameItem.appendChild(gameInfo);
-        gameItem.appendChild(gameResult);
-        
         // Add countdown for next game
         if (isNext) {
             const countdownDiv = document.createElement('div');
@@ -371,6 +368,9 @@ class PackersTracker {
         // Create game result
         const gameResult = document.createElement('div');
         gameResult.className = 'game-result';
+        
+        gameItem.appendChild(gameInfo);
+        gameItem.appendChild(gameResult);
         
         if (isCompleted || isLive || isInProgress) {
             const scoreDiv = document.createElement('div');
