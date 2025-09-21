@@ -223,6 +223,7 @@ class PackersTracker {
         if (liveGame) {
             this.startLiveUpdates();
         } else if (nextGame) {
+            console.log('Starting countdown for next game:', nextGame.name);
             this.startCountdownUpdates(nextGame);
         }
     }
@@ -293,6 +294,8 @@ class PackersTracker {
         const isCompleted = status.type.name === 'STATUS_FINAL';
         const isInProgress = status.type.name === 'STATUS_IN_PROGRESS' || status.type.name === 'STATUS_HALFTIME';
         
+        console.log(`Game ${opponent}: isNext=${isNext}, isLive=${isLive}, isCompleted=${isCompleted}, status=${status.type.name}`);
+        
         if (isLive) {
             gameItem.classList.add('live');
         } else if (isNext) {
@@ -336,9 +339,11 @@ class PackersTracker {
         
         // Add countdown for next game
         if (isNext) {
+            console.log('Adding countdown for next game:', event.id);
             const countdownDiv = document.createElement('div');
             countdownDiv.className = 'countdown-small';
             countdownDiv.id = `countdown-${event.id}`;
+            countdownDiv.textContent = '⏰ Calculating...';
             gameInfo.appendChild(countdownDiv);
         }
         
@@ -397,7 +402,10 @@ class PackersTracker {
         const gameDate = new Date(nextGame.date);
         const countdownEl = document.getElementById(`countdown-${nextGame.id}`);
         
-        if (!countdownEl) return;
+        if (!countdownEl) {
+            console.log('Countdown element not found for game:', nextGame.id);
+            return;
+        }
         
         const updateCountdown = () => {
             const now = new Date().getTime();
@@ -429,7 +437,7 @@ class PackersTracker {
         };
         
         updateCountdown();
-        this.countdownInterval = setInterval(updateCountdown, 60000); // Update every minute
+        this.countdownInterval = setInterval(updateCountdown, 30000); // Update every 30 seconds
     }
 
     startLiveUpdates() {
