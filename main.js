@@ -41,17 +41,14 @@ class PackersTracker {
         try {
             // Try multiple ESPN APIs for live scores
             const gameId = liveGame.id;
-            console.log('Live game detected:', gameId);
             
             // Try the scoreboard API first
             const scoreboardUrl = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard`;
             const response = await fetch(scoreboardUrl);
             const scoreboardData = await response.json();
-            console.log('Scoreboard data:', scoreboardData);
             
             // Find the current game in scoreboard data
             const currentGame = scoreboardData.events?.find(event => event.id === gameId);
-            console.log('Current game from scoreboard:', currentGame);
             
             if (currentGame && currentGame.competitions?.[0]?.competitors) {
                 // Update the live game with scoreboard data
@@ -68,7 +65,6 @@ class PackersTracker {
                 
                 // Try to get last play information
                 if (currentGame.competitions?.[0]?.situation) {
-                    console.log('Situation data:', currentGame.competitions[0].situation);
                     const situation = currentGame.competitions[0].situation;
                     liveGame.lastPlay = {
                         downDistanceText: situation.downDistanceText,
@@ -82,7 +78,6 @@ class PackersTracker {
                 const boxscoreUrl = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${gameId}`;
                 const boxResponse = await fetch(boxscoreUrl);
                 const boxscoreData = await boxResponse.json();
-                console.log('Boxscore data:', boxscoreData);
                 
                 // Try to extract scores from boxscore
                 if (boxscoreData.header?.competitions?.[0]?.competitors) {
@@ -101,7 +96,6 @@ class PackersTracker {
                 // Try to get last play from boxscore
                 if (boxscoreData.drives?.current?.plays?.length > 0) {
                     const lastPlay = boxscoreData.drives.current.plays[boxscoreData.drives.current.plays.length - 1];
-                    console.log('Last play from drives:', lastPlay);
                     liveGame.lastPlay = {
                         downDistanceText: boxscoreData.situation?.downDistanceText,
                         possession: boxscoreData.situation?.possession,
@@ -109,7 +103,6 @@ class PackersTracker {
                         text: lastPlay.text || lastPlay.description
                     };
                 } else if (boxscoreData.situation) {
-                    console.log('Situation from boxscore:', boxscoreData.situation);
                     liveGame.lastPlay = {
                         downDistanceText: boxscoreData.situation.downDistanceText,
                         possession: boxscoreData.situation.possession,
@@ -236,9 +229,53 @@ class PackersTracker {
             scheduleGrid.appendChild(gameItem);
         });
         
+        // Auto-scroll to the most recent completed game after DOM is ready
+        setTimeout(() => {
+            this.autoScrollToRecentGame(scheduleGrid, sortedEvents, now);
+        }, 500);
+        
         // Start live updates if there's a live game
         if (liveGame) {
             this.startLiveUpdates();
+        }
+    }
+    
+    autoScrollToRecentGame(scheduleGrid, sortedEvents, now) {
+        // Find the most recent completed game or live game
+        let mostRecentCompletedIndex = -1;
+        
+        for (let i = sortedEvents.length - 1; i >= 0; i--) {
+            const event = sortedEvents[i];
+            const status = event.competitions?.[0]?.status?.type?.name;
+            
+            // Prioritize live games, then most recent completed games
+            if (status === 'STATUS_IN_PROGRESS' || 
+                status === 'STATUS_HALFTIME' || 
+                status === 'STATUS_DELAYED' ||
+                status === 'STATUS_FINAL') {
+                mostRecentCompletedIndex = i;
+                break;
+            }
+        }
+        
+        // If we found a recent game, scroll to it
+        if (mostRecentCompletedIndex >= 0) {
+            const gameItems = scheduleGrid.children;
+            if (gameItems[mostRecentCompletedIndex]) {
+                // Calculate the position to scroll to within the schedule grid
+                const gameItem = gameItems[mostRecentCompletedIndex];
+                const containerHeight = scheduleGrid.clientHeight;
+                const itemHeight = gameItem.offsetHeight;
+                const itemTop = gameItem.offsetTop;
+                
+                // Center the item in the container
+                const scrollTop = itemTop - (containerHeight / 2) + (itemHeight / 2);
+                
+                scheduleGrid.scrollTo({
+                    top: Math.max(0, scrollTop),
+                    behavior: 'smooth'
+                });
+            }
         }
     }
     
@@ -347,7 +384,6 @@ class PackersTracker {
             
             // Add last play information if available
             if (event.lastPlay) {
-                console.log('Processing last play data:', event.lastPlay);
                 const lastPlayDiv = document.createElement('div');
                 lastPlayDiv.className = 'last-play';
                 
