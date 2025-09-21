@@ -355,4 +355,8 @@ h1 {
     .schedule-section h3 {
         margin-bottom: 1.5rem;
     }
+    
+    .schedule-section {
+        min-width: 100%;
+    }
 }
