@@ -16,9 +16,60 @@ class PackersTracker {
     }
 
     async fetchPackersData() {
-        const response = await fetch(this.apiUrl);
-        const data = await response.json();
-        this.processScheduleData(data);
+        try {
+            const response = await fetch(this.apiUrl);
+            const data = await response.json();
+            
+            // Check for live games and fetch their scores separately
+            const events = data.events || [];
+            const liveGame = events.find(event => {
+                const status = event.competitions?.[0]?.status?.type?.name;
+                return status === 'STATUS_IN_PROGRESS' || status === 'STATUS_HALFTIME' || status === 'STATUS_DELAYED';
+            });
+            
+            if (liveGame) {
+                console.log('Found live game, fetching detailed score...');
+                await this.fetchLiveGameScore(liveGame, data);
+            } else {
+                this.processScheduleData(data);
+            }
+        } catch (error) {
+            console.error('Error fetching data:', error);
+            this.processScheduleData({ events: [] });
+        }
+    }
+    
+    async fetchLiveGameScore(liveGame, scheduleData) {
+        try {
+            // Try to get live score from the boxscore API
+            const boxscoreUrl = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${liveGame.id}`;
+            const response = await fetch(boxscoreUrl);
+            const boxscoreData = await response.json();
+            
+            console.log('Boxscore data:', boxscoreData);
+            
+            // Update the live game with boxscore data
+            if (boxscoreData.boxscore?.teams) {
+                const teams = boxscoreData.boxscore.teams;
+                teams.forEach(team => {
+                    const teamId = team.team.id;
+                    const score = team.statistics?.find(stat => stat.name === 'points')?.displayValue || '0';
+                    
+                    // Find corresponding competitor in schedule data
+                    const competitor = liveGame.competitions[0].competitors.find(comp => comp.team.id === teamId);
+                    if (competitor) {
+                        competitor.score = { value: score, displayValue: score };
+                        console.log(`Updated ${team.team.abbreviation} score to ${score}`);
+                    }
+                });
+            }
+            
+            this.processScheduleData(scheduleData);
+        } catch (error) {
+            console.error('Error fetching live score:', error);
+            // Fallback to schedule data without live scores
+            this.processScheduleData(scheduleData);
+        }
     }
 
     processScheduleData(data) {
