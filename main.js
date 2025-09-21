@@ -61,6 +61,11 @@ class PackersTracker {
                         scheduleCompetitor.score = score;
                     }
                 });
+                
+                // Try to get last play information
+                if (currentGame.competitions?.[0]?.situation) {
+                    liveGame.lastPlay = currentGame.competitions[0].situation;
+                }
             } else {
                 // Fallback to boxscore API
                 const boxscoreUrl = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${gameId}`;
@@ -79,6 +84,20 @@ class PackersTracker {
                             scheduleCompetitor.score = score;
                         }
                     });
+                }
+                
+                // Try to get last play from boxscore
+                if (boxscoreData.drives?.current?.plays?.length > 0) {
+                    const lastPlay = boxscoreData.drives.current.plays[boxscoreData.drives.current.plays.length - 1];
+                    liveGame.lastPlay = {
+                        lastPlay: lastPlay.text || lastPlay.description,
+                        down: boxscoreData.situation?.down,
+                        distance: boxscoreData.situation?.distance,
+                        yardLine: boxscoreData.situation?.yardLine,
+                        possession: boxscoreData.situation?.possession
+                    };
+                } else if (boxscoreData.situation) {
+                    liveGame.lastPlay = boxscoreData.situation;
                 }
             }
             
@@ -307,6 +326,35 @@ class PackersTracker {
             statusDiv.textContent = statusText;
             
             gameDetails.appendChild(statusDiv);
+            
+            // Add last play information if available
+            if (event.lastPlay) {
+                const lastPlayDiv = document.createElement('div');
+                lastPlayDiv.className = 'last-play';
+                
+                let playText = '';
+                
+                // Format down and distance info
+                if (event.lastPlay.down && event.lastPlay.distance) {
+                    playText += `${this.getOrdinal(event.lastPlay.down)} & ${event.lastPlay.distance}`;
+                    if (event.lastPlay.yardLine) {
+                        playText += ` at ${event.lastPlay.yardLine}`;
+                    }
+                    playText += '\n';
+                }
+                
+                // Add last play description
+                if (event.lastPlay.lastPlay) {
+                    playText += event.lastPlay.lastPlay;
+                } else if (event.lastPlay.description) {
+                    playText += event.lastPlay.description;
+                }
+                
+                if (playText.trim()) {
+                    lastPlayDiv.textContent = playText.trim();
+                    gameDetails.appendChild(lastPlayDiv);
+                }
+            }
         }
         
         // Add countdown for next game
@@ -375,6 +423,11 @@ class PackersTracker {
         }
             
         return gameItem;
+    }
+    
+    getOrdinal(num) {
+        const ordinals = ['', '1st', '2nd', '3rd', '4th'];
+        return ordinals[num] || `${num}th`;
     }
     startLiveUpdates() {
         
