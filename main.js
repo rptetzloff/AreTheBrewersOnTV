@@ -277,6 +277,17 @@ class PackersTracker {
         gameInfo.appendChild(opponentDiv);
         gameInfo.appendChild(dateDiv);
         
+        // Add time remaining for live games
+        if (isLive || isInProgress) {
+            const statusDiv = document.createElement('div');
+            statusDiv.className = 'game-status';
+            
+            const statusText = status.type.detail || status.type.shortDetail || 'Live';
+            statusDiv.textContent = statusText;
+            
+            gameInfo.appendChild(statusDiv);
+        }
+        
         // Add countdown for next game
         if (isNext) {
             const countdownDiv = document.createElement('div');
