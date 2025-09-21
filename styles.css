@@ -186,6 +186,8 @@ h1 {
     color: white;
     background: #28a745;
     justify-content: center;
+    min-width: 160px;
+    white-space: nowrap;
 }
 
 .share-btn:hover {
