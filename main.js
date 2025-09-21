@@ -222,9 +222,6 @@ class PackersTracker {
         // Start live updates if there's a live game
         if (liveGame) {
             this.startLiveUpdates();
-        } else if (nextGame) {
-            console.log('Starting countdown for next game:', nextGame.name);
-            this.startCountdownUpdates(nextGame);
         }
     }
     
@@ -339,11 +336,32 @@ class PackersTracker {
         
         // Add countdown for next game
         if (isNext) {
-            console.log('Adding countdown for next game:', event.id);
             const countdownDiv = document.createElement('div');
             countdownDiv.className = 'countdown-small';
-            countdownDiv.id = `countdown-${event.id}`;
-            countdownDiv.textContent = '⏰ Calculating...';
+            
+            const gameDate = new Date(event.date);
+            const now = new Date();
+            const timeLeft = gameDate - now;
+            
+            if (timeLeft > 0) {
+                const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+                
+                let countdownText = '⏰ ';
+                if (days > 0) {
+                    countdownText += `${days}d ${hours}h`;
+                } else if (hours > 0) {
+                    countdownText += `${hours}h ${minutes}m`;
+                } else {
+                    countdownText += `${minutes}m`;
+                }
+                
+                countdownDiv.textContent = countdownText;
+            } else {
+                countdownDiv.textContent = '🏈 Game Time!';
+            }
+            
             gameInfo.appendChild(countdownDiv);
         }
         
@@ -365,60 +383,6 @@ class PackersTracker {
             
             scoreDiv.textContent = `${packersScore}-${opponentScore}`;
             gameResult.appendChild(scoreDiv);
-            
-            if (isLive || isInProgress) {
-                const statusDiv = document.createElement('div');
-                statusDiv.className = 'game-status';
-                const period = status.period || 1;
-                const clock = status.displayClock || '';
-                statusDiv.textContent = `Q${period}${clock ? ` ${clock}` : ''}`;
-                gameResult.appendChild(statusDiv);
-            }
-        } else {
-            // Show network for upcoming games
-            const broadcast = competition.broadcasts?.[0];
-            const network = broadcast?.media?.shortName || 'TBD';
-            const networkDiv = document.createElement('div');
-            networkDiv.className = 'game-status';
-            networkDiv.textContent = `📺 ${network}`;
-            gameResult.appendChild(networkDiv);
-        }
-        
-        gameItem.appendChild(gameInfo);
-        gameItem.appendChild(gameResult);
-        
-        return gameItem;
-    }
-    
-    startCountdownUpdates(nextGame) {
-        const countdownEl = document.getElementById(`countdown-${nextGame.id}`);
-        if (!countdownEl) return;
-        
-        const gameDate = new Date(nextGame.date);
-        const now = new Date();
-        const timeLeft = gameDate - now;
-        
-        if (timeLeft <= 0) {
-            countdownEl.textContent = '🏈 Game Time!';
-            return;
-        }
-        
-        const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
-        const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
-        
-        let countdownText = '⏰ ';
-        if (days > 0) {
-            countdownText += `${days}d ${hours}h`;
-        } else if (hours > 0) {
-            countdownText += `${hours}h ${minutes}m`;
-        } else {
-            countdownText += `${minutes}m`;
-        }
-        
-        countdownEl.textContent = countdownText;
-    }
-
     startLiveUpdates() {
         
         // Clear any existing intervals
