@@ -177,7 +177,19 @@ class PackersTracker {
         // Check for live game
         const liveGame = sortedEvents.find(event => {
             const status = event.competitions?.[0]?.status?.type?.name;
-            return status === 'STATUS_IN_PROGRESS' || status === 'STATUS_HALFTIME' || status === 'STATUS_DELAYED';
+            return status === 'STATUS_IN_PROGRESS' || 
+                   status === 'STATUS_HALFTIME' || 
+                   status === 'STATUS_DELAYED' ||
+                   status === 'STATUS_BREAK' ||
+                   status === 'STATUS_TIMEOUT' ||
+                   status === 'STATUS_END_PERIOD' ||
+                   status === 'STATUS_RAIN_DELAY';
+                   status === 'STATUS_HALFTIME' || 
+                   status === 'STATUS_DELAYED' ||
+                   status === 'STATUS_BREAK' ||
+                   status === 'STATUS_TIMEOUT' ||
+                   status === 'STATUS_END_PERIOD' ||
+                   status === 'STATUS_RAIN_DELAY';
         });
         
         scheduleGrid.innerHTML = '';
@@ -234,7 +246,13 @@ class PackersTracker {
         // Determine game status and styling
         const isNext = nextGame && event.id === nextGame.id && !isLive;
         const isCompleted = status.type.name === 'STATUS_FINAL';
-        const isInProgress = status.type.name === 'STATUS_IN_PROGRESS' || status.type.name === 'STATUS_HALFTIME';
+        const isInProgress = status.type.name === 'STATUS_IN_PROGRESS' || 
+                            status.type.name === 'STATUS_HALFTIME' ||
+                            status.type.name === 'STATUS_DELAYED' ||
+                            status.type.name === 'STATUS_BREAK' ||
+                            status.type.name === 'STATUS_TIMEOUT' ||
+                            status.type.name === 'STATUS_END_PERIOD' ||
+                            status.type.name === 'STATUS_RAIN_DELAY';
         
         if (isLive) {
             gameItem.classList.add('live');
