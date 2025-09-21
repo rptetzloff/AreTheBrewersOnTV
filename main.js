@@ -153,11 +153,13 @@ class PackersTracker {
         let isHome = false;
         
         competitors.forEach(competitor => {
+            console.log('Live game competitor:', competitor);
+            console.log('Live game score:', competitor.score);
             if (competitor.team.abbreviation === 'GB') {
-                packersScore = parseInt(competitor.score?.value) || 0;
+                packersScore = parseInt(competitor.score?.value || competitor.score || 0);
                 isHome = competitor.homeAway === 'home';
             } else {
-                opponentScore = parseInt(competitor.score?.value) || 0;
+                opponentScore = parseInt(competitor.score?.value || competitor.score || 0);
                 opponent = competitor.team.displayName;
             }
         });
