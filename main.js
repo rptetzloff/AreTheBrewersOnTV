@@ -346,8 +346,15 @@ class PackersTracker {
                 // Add last play description
                 if (event.lastPlay.lastPlay) {
                     playText += event.lastPlay.lastPlay;
+                } else if (typeof event.lastPlay === 'string') {
+                    playText += event.lastPlay;
+                } else if (event.lastPlay.text) {
+                    playText += event.lastPlay.text;
                 } else if (event.lastPlay.description) {
                     playText += event.lastPlay.description;
+                } else {
+                    // If we can't find readable text, don't show the play description
+                    playText = playText.replace(/\n$/, ''); // Remove trailing newline if no description
                 }
                 
                 if (playText.trim()) {
