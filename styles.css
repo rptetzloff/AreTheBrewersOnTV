@@ -167,8 +167,10 @@ h1 {
 .share-buttons {
     display: flex;
     gap: 1rem;
-    flex-wrap: wrap;
     justify-content: center;
+    width: 100%;
+    max-width: 360px;
+    margin: 0 auto;
 }
 
 .share-btn {
@@ -186,7 +188,8 @@ h1 {
     color: white;
     background: #28a745;
     justify-content: center;
-    min-width: 160px;
+    width: 160px;
+    flex-shrink: 0;
     white-space: nowrap;
 }
 
