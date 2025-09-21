@@ -41,14 +41,18 @@ class PackersTracker {
         try {
             // Try multiple ESPN APIs for live scores
             const gameId = liveGame.id;
+            console.log('Live game detected:', gameId);
             
             // Try the scoreboard API first
             const scoreboardUrl = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard`;
             const response = await fetch(scoreboardUrl);
             const scoreboardData = await response.json();
+            console.log('Scoreboard data:', scoreboardData);
             
             // Find the current game in scoreboard data
             const currentGame = scoreboardData.events?.find(event => event.id === gameId);
+            console.log('Current game from scoreboard:', currentGame);
+            
             if (currentGame && currentGame.competitions?.[0]?.competitors) {
                 // Update the live game with scoreboard data
                 currentGame.competitions[0].competitors.forEach(competitor => {
@@ -61,11 +65,23 @@ class PackersTracker {
                         scheduleCompetitor.score = score;
                     }
                 });
+                
+                // Try to get last play information
+                if (currentGame.competitions?.[0]?.situation) {
+                    console.log('Situation data:', currentGame.competitions[0].situation);
+                    const situation = currentGame.competitions[0].situation;
+                    liveGame.lastPlay = {
+                        downDistanceText: situation.downDistanceText,
+                        drive: situation.lastPlay?.drive,
+                        text: situation.lastPlay?.text
+                    };
+                }
             } else {
                 // Fallback to boxscore API
                 const boxscoreUrl = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${gameId}`;
                 const boxResponse = await fetch(boxscoreUrl);
                 const boxscoreData = await boxResponse.json();
+                console.log('Boxscore data:', boxscoreData);
                 
                 // Try to extract scores from boxscore
                 if (boxscoreData.header?.competitions?.[0]?.competitors) {
@@ -79,6 +95,24 @@ class PackersTracker {
                             scheduleCompetitor.score = score;
                         }
                     });
+                }
+                
+                // Try to get last play from boxscore
+                if (boxscoreData.drives?.current?.plays?.length > 0) {
+                    const lastPlay = boxscoreData.drives.current.plays[boxscoreData.drives.current.plays.length - 1];
+                    console.log('Last play from drives:', lastPlay);
+                    liveGame.lastPlay = {
+                        downDistanceText: boxscoreData.situation?.downDistanceText,
+                        drive: { description: boxscoreData.drives?.current?.description },
+                        text: lastPlay.text || lastPlay.description
+                    };
+                } else if (boxscoreData.situation) {
+                    console.log('Situation from boxscore:', boxscoreData.situation);
+                    liveGame.lastPlay = {
+                        downDistanceText: boxscoreData.situation.downDistanceText,
+                        drive: boxscoreData.situation.lastPlay?.drive,
+                        text: boxscoreData.situation.lastPlay?.text
+                    };
                 }
             }
             
@@ -307,6 +341,36 @@ class PackersTracker {
             statusDiv.textContent = statusText;
             
             gameDetails.appendChild(statusDiv);
+            
+            // Add last play information if available
+            if (event.lastPlay) {
+                console.log('Processing last play data:', event.lastPlay);
+                const lastPlayDiv = document.createElement('div');
+                lastPlayDiv.className = 'last-play';
+                
+                let playText = '';
+                
+                // Add down and distance
+                if (event.lastPlay.downDistanceText) {
+                    playText += event.lastPlay.downDistanceText;
+                    playText += '\n';
+                }
+                
+                // Add current drive description
+                if (event.lastPlay.drive?.description) {
+                    playText += `Drive: ${event.lastPlay.drive.description}\n`;
+                }
+                
+                // Add last play text
+                if (event.lastPlay.text) {
+                    playText += event.lastPlay.text;
+                }
+                
+                if (playText.trim()) {
+                    lastPlayDiv.textContent = playText.trim();
+                    gameDetails.appendChild(lastPlayDiv);
+                }
+            }
         }
         
         // Add countdown for next game
