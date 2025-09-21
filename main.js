@@ -248,8 +248,6 @@ class PackersTracker {
     }
     
     autoScrollToRecentGame(scheduleGrid, sortedEvents, now) {
-        console.log('Auto-scrolling to recent game...');
-        
         // Find the most recent completed game or live game
         let mostRecentCompletedIndex = -1;
         
@@ -267,13 +265,10 @@ class PackersTracker {
             }
         }
         
-        console.log('Most recent game index:', mostRecentCompletedIndex);
-        
         // If we found a recent game, scroll to it
         if (mostRecentCompletedIndex >= 0) {
             const gameItems = scheduleGrid.children;
             if (gameItems[mostRecentCompletedIndex]) {
-                console.log('Scrolling to game item:', gameItems[mostRecentCompletedIndex]);
                 // Calculate the position to scroll to within the schedule grid
                 const gameItem = gameItems[mostRecentCompletedIndex];
                 const containerHeight = scheduleGrid.clientHeight;
