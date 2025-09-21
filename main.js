@@ -253,6 +253,9 @@ class PackersTracker {
         const gameInfo = document.createElement('div');
         gameInfo.className = 'game-info';
         
+        const gameDetails = document.createElement('div');
+        gameDetails.className = 'game-details';
+        
         const opponentDiv = document.createElement('div');
         opponentDiv.className = 'game-opponent';
         opponentDiv.textContent = `${isHome ? 'vs' : '@'} ${opponent}`;
@@ -274,8 +277,8 @@ class PackersTracker {
             });
         }
         
-        gameInfo.appendChild(opponentDiv);
-        gameInfo.appendChild(dateDiv);
+        gameDetails.appendChild(opponentDiv);
+        gameDetails.appendChild(dateDiv);
         
         // Add time remaining for live games
         if (isLive || isInProgress) {
@@ -316,8 +319,10 @@ class PackersTracker {
                 countdownDiv.textContent = '🏈 Game Time!';
             }
             
-            gameInfo.appendChild(countdownDiv);
+            gameDetails.appendChild(countdownDiv);
         }
+        
+        gameInfo.appendChild(gameDetails);
         
         // Create game result
         const gameResult = document.createElement('div');
