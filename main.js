@@ -222,8 +222,6 @@ class PackersTracker {
         // Start live updates if there's a live game
         if (liveGame) {
             this.startLiveUpdates();
-        } else if (nextGame) {
-            this.startCountdownUpdates(nextGame);
         }
     }
     
@@ -293,6 +291,8 @@ class PackersTracker {
         const isCompleted = status.type.name === 'STATUS_FINAL';
         const isInProgress = status.type.name === 'STATUS_IN_PROGRESS' || status.type.name === 'STATUS_HALFTIME';
         
+        console.log(`Game ${opponent}: isNext=${isNext}, isLive=${isLive}, isCompleted=${isCompleted}, status=${status.type.name}`);
+        
         if (isLive) {
             gameItem.classList.add('live');
         } else if (isNext) {
@@ -338,13 +338,39 @@ class PackersTracker {
         if (isNext) {
             const countdownDiv = document.createElement('div');
             countdownDiv.className = 'countdown-small';
-            countdownDiv.id = `countdown-${event.id}`;
+            
+            const gameDate = new Date(event.date);
+            const now = new Date();
+            const timeLeft = gameDate - now;
+            
+            if (timeLeft > 0) {
+                const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+                
+                let countdownText = '⏰ ';
+                if (days > 0) {
+                    countdownText += `${days}d ${hours}h ${minutes}m`;
+                } else if (hours > 0) {
+                    countdownText += `${hours}h ${minutes}m`;
+                } else {
+                    countdownText += `${minutes}m`;
+                }
+                
+                countdownDiv.textContent = countdownText;
+            } else {
+                countdownDiv.textContent = '🏈 Game Time!';
+            }
+            
             gameInfo.appendChild(countdownDiv);
         }
         
         // Create game result
         const gameResult = document.createElement('div');
         gameResult.className = 'game-result';
+        
+        gameItem.appendChild(gameInfo);
+        gameItem.appendChild(gameResult);
         
         if (isCompleted || isLive || isInProgress) {
             const scoreDiv = document.createElement('div');
@@ -360,79 +386,12 @@ class PackersTracker {
             
             scoreDiv.textContent = `${packersScore}-${opponentScore}`;
             gameResult.appendChild(scoreDiv);
-            
-            if (isLive || isInProgress) {
-                const statusDiv = document.createElement('div');
-                statusDiv.className = 'game-status';
-                const period = status.period || 1;
-                const clock = status.displayClock || '';
-                statusDiv.textContent = `Q${period}${clock ? ` ${clock}` : ''}`;
-                gameResult.appendChild(statusDiv);
-            }
-        } else {
-            // Show network for upcoming games
-            const broadcast = competition.broadcasts?.[0];
-            const network = broadcast?.media?.shortName || 'TBD';
-            const networkDiv = document.createElement('div');
-            networkDiv.className = 'game-status';
-            networkDiv.textContent = `📺 ${network}`;
-            gameResult.appendChild(networkDiv);
         }
-        
-        gameItem.appendChild(gameInfo);
-        gameItem.appendChild(gameResult);
         
         return gameItem;
     }
-    
-    startCountdownUpdates(nextGame) {
-        // Clear any existing intervals
-        if (this.countdownInterval) {
-            clearInterval(this.countdownInterval);
-        }
-        if (this.liveUpdateInterval) {
-            clearInterval(this.liveUpdateInterval);
-        }
-        
-        const gameDate = new Date(nextGame.date);
-        const countdownEl = document.getElementById(`countdown-${nextGame.id}`);
-        
-        if (!countdownEl) return;
-        
-        const updateCountdown = () => {
-            const now = new Date().getTime();
-            const gameTime = gameDate.getTime();
-            const timeLeft = gameTime - now;
-            
-            if (timeLeft <= 0) {
-                countdownEl.textContent = '🏈 Game Time!';
-                clearInterval(this.countdownInterval);
-                return;
-            }
-            
-            const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
-            const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-            const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
-            const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
-            
-            let countdownText = '⏰ ';
-            
-            if (days > 0) {
-                countdownText += `${days}d ${hours}h ${minutes}m`;
-            } else if (hours > 0) {
-                countdownText += `${hours}h ${minutes}m`;
-            } else {
-                countdownText += `${minutes}m`;
-            }
-            
-            countdownEl.textContent = countdownText;
-        };
-        
-        updateCountdown();
-        this.countdownInterval = setInterval(updateCountdown, 60000); // Update every minute
-    }
-
     startLiveUpdates() {
+        
         // Clear any existing intervals
         if (this.liveUpdateInterval) {
             clearInterval(this.liveUpdateInterval);
