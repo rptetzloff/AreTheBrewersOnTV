@@ -476,7 +476,16 @@ class PackersTracker {
                 scoreDiv.classList.add('loss');
             }
             
-            scoreDiv.textContent = `${packersScore}-${opponentScore}`;
+            // Create clickable link to ESPN box score
+            const scoreLink = document.createElement('a');
+            scoreLink.href = `https://www.espn.com/nfl/game/_/gameId/${event.id}`;
+            scoreLink.target = '_blank';
+            scoreLink.rel = 'noopener noreferrer';
+            scoreLink.textContent = `${packersScore}-${opponentScore}`;
+            scoreLink.style.color = 'inherit';
+            scoreLink.style.textDecoration = 'none';
+            
+            scoreDiv.appendChild(scoreLink);
             scoreDiv.style.textAlign = 'center';
             scoreDiv.style.marginTop = '0.5rem';
             scoreDiv.style.width = '100%';
@@ -485,7 +494,17 @@ class PackersTracker {
             const scoreDiv = document.createElement('div');
             scoreDiv.className = 'game-score';
             scoreDiv.classList.add('live');
-            scoreDiv.textContent = `${packersScore}-${opponentScore}`;
+            
+            // Create clickable link to ESPN box score for live games too
+            const scoreLink = document.createElement('a');
+            scoreLink.href = `https://www.espn.com/nfl/game/_/gameId/${event.id}`;
+            scoreLink.target = '_blank';
+            scoreLink.rel = 'noopener noreferrer';
+            scoreLink.textContent = `${packersScore}-${opponentScore}`;
+            scoreLink.style.color = 'inherit';
+            scoreLink.style.textDecoration = 'none';
+            
+            scoreDiv.appendChild(scoreLink);
             scoreDiv.style.textAlign = 'center';
             scoreDiv.style.marginTop = '0.5rem';
             scoreDiv.style.width = '100%';
