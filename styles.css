@@ -299,6 +299,11 @@ h1 {
     color: #ff0000;
 }
 
+.game-score a:hover {
+    text-decoration: underline !important;
+    opacity: 0.8;
+}
+
 .game-status {
     font-size: 0.8rem;
     opacity: 0.9;
