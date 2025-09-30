@@ -130,6 +130,7 @@ class PackersTracker {
 
         let wins = 0;
         let losses = 0;
+        let ties = 0;
 
         // Check each completed game
         completedGames.forEach(event => {
@@ -153,12 +154,14 @@ class PackersTracker {
                 wins++;
             } else if (packersScore < opponentScore) {
                 losses++;
+            } else if (packersScore === opponentScore) {
+                ties++;
             }
         });
 
         // Display result
         const isUndefeated = losses === 0 && wins > 0;
-        this.displayResult(isUndefeated, wins, losses);
+        this.displayResult(isUndefeated, wins, losses, ties);
         
         // Show full schedule
         this.displaySchedule(events);
@@ -170,7 +173,7 @@ class PackersTracker {
         this.setupShareButtons();
     }
 
-    displayResult(isUndefeated, wins, losses) {
+    displayResult(isUndefeated, wins, losses, ties) {
         const answerEl = document.getElementById('answer');
         const recordEl = document.getElementById('record');
         
@@ -187,7 +190,11 @@ class PackersTracker {
             document.body.classList.remove('undefeated');
         }
         
-        recordEl.textContent = `Current Record: ${wins}-${losses}`;
+        if (ties > 0) {
+            recordEl.textContent = `Current Record: ${wins}-${losses}-${ties}`;
+        } else {
+            recordEl.textContent = `Current Record: ${wins}-${losses}`;
+        }
     }
 
     displaySchedule(events) {
@@ -470,10 +477,15 @@ class PackersTracker {
             const scoreDiv = document.createElement('div');
             scoreDiv.className = 'game-score';
             
+            let resultIndicator = '';
             if (packersScore > opponentScore) {
                 scoreDiv.classList.add('win');
+                resultIndicator = 'W ';
             } else if (packersScore < opponentScore) {
                 scoreDiv.classList.add('loss');
+                resultIndicator = 'L ';
+            } else {
+                resultIndicator = 'T ';
             }
             
             // Create clickable link to ESPN box score
@@ -481,7 +493,7 @@ class PackersTracker {
             scoreLink.href = `https://www.espn.com/nfl/game/_/gameId/${event.id}`;
             scoreLink.target = '_blank';
             scoreLink.rel = 'noopener noreferrer';
-            scoreLink.textContent = `${packersScore}-${opponentScore}`;
+            scoreLink.textContent = `${resultIndicator}${packersScore}-${opponentScore}`;
             scoreLink.style.color = 'inherit';
             scoreLink.style.textDecoration = 'none';
             
