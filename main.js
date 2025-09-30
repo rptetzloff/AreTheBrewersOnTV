@@ -480,12 +480,12 @@ class PackersTracker {
             let resultIndicator = '';
             if (packersScore > opponentScore) {
                 scoreDiv.classList.add('win');
-                resultIndicator = ' W';
+                resultIndicator = 'W ';
             } else if (packersScore < opponentScore) {
                 scoreDiv.classList.add('loss');
-                resultIndicator = ' L';
+                resultIndicator = 'L ';
             } else {
-                resultIndicator = ' T';
+                resultIndicator = 'T ';
             }
             
             // Create clickable link to ESPN box score
@@ -493,7 +493,7 @@ class PackersTracker {
             scoreLink.href = `https://www.espn.com/nfl/game/_/gameId/${event.id}`;
             scoreLink.target = '_blank';
             scoreLink.rel = 'noopener noreferrer';
-            scoreLink.textContent = `${packersScore}-${opponentScore}${resultIndicator}`;
+            scoreLink.textContent = `${resultIndicator}${packersScore}-${opponentScore}`;
             scoreLink.style.color = 'inherit';
             scoreLink.style.textDecoration = 'none';
             
