@@ -15,7 +15,7 @@ body.undefeated {
     background: #203731 !important;
 }
 
-body:not(.undefeated) {
+body:not(.undefeated):not(.offseason) {
     border: 4px solid #f44336;
     box-sizing: border-box;
 }
@@ -279,6 +279,11 @@ h1 {
     font-size: 0.85rem;
     opacity: 0.8;
     color: #ffb612;
+}
+
+.game-network {
+    opacity: 0.7;
+    font-style: italic;
 }
 
 .game-result {

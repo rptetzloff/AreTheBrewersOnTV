@@ -417,18 +417,23 @@ class PackersTracker {
         const dateDiv = document.createElement('div');
         dateDiv.className = 'game-date';
         
+        const network = competition.broadcasts?.[0]?.media?.shortName || '';
+
         if (isLive) {
-            dateDiv.innerHTML = `<span class="live-indicator-small"></span>LIVE NOW`;
+            dateDiv.innerHTML = `<span class="live-indicator-small"></span>LIVE NOW${network ? ` · <span class="game-network">${network}</span>` : ''}`;
         } else if (isInProgress) {
-            dateDiv.innerHTML = `<span class="live-indicator-small"></span>LIVE NOW`;
+            dateDiv.innerHTML = `<span class="live-indicator-small"></span>LIVE NOW${network ? ` · <span class="game-network">${network}</span>` : ''}`;
         } else {
-            dateDiv.textContent = date.toLocaleDateString('en-US', {
+            const dateText = date.toLocaleDateString('en-US', {
                 weekday: 'short',
                 month: 'short',
                 day: 'numeric',
                 hour: 'numeric',
                 minute: '2-digit'
             });
+            dateDiv.innerHTML = network
+                ? `${dateText} · <span class="game-network">${network}</span>`
+                : dateText;
         }
         
         gameDetails.appendChild(opponentDiv);
