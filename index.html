@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -11,13 +12,13 @@
         <div id="record" class="record"></div>
         
         <div id="season-selector" class="season-selector">
-            <button id="season-first" class="season-nav season-nav-jump" aria-label="Earliest season">&laquo;&lsaquo;</button>
-            <button id="season-prev10" class="season-nav season-nav-jump" aria-label="Back 10 years">&#171;</button>
-            <button id="season-prev" class="season-nav" aria-label="Previous season">&#8249;</button>
+            <button id="season-first" class="season-nav season-nav-jump" aria-label="Earliest season"><i class="mdi mdi-chevron-triple-left"></i></button>
+            <button id="season-prev10" class="season-nav season-nav-jump" aria-label="Back 10 years"><i class="mdi mdi-chevron-double-left"></i></button>
+            <button id="season-prev" class="season-nav" aria-label="Previous season"><i class="mdi mdi-chevron-left"></i></button>
             <span id="season-label" class="season-label"></span>
-            <button id="season-next" class="season-nav" aria-label="Next season">&#8250;</button>
-            <button id="season-next10" class="season-nav season-nav-jump" aria-label="Forward 10 years">&#187;</button>
-            <button id="season-last" class="season-nav season-nav-jump" aria-label="Latest season">&rsaquo;&raquo;</button>
+            <button id="season-next" class="season-nav" aria-label="Next season"><i class="mdi mdi-chevron-right"></i></button>
+            <button id="season-next10" class="season-nav season-nav-jump" aria-label="Forward 10 years"><i class="mdi mdi-chevron-double-right"></i></button>
+            <button id="season-last" class="season-nav season-nav-jump" aria-label="Latest season"><i class="mdi mdi-chevron-triple-right"></i></button>
         </div>
 
         <div id="schedule" class="schedule-section">

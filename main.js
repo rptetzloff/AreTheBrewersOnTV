@@ -233,46 +233,47 @@ class PackersTracker {
             return;
         }
         
-        // Get completed games
-        const completedGames = events.filter(event => {
-            const status = event.competitions?.[0]?.status?.type?.name;
-            return status === 'STATUS_FINAL' && event._seasonType !== 'pre';
-        });
-
-        let wins = 0;
-        let losses = 0;
-        let ties = 0;
-
-        // Check each completed game
-        completedGames.forEach(event => {
-            const competition = event.competitions[0];
-            const competitors = competition.competitors;
-            
-            let packersScore = 0;
-            let opponentScore = 0;
-            
-            // Find Packers and opponent scores
-            competitors.forEach(competitor => {
-                if (competitor.team.abbreviation === 'GB') {
-                    packersScore = parseInt(competitor.score.value) || 0;
-                } else {
-                    opponentScore = parseInt(competitor.score.value) || 0;
-                }
+        const countRecord = (gameList) => {
+            let w = 0, l = 0, t = 0;
+            gameList.forEach(event => {
+                const competitors = event.competitions[0].competitors;
+                let packersScore = 0, opponentScore = 0;
+                competitors.forEach(competitor => {
+                    if (competitor.team.abbreviation === 'GB') {
+                        packersScore = parseInt(competitor.score.value) || 0;
+                    } else {
+                        opponentScore = parseInt(competitor.score.value) || 0;
+                    }
+                });
+                if (packersScore > opponentScore) w++;
+                else if (packersScore < opponentScore) l++;
+                else t++;
             });
-            
-            // Count the result for this game
-            if (packersScore > opponentScore) {
-                wins++;
-            } else if (packersScore < opponentScore) {
-                losses++;
-            } else if (packersScore === opponentScore) {
-                ties++;
-            }
+            return { w, l, t };
+        };
+
+        const completedPre = events.filter(event => {
+            const status = event.competitions?.[0]?.status?.type?.name;
+            return status === 'STATUS_FINAL' && event._seasonType === 'pre';
         });
+
+        const completedRegular = events.filter(event => {
+            const status = event.competitions?.[0]?.status?.type?.name;
+            return status === 'STATUS_FINAL' && event._seasonType === 'regular';
+        });
+
+        const completedPost = events.filter(event => {
+            const status = event.competitions?.[0]?.status?.type?.name;
+            return status === 'STATUS_FINAL' && event._seasonType === 'post';
+        });
+
+        const preRecord = countRecord(completedPre);
+        const { w: wins, l: losses, t: ties } = countRecord(completedRegular);
+        const postRecord = countRecord(completedPost);
 
         // Check for Super Bowl win
         let superBowlName = null;
-        completedGames.forEach(event => {
+        completedPost.forEach(event => {
             const notes = event.competitions?.[0]?.notes || [];
             const sbNote = notes.find(n => /super bowl/i.test(n.headline || ''));
             if (!sbNote) return;
@@ -288,7 +289,7 @@ class PackersTracker {
 
         // Display result
         const isUndefeated = losses === 0 && wins > 0;
-        this.displayResult(isUndefeated, wins, losses, ties, isPastSeason, superBowlName);
+        this.displayResult(isUndefeated, wins, losses, ties, isPastSeason, superBowlName, postRecord, preRecord);
 
         // Show full schedule
         this.displaySchedule(events, isPastSeason);
@@ -341,7 +342,7 @@ class PackersTracker {
         recordEl.textContent = 'The season hasn\'t started yet!';
     }
 
-    displayResult(isUndefeated, wins, losses, ties, isPastSeason = false, superBowlName = null) {
+    displayResult(isUndefeated, wins, losses, ties, isPastSeason = false, superBowlName = null, postRecord = null, preRecord = null) {
         const superBowlWin = !!superBowlName;
         const answerEl = document.getElementById('answer');
         const recordEl = document.getElementById('record');
@@ -362,13 +363,32 @@ class PackersTracker {
             answerEl.className = 'answer no';
             document.body.classList.remove('undefeated');
         }
-        
+
         const recordLabel = isPastSeason ? 'Final Record' : 'Current Record';
-        if (ties > 0) {
-            recordEl.textContent = `${recordLabel}: ${wins}-${losses}-${ties}`;
-        } else {
-            recordEl.textContent = `${recordLabel}: ${wins}-${losses}`;
-        }
+        const regularText = ties > 0
+            ? `${recordLabel}: ${wins}-${losses}-${ties}`
+            : `${recordLabel}: ${wins}-${losses}`;
+
+        const hasPreGames = preRecord && (preRecord.w > 0 || preRecord.l > 0);
+        const hasPostGames = postRecord && (postRecord.w > 0 || postRecord.l > 0);
+
+        const preText = hasPreGames
+            ? (preRecord.t > 0
+                ? `Preseason: ${preRecord.w}-${preRecord.l}-${preRecord.t}`
+                : `Preseason: ${preRecord.w}-${preRecord.l}`)
+            : null;
+
+        const postText = hasPostGames
+            ? (postRecord.t > 0
+                ? `Playoff Record: ${postRecord.w}-${postRecord.l}-${postRecord.t}`
+                : `Playoff Record: ${postRecord.w}-${postRecord.l}`)
+            : null;
+
+        let html = '';
+        if (preText) html += `<span class="preseason-record">${preText}</span><br>`;
+        html += regularText;
+        if (postText) html += `<br><span class="playoff-record">${postText}</span>`;
+        recordEl.innerHTML = html;
     }
 
     displaySchedule(events, isPastSeason = false) {
