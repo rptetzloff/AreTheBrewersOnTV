@@ -227,7 +227,7 @@ class PackersTracker {
         const isPastSeason = this.currentSeason && this.latestSeason && this.currentSeason < this.latestSeason;
         if (!isPastSeason && this.isOffseason(events)) {
             this.displayOffseasonMessage();
-            this.displaySchedule(events);
+            this.displaySchedule(events, true);
             this.showLastUpdated();
             this.setupShareButtons();
             return;
@@ -289,13 +289,13 @@ class PackersTracker {
         // Display result
         const isUndefeated = losses === 0 && wins > 0;
         this.displayResult(isUndefeated, wins, losses, ties, isPastSeason, superBowlName);
-        
+
         // Show full schedule
-        this.displaySchedule(events);
-        
+        this.displaySchedule(events, isPastSeason);
+
         // Show last updated
         this.showLastUpdated();
-        
+
         // Setup share buttons
         this.setupShareButtons();
     }
@@ -371,7 +371,7 @@ class PackersTracker {
         }
     }
 
-    displaySchedule(events) {
+    displaySchedule(events, isPastSeason = false) {
         const scheduleGrid = document.getElementById('schedule-grid');
         const now = new Date();
         
@@ -420,14 +420,14 @@ class PackersTracker {
             scheduleGrid.appendChild(gameItem);
         });
         
-        // Auto-scroll to the most recent completed game after DOM is ready
-        setTimeout(() => {
-            this.autoScrollToRecentGame(scheduleGrid, sortedEvents, now);
-        }, 500);
-        
-        // Start live updates if there's a live game
-        if (liveGame) {
-            this.startLiveUpdates();
+        if (!isPastSeason) {
+            setTimeout(() => {
+                this.autoScrollToRecentGame(scheduleGrid, sortedEvents, now);
+            }, 500);
+
+            if (liveGame) {
+                this.startLiveUpdates();
+            }
         }
     }
     
