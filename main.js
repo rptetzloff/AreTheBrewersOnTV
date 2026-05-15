@@ -3,34 +3,124 @@ class PackersTracker {
         this.apiUrl = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/gb/schedule';
         this.countdownInterval = null;
         this.liveUpdateInterval = null;
+        this.currentSeason = null;
+        this.latestSeason = null;
+        this.earliestSeason = 1970;
         this.init();
     }
 
     async init() {
         try {
             await this.fetchPackersData();
+            this.setupSeasonSelector();
         } catch (error) {
             this.showError('Failed to load Packers data');
             console.error('Error:', error);
         }
     }
 
-    async fetchPackersData() {
+    setupSeasonSelector() {
+        const prevBtn = document.getElementById('season-prev');
+        const nextBtn = document.getElementById('season-next');
+        const prev10Btn = document.getElementById('season-prev10');
+        const next10Btn = document.getElementById('season-next10');
+        const firstBtn = document.getElementById('season-first');
+        const lastBtn = document.getElementById('season-last');
+
+        firstBtn.addEventListener('click', () => {
+            if (this.currentSeason !== this.earliestSeason) this.loadSeason(this.earliestSeason);
+        });
+
+        lastBtn.addEventListener('click', () => {
+            if (this.currentSeason !== this.latestSeason) this.loadSeason(this.latestSeason);
+        });
+
+        prev10Btn.addEventListener('click', () => {
+            const target = Math.max(this.earliestSeason, this.currentSeason - 10);
+            if (target !== this.currentSeason) this.loadSeason(target);
+        });
+
+        next10Btn.addEventListener('click', () => {
+            const target = Math.min(this.latestSeason, this.currentSeason + 10);
+            if (target !== this.currentSeason) this.loadSeason(target);
+        });
+
+        prevBtn.addEventListener('click', () => {
+            if (this.currentSeason > this.earliestSeason) this.loadSeason(this.currentSeason - 1);
+        });
+
+        nextBtn.addEventListener('click', () => {
+            if (this.currentSeason < this.latestSeason) this.loadSeason(this.currentSeason + 1);
+        });
+    }
+
+    updateSeasonSelector() {
+        const label = document.getElementById('season-label');
+        const prevBtn = document.getElementById('season-prev');
+        const nextBtn = document.getElementById('season-next');
+        const prev10Btn = document.getElementById('season-prev10');
+        const next10Btn = document.getElementById('season-next10');
+        const firstBtn = document.getElementById('season-first');
+        const lastBtn = document.getElementById('season-last');
+
+        label.textContent = `${this.currentSeason} Season`;
+        prevBtn.disabled = this.currentSeason <= this.earliestSeason;
+        nextBtn.disabled = this.currentSeason >= this.latestSeason;
+        prev10Btn.disabled = this.currentSeason <= this.earliestSeason;
+        next10Btn.disabled = this.currentSeason >= this.latestSeason;
+        firstBtn.disabled = this.currentSeason <= this.earliestSeason;
+        lastBtn.disabled = this.currentSeason >= this.latestSeason;
+    }
+
+    async loadSeason(year) {
+        if (this.liveUpdateInterval) {
+            clearInterval(this.liveUpdateInterval);
+            this.liveUpdateInterval = null;
+        }
+        const answerEl = document.getElementById('answer');
+        const recordEl = document.getElementById('record');
+        answerEl.innerHTML = 'Loading...';
+        answerEl.className = 'answer loading';
+        recordEl.textContent = '';
+        document.getElementById('schedule-grid').innerHTML = '<div class="loading">Loading schedule...</div>';
+
         try {
-            const response = await fetch(this.apiUrl);
-            const data = await response.json();
-            
-            // Check for live games and fetch their scores separately
-            const events = data.events || [];
-            const liveGame = events.find(event => {
+            await this.fetchPackersData(year);
+        } catch (error) {
+            this.showError('Failed to load season data');
+        }
+    }
+
+    async fetchPackersData(season) {
+        try {
+            const seasonParam = season ? `&season=${season}` : '';
+            const [preRes, regularRes, postRes] = await Promise.all([
+                fetch(`${this.apiUrl}?seasontype=1${seasonParam}`),
+                fetch(`${this.apiUrl}?seasontype=2${seasonParam}`),
+                fetch(`${this.apiUrl}?seasontype=3${seasonParam}`),
+            ]);
+            const [preData, regularData, postData] = await Promise.all([
+                preRes.json(),
+                regularRes.json(),
+                postRes.json(),
+            ]);
+
+            const preEvents = (preData.events || []).map(e => ({ ...e, _seasonType: 'pre' }));
+            const regularEvents = (regularData.events || []).map(e => ({ ...e, _seasonType: 'regular' }));
+            const postEvents = (postData.events || []).map(e => ({ ...e, _seasonType: 'post' }));
+            const allEvents = [...preEvents, ...regularEvents, ...postEvents];
+
+            const mergedData = { ...regularData, events: allEvents };
+
+            const liveGame = allEvents.find(event => {
                 const status = event.competitions?.[0]?.status?.type?.name;
                 return status === 'STATUS_IN_PROGRESS' || status === 'STATUS_HALFTIME' || status === 'STATUS_DELAYED';
             });
-            
+
             if (liveGame) {
-                await this.fetchLiveGameScore(liveGame, data);
+                await this.fetchLiveGameScore(liveGame, mergedData);
             } else {
-                this.processScheduleData(data);
+                this.processScheduleData(mergedData);
             }
         } catch (error) {
             this.processScheduleData({ events: [] });
@@ -127,8 +217,15 @@ class PackersTracker {
         const seasonType = seasonData?.name;
         this.updateScheduleTitle(season, seasonType);
 
-        // Check if we're in the offseason
-        if (this.isOffseason(events)) {
+        if (season) {
+            this.currentSeason = season;
+            if (!this.latestSeason) this.latestSeason = season;
+            this.updateSeasonSelector();
+        }
+
+        // Only show offseason message for the current/latest season, not past seasons
+        const isPastSeason = this.currentSeason && this.latestSeason && this.currentSeason < this.latestSeason;
+        if (!isPastSeason && this.isOffseason(events)) {
             this.displayOffseasonMessage();
             this.displaySchedule(events);
             this.showLastUpdated();
@@ -139,7 +236,7 @@ class PackersTracker {
         // Get completed games
         const completedGames = events.filter(event => {
             const status = event.competitions?.[0]?.status?.type?.name;
-            return status === 'STATUS_FINAL';
+            return status === 'STATUS_FINAL' && event._seasonType !== 'pre';
         });
 
         let wins = 0;
@@ -173,9 +270,25 @@ class PackersTracker {
             }
         });
 
+        // Check for Super Bowl win
+        let superBowlName = null;
+        completedGames.forEach(event => {
+            const notes = event.competitions?.[0]?.notes || [];
+            const sbNote = notes.find(n => /super bowl/i.test(n.headline || ''));
+            if (!sbNote) return;
+            const competitors = event.competitions[0].competitors;
+            let packersScore = 0, opponentScore = 0;
+            competitors.forEach(c => {
+                if (c.team.abbreviation === 'GB') packersScore = parseInt(c.score?.value) || 0;
+                else opponentScore = parseInt(c.score?.value) || 0;
+            });
+            if (packersScore > opponentScore) superBowlName = sbNote.headline;
+        });
+        const superBowlWin = !!superBowlName;
+
         // Display result
         const isUndefeated = losses === 0 && wins > 0;
-        this.displayResult(isUndefeated, wins, losses, ties);
+        this.displayResult(isUndefeated, wins, losses, ties, isPastSeason, superBowlName);
         
         // Show full schedule
         this.displaySchedule(events);
@@ -228,15 +341,20 @@ class PackersTracker {
         recordEl.textContent = 'The season hasn\'t started yet!';
     }
 
-    displayResult(isUndefeated, wins, losses, ties) {
+    displayResult(isUndefeated, wins, losses, ties, isPastSeason = false, superBowlName = null) {
+        const superBowlWin = !!superBowlName;
         const answerEl = document.getElementById('answer');
         const recordEl = document.getElementById('record');
-        
+
         if (isUndefeated) {
             const cheeseBlocks = wins > 0 ? '🧀 '.repeat(wins).trim() : '';
             answerEl.innerHTML = `${cheeseBlocks}<br>YES!!!`;
             answerEl.className = 'answer yes';
             document.body.classList.add('undefeated');
+        } else if (superBowlWin) {
+            answerEl.innerHTML = `🏆🏈🧀<br>${superBowlName.toUpperCase()}<br>CHAMPIONS!<br>🎉🎊🎉`;
+            answerEl.className = 'answer champions';
+            document.body.classList.remove('undefeated');
         } else {
             const cheeseBlocks = wins > 0 ? '🧀 '.repeat(wins).trim() + '<br>' : '';
             const frownFaces = losses > 0 ? '<br>' + '😢 '.repeat(losses).trim() : '';
@@ -245,10 +363,11 @@ class PackersTracker {
             document.body.classList.remove('undefeated');
         }
         
+        const recordLabel = isPastSeason ? 'Final Record' : 'Current Record';
         if (ties > 0) {
-            recordEl.textContent = `Current Record: ${wins}-${losses}-${ties}`;
+            recordEl.textContent = `${recordLabel}: ${wins}-${losses}-${ties}`;
         } else {
-            recordEl.textContent = `Current Record: ${wins}-${losses}`;
+            recordEl.textContent = `${recordLabel}: ${wins}-${losses}`;
         }
     }
 
@@ -285,8 +404,18 @@ class PackersTracker {
         });
         
         scheduleGrid.innerHTML = '';
-        
+
+        const sectionLabels = { pre: 'Preseason', regular: 'Regular Season', post: 'Playoffs' };
+        let currentSection = null;
         sortedEvents.forEach(event => {
+            const section = event._seasonType;
+            if (section && section !== currentSection) {
+                currentSection = section;
+                const divider = document.createElement('div');
+                divider.className = 'season-divider';
+                divider.textContent = sectionLabels[section] || section;
+                scheduleGrid.appendChild(divider);
+            }
             const gameItem = this.createGameItem(event, nextGame, liveGame, now);
             scheduleGrid.appendChild(gameItem);
         });
