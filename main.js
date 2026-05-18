@@ -1,3 +1,33 @@
+import csvRaw from './data/packers_games_1921-2020.csv?raw';
+
+// Parse the CSV once at startup
+const CSV_GAMES = (() => {
+    const lines = csvRaw.trim().split('\n');
+    const headers = lines[0].split(',');
+    return lines.slice(1).map(line => {
+        // Handle potential commas inside quoted fields (none expected here, but safe split)
+        const vals = line.split(',');
+        const obj = {};
+        headers.forEach((h, i) => { obj[h.trim()] = (vals[i] || '').trim(); });
+        return obj;
+    });
+})();
+
+// Build a map: season (number) -> array of game rows
+const CSV_BY_SEASON = (() => {
+    const map = {};
+    CSV_GAMES.forEach(g => {
+        const yr = parseInt(g.season);
+        if (!map[yr]) map[yr] = [];
+        map[yr].push(g);
+    });
+    return map;
+})();
+
+const CSV_SEASONS = Object.keys(CSV_BY_SEASON).map(Number).sort((a, b) => a - b);
+const CSV_MIN_SEASON = CSV_SEASONS[0];   // 1921
+const CSV_MAX_SEASON = CSV_SEASONS[CSV_SEASONS.length - 1]; // 2020
+
 class PackersTracker {
     constructor() {
         this.apiUrl = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/gb/schedule';
@@ -5,7 +35,7 @@ class PackersTracker {
         this.liveUpdateInterval = null;
         this.currentSeason = null;
         this.latestSeason = null;
-        this.earliestSeason = 1970;
+        this.earliestSeason = CSV_MIN_SEASON;
         this.init();
     }
 
@@ -91,7 +121,18 @@ class PackersTracker {
         }
     }
 
+    // Returns true if we should use CSV data for this season
+    usesCsvData(season) {
+        return season != null && season <= CSV_MAX_SEASON && CSV_BY_SEASON[season] != null;
+    }
+
     async fetchPackersData(season) {
+        // For seasons covered by the CSV (1921-2020), use local data
+        if (season && this.usesCsvData(season)) {
+            this.processCsvSeasonData(season);
+            return;
+        }
+
         try {
             const seasonParam = season ? `&season=${season}` : '';
             const [preRes, regularRes, postRes] = await Promise.all([
@@ -112,6 +153,12 @@ class PackersTracker {
 
             const mergedData = { ...regularData, events: allEvents };
 
+            // If ESPN returns no events and we have CSV data, fall back to CSV
+            if (allEvents.length === 0 && season && this.usesCsvData(season)) {
+                this.processCsvSeasonData(season);
+                return;
+            }
+
             const liveGame = allEvents.find(event => {
                 const status = event.competitions?.[0]?.status?.type?.name;
                 return status === 'STATUS_IN_PROGRESS' || status === 'STATUS_HALFTIME' || status === 'STATUS_DELAYED';
@@ -123,37 +170,171 @@ class PackersTracker {
                 this.processScheduleData(mergedData);
             }
         } catch (error) {
-            this.processScheduleData({ events: [] });
+            // If ESPN fetch fails and we have CSV data for this season, use it
+            if (season && this.usesCsvData(season)) {
+                this.processCsvSeasonData(season);
+            } else {
+                this.processScheduleData({ events: [] });
+            }
         }
     }
-    
+
+    processCsvSeasonData(season) {
+        const games = CSV_BY_SEASON[season] || [];
+
+        this.currentSeason = season;
+        if (!this.latestSeason) {
+            // Determine latest season from ESPN on first load — but if we're bootstrapping
+            // from a CSV season directly, use the current year as a proxy
+            this.latestSeason = new Date().getFullYear();
+        }
+        this.updateSeasonSelector();
+
+        document.getElementById('schedule-title').textContent = `📅 ${season} Season Schedule`;
+
+        // Tally regular season and playoff records from CSV
+        let wins = 0, losses = 0, ties = 0;
+        let postWins = 0, postLosses = 0, postTies = 0;
+
+        games.forEach(g => {
+            const result = g['Packers Win'];
+            const isPlayoff = g.playoff === '1';
+            const isRegular = g.regular_season === '1';
+
+            if (isRegular) {
+                if (result === 'WIN') wins++;
+                else if (result === 'LOSS') losses++;
+                else if (result === 'TIE') ties++;
+            } else if (isPlayoff) {
+                if (result === 'WIN') postWins++;
+                else if (result === 'LOSS') postLosses++;
+                else if (result === 'TIE') postTies++;
+            }
+        });
+
+        // Check for Super Bowl win (superbowl column is non-empty)
+        let superBowlName = null;
+        games.forEach(g => {
+            if (g.superbowl && g.superbowl.trim() !== '' && g['Packers Win'] === 'WIN') {
+                superBowlName = `Super Bowl ${g.superbowl.toUpperCase()}`;
+            }
+        });
+
+        const isUndefeated = losses === 0 && wins > 0;
+        const postRecord = (postWins > 0 || postLosses > 0) ? { w: postWins, l: postLosses, t: postTies } : null;
+
+        this.displayResult(isUndefeated, wins, losses, ties, true, superBowlName, postRecord, null);
+        this.displayCsvSchedule(games, season);
+        this.showLastUpdated();
+        this.setDataCredit(true);
+        this.setupShareButtons();
+    }
+
+    displayCsvSchedule(games, season) {
+        const scheduleGrid = document.getElementById('schedule-grid');
+        scheduleGrid.innerHTML = '';
+
+        // Sort by date
+        const sorted = [...games].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+        let currentSection = null;
+        sorted.forEach(g => {
+            const isPlayoff = g.playoff === '1';
+            const isRegular = g.regular_season === '1';
+            const section = isPlayoff ? 'post' : (isRegular ? 'regular' : 'other');
+            const sectionLabels = { post: 'Playoffs', regular: 'Regular Season', other: 'Other' };
+
+            if (section !== currentSection) {
+                currentSection = section;
+                const divider = document.createElement('div');
+                divider.className = 'season-divider';
+                divider.textContent = sectionLabels[section] || section;
+                scheduleGrid.appendChild(divider);
+            }
+
+            scheduleGrid.appendChild(this.createCsvGameItem(g));
+        });
+    }
+
+    createCsvGameItem(g) {
+        const result = g['Packers Win']; // WIN / LOSS / TIE
+        const opponent = g.Opponent;
+        const location = g.location; // HOME / AWAY / NEUTRAL
+        const packersScore = parseInt(g.packers_score) || 0;
+        const opponentScore = parseInt(g.opponent_score) || 0;
+        const date = new Date(g.date);
+        const isSuperBowl = g.superbowl && g.superbowl.trim() !== '';
+
+        const gameItem = document.createElement('div');
+        gameItem.className = 'game-item completed';
+
+        if (result === 'WIN') gameItem.classList.add('win');
+        else if (result === 'LOSS') gameItem.classList.add('loss');
+
+        const gameInfo = document.createElement('div');
+        gameInfo.className = 'game-info';
+
+        const gameDetails = document.createElement('div');
+        gameDetails.className = 'game-details';
+
+        const opponentDiv = document.createElement('div');
+        opponentDiv.className = 'game-opponent';
+        const prefix = location === 'HOME' ? 'vs' : location === 'AWAY' ? '@' : 'vs';
+        opponentDiv.textContent = `${prefix} ${opponent}`;
+
+        const dateDiv = document.createElement('div');
+        dateDiv.className = 'game-date';
+        dateDiv.textContent = date.toLocaleDateString('en-US', {
+            weekday: 'short', month: 'short', day: 'numeric'
+        });
+
+        gameDetails.appendChild(opponentDiv);
+        gameDetails.appendChild(dateDiv);
+
+        if (isSuperBowl) {
+            const sbLabel = document.createElement('div');
+            sbLabel.className = 'game-status';
+            sbLabel.textContent = `Super Bowl ${g.superbowl.toUpperCase()}`;
+            gameDetails.appendChild(sbLabel);
+        }
+
+        gameInfo.appendChild(gameDetails);
+        gameItem.appendChild(gameInfo);
+
+        const scoreDiv = document.createElement('div');
+        scoreDiv.className = 'game-score';
+        if (result === 'WIN') scoreDiv.classList.add('win');
+        else if (result === 'LOSS') scoreDiv.classList.add('loss');
+
+        const resultPrefix = result === 'WIN' ? 'W ' : result === 'LOSS' ? 'L ' : 'T ';
+        scoreDiv.textContent = `${resultPrefix}${packersScore}-${opponentScore}`;
+        scoreDiv.style.textAlign = 'center';
+        scoreDiv.style.marginTop = '0.5rem';
+        scoreDiv.style.width = '100%';
+
+        gameItem.appendChild(scoreDiv);
+        return gameItem;
+    }
+
     async fetchLiveGameScore(liveGame, scheduleData) {
         try {
-            // Try multiple ESPN APIs for live scores
             const gameId = liveGame.id;
-            
-            // Try the scoreboard API first
             const scoreboardUrl = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard`;
             const response = await fetch(scoreboardUrl);
             const scoreboardData = await response.json();
-            
-            // Find the current game in scoreboard data
+
             const currentGame = scoreboardData.events?.find(event => event.id === gameId);
-            
+
             if (currentGame && currentGame.competitions?.[0]?.competitors) {
-                // Update the live game with scoreboard data
                 currentGame.competitions[0].competitors.forEach(competitor => {
                     const teamId = competitor.team.id;
                     const score = competitor.score;
-                    
-                    // Find corresponding competitor in schedule data
                     const scheduleCompetitor = liveGame.competitions[0].competitors.find(comp => comp.team.id === teamId);
                     if (scheduleCompetitor && score) {
                         scheduleCompetitor.score = score;
                     }
                 });
-                
-                // Try to get last play information
+
                 if (currentGame.competitions?.[0]?.situation) {
                     const situation = currentGame.competitions[0].situation;
                     liveGame.lastPlay = {
@@ -164,26 +345,21 @@ class PackersTracker {
                     };
                 }
             } else {
-                // Fallback to boxscore API
                 const boxscoreUrl = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${gameId}`;
                 const boxResponse = await fetch(boxscoreUrl);
                 const boxscoreData = await boxResponse.json();
-                
-                // Try to extract scores from boxscore
+
                 if (boxscoreData.header?.competitions?.[0]?.competitors) {
                     boxscoreData.header.competitions[0].competitors.forEach(competitor => {
                         const teamId = competitor.team.id;
                         const score = competitor.score;
-                        
-                        // Find corresponding competitor in schedule data
                         const scheduleCompetitor = liveGame.competitions[0].competitors.find(comp => comp.team.id === teamId);
                         if (scheduleCompetitor && score) {
                             scheduleCompetitor.score = score;
                         }
                     });
                 }
-                
-                // Try to get last play from boxscore
+
                 if (boxscoreData.drives?.current?.plays?.length > 0) {
                     const lastPlay = boxscoreData.drives.current.plays[boxscoreData.drives.current.plays.length - 1];
                     liveGame.lastPlay = {
@@ -201,10 +377,9 @@ class PackersTracker {
                     };
                 }
             }
-            
+
             this.processScheduleData(scheduleData);
         } catch (error) {
-            // Fallback to schedule data without live scores
             this.processScheduleData(scheduleData);
         }
     }
@@ -223,7 +398,6 @@ class PackersTracker {
             this.updateSeasonSelector();
         }
 
-        // Only show offseason message for the current/latest season, not past seasons
         const isPastSeason = this.currentSeason && this.latestSeason && this.currentSeason < this.latestSeason;
         if (!isPastSeason && this.isOffseason(events)) {
             this.displayOffseasonMessage();
@@ -232,7 +406,7 @@ class PackersTracker {
             this.setupShareButtons();
             return;
         }
-        
+
         const countRecord = (gameList) => {
             let w = 0, l = 0, t = 0;
             gameList.forEach(event => {
@@ -271,7 +445,6 @@ class PackersTracker {
         const { w: wins, l: losses, t: ties } = countRecord(completedRegular);
         const postRecord = countRecord(completedPost);
 
-        // Check for Super Bowl win
         let superBowlName = null;
         completedPost.forEach(event => {
             const notes = event.competitions?.[0]?.notes || [];
@@ -285,19 +458,12 @@ class PackersTracker {
             });
             if (packersScore > opponentScore) superBowlName = sbNote.headline;
         });
-        const superBowlWin = !!superBowlName;
 
-        // Display result
         const isUndefeated = losses === 0 && wins > 0;
         this.displayResult(isUndefeated, wins, losses, ties, isPastSeason, superBowlName, postRecord, preRecord);
-
-        // Show full schedule
         this.displaySchedule(events, isPastSeason);
-
-        // Show last updated
         this.showLastUpdated();
-
-        // Setup share buttons
+        this.setDataCredit(false);
         this.setupShareButtons();
     }
 
@@ -312,38 +478,29 @@ class PackersTracker {
 
     isOffseason(events) {
         const now = new Date();
-        const currentYear = now.getFullYear();
-        
-        // NFL season typically runs from September to February
-        // Offseason is roughly March through August
-        const isOffseasonMonth = now.getMonth() >= 2 && now.getMonth() <= 7; // March (2) through August (7)
-        
-        // Also check if there are no scheduled games in the near future (next 30 days)
+        const isOffseasonMonth = now.getMonth() >= 2 && now.getMonth() <= 7;
         const thirtyDaysFromNow = new Date(now.getTime() + (30 * 24 * 60 * 60 * 1000));
         const hasUpcomingGames = events.some(event => {
             const gameDate = new Date(event.date);
             const status = event.competitions?.[0]?.status?.type?.name;
             return gameDate > now && gameDate <= thirtyDaysFromNow && status === 'STATUS_SCHEDULED';
         });
-        
-        // We're in offseason if it's offseason months AND no upcoming games
         return isOffseasonMonth && !hasUpcomingGames;
     }
-    
+
     displayOffseasonMessage() {
         const answerEl = document.getElementById('answer');
         const recordEl = document.getElementById('record');
-        
+
         answerEl.innerHTML = `🏈<br>OFFSEASON`;
         answerEl.className = 'answer offseason';
         document.body.classList.remove('undefeated');
         document.body.classList.add('offseason');
-        
+
         recordEl.textContent = 'The season hasn\'t started yet!';
     }
 
     displayResult(isUndefeated, wins, losses, ties, isPastSeason = false, superBowlName = null, postRecord = null, preRecord = null) {
-        const superBowlWin = !!superBowlName;
         const answerEl = document.getElementById('answer');
         const recordEl = document.getElementById('record');
 
@@ -352,7 +509,7 @@ class PackersTracker {
             answerEl.innerHTML = `${cheeseBlocks}<br>YES!!!`;
             answerEl.className = 'answer yes';
             document.body.classList.add('undefeated');
-        } else if (superBowlWin) {
+        } else if (superBowlName) {
             answerEl.innerHTML = `🏆🏈🧀<br>${superBowlName.toUpperCase()}<br>CHAMPIONS!<br>🎉🎊🎉`;
             answerEl.className = 'answer champions';
             document.body.classList.remove('undefeated');
@@ -394,35 +551,26 @@ class PackersTracker {
     displaySchedule(events, isPastSeason = false) {
         const scheduleGrid = document.getElementById('schedule-grid');
         const now = new Date();
-        
-        // Sort events by date
+
         const sortedEvents = events.sort((a, b) => new Date(a.date) - new Date(b.date));
-        
-        // Find next game
+
         const nextGame = sortedEvents.find(event => {
             const gameDate = new Date(event.date);
             const status = event.competitions?.[0]?.status?.type?.name;
             return gameDate > now && status === 'STATUS_SCHEDULED';
         });
-        
-        // Check for live game
+
         const liveGame = sortedEvents.find(event => {
             const status = event.competitions?.[0]?.status?.type?.name;
-            return status === 'STATUS_IN_PROGRESS' || 
-                   status === 'STATUS_HALFTIME' || 
-                   status === 'STATUS_DELAYED' ||
-                   status === 'STATUS_BREAK' ||
-                   status === 'STATUS_TIMEOUT' ||
-                   status === 'STATUS_END_PERIOD' ||
-                   status === 'STATUS_RAIN_DELAY';
-                   status === 'STATUS_HALFTIME' || 
+            return status === 'STATUS_IN_PROGRESS' ||
+                   status === 'STATUS_HALFTIME' ||
                    status === 'STATUS_DELAYED' ||
                    status === 'STATUS_BREAK' ||
                    status === 'STATUS_TIMEOUT' ||
                    status === 'STATUS_END_PERIOD' ||
                    status === 'STATUS_RAIN_DELAY';
         });
-        
+
         scheduleGrid.innerHTML = '';
 
         const sectionLabels = { pre: 'Preseason', regular: 'Regular Season', post: 'Playoffs' };
@@ -439,7 +587,7 @@ class PackersTracker {
             const gameItem = this.createGameItem(event, nextGame, liveGame, now);
             scheduleGrid.appendChild(gameItem);
         });
-        
+
         if (!isPastSeason) {
             setTimeout(() => {
                 this.autoScrollToRecentGame(scheduleGrid, sortedEvents, now);
@@ -450,38 +598,32 @@ class PackersTracker {
             }
         }
     }
-    
+
     autoScrollToRecentGame(scheduleGrid, sortedEvents, now) {
-        // Find the most recent completed game or live game
         let mostRecentCompletedIndex = -1;
-        
+
         for (let i = sortedEvents.length - 1; i >= 0; i--) {
             const event = sortedEvents[i];
             const status = event.competitions?.[0]?.status?.type?.name;
-            
-            // Prioritize live games, then most recent completed games
-            if (status === 'STATUS_IN_PROGRESS' || 
-                status === 'STATUS_HALFTIME' || 
+
+            if (status === 'STATUS_IN_PROGRESS' ||
+                status === 'STATUS_HALFTIME' ||
                 status === 'STATUS_DELAYED' ||
                 status === 'STATUS_FINAL') {
                 mostRecentCompletedIndex = i;
                 break;
             }
         }
-        
-        // If we found a recent game, scroll to it
+
         if (mostRecentCompletedIndex >= 0) {
             const gameItems = scheduleGrid.children;
             if (gameItems[mostRecentCompletedIndex]) {
-                // Calculate the position to scroll to within the schedule grid
                 const gameItem = gameItems[mostRecentCompletedIndex];
                 const containerHeight = scheduleGrid.clientHeight;
                 const itemHeight = gameItem.offsetHeight;
                 const itemTop = gameItem.offsetTop;
-                
-                // Center the item in the container
                 const scrollTop = itemTop - (containerHeight / 2) + (itemHeight / 2);
-                
+
                 scheduleGrid.scrollTo({
                     top: Math.max(0, scrollTop),
                     behavior: 'smooth'
@@ -489,56 +631,53 @@ class PackersTracker {
             }
         }
     }
-    
+
     createGameItem(event, nextGame, liveGame, now) {
         const competition = event.competitions[0];
         const competitors = competition.competitors;
         const status = competition.status;
         const date = new Date(event.date);
-        
+
         const isLive = liveGame && event.id === liveGame.id;
-        
+
         let packersScore = 0;
         let opponentScore = 0;
         let opponent = '';
         let isHome = false;
-        
+
         competitors.forEach(competitor => {
             if (competitor.team.abbreviation === 'GB') {
-                // Try multiple ways to get the score
                 packersScore = parseInt(
-                    competitor.score?.value || 
+                    competitor.score?.value ||
                     competitor.score?.displayValue ||
-                    competitor.score || 
+                    competitor.score ||
                     0
                 );
                 isHome = competitor.homeAway === 'home';
             } else {
-                // Try multiple ways to get the score
                 opponentScore = parseInt(
-                    competitor.score?.value || 
+                    competitor.score?.value ||
                     competitor.score?.displayValue ||
-                    competitor.score || 
+                    competitor.score ||
                     0
                 );
                 opponent = competitor.team.displayName;
             }
         });
-        
+
         const gameItem = document.createElement('div');
         gameItem.className = 'game-item';
-        
-        // Determine game status and styling
+
         const isNext = nextGame && event.id === nextGame.id && !isLive;
         const isCompleted = status.type.name === 'STATUS_FINAL';
-        const isInProgress = status.type.name === 'STATUS_IN_PROGRESS' || 
+        const isInProgress = status.type.name === 'STATUS_IN_PROGRESS' ||
                             status.type.name === 'STATUS_HALFTIME' ||
                             status.type.name === 'STATUS_DELAYED' ||
                             status.type.name === 'STATUS_BREAK' ||
                             status.type.name === 'STATUS_TIMEOUT' ||
                             status.type.name === 'STATUS_END_PERIOD' ||
                             status.type.name === 'STATUS_RAIN_DELAY';
-        
+
         if (isLive) {
             gameItem.classList.add('live');
         } else if (isNext) {
@@ -551,26 +690,23 @@ class PackersTracker {
                 gameItem.classList.add('loss');
             }
         }
-        
-        // Create game info
+
         const gameInfo = document.createElement('div');
         gameInfo.className = 'game-info';
-        
+
         const gameDetails = document.createElement('div');
         gameDetails.className = 'game-details';
-        
+
         const opponentDiv = document.createElement('div');
         opponentDiv.className = 'game-opponent';
         opponentDiv.textContent = `${isHome ? 'vs' : '@'} ${opponent}`;
-        
+
         const dateDiv = document.createElement('div');
         dateDiv.className = 'game-date';
-        
+
         const network = competition.broadcasts?.[0]?.media?.shortName || '';
 
-        if (isLive) {
-            dateDiv.innerHTML = `<span class="live-indicator-small"></span>LIVE NOW${network ? ` · <span class="game-network">${network}</span>` : ''}`;
-        } else if (isInProgress) {
+        if (isLive || isInProgress) {
             dateDiv.innerHTML = `<span class="live-indicator-small"></span>LIVE NOW${network ? ` · <span class="game-network">${network}</span>` : ''}`;
         } else {
             const dateText = date.toLocaleDateString('en-US', {
@@ -584,45 +720,30 @@ class PackersTracker {
                 ? `${dateText} · <span class="game-network">${network}</span>`
                 : dateText;
         }
-        
+
         gameDetails.appendChild(opponentDiv);
         gameDetails.appendChild(dateDiv);
-        
-        // Add time remaining for live games
+
         if (isLive || isInProgress) {
             const statusDiv = document.createElement('div');
             statusDiv.className = 'game-status';
-            
-            const statusText = status.type.detail || status.type.shortDetail || 'Live';
-            statusDiv.textContent = statusText;
-            
+            statusDiv.textContent = status.type.detail || status.type.shortDetail || 'Live';
             gameDetails.appendChild(statusDiv);
-            
-            // Add last play information if available
+
             if (event.lastPlay) {
                 const lastPlayDiv = document.createElement('div');
                 lastPlayDiv.className = 'last-play';
-                
+
                 let playText = '';
-                
-                // Add possession information
                 if (event.lastPlay.possession) {
-                    const possessionTeamId = event.lastPlay.possession;
-                    // Find the team name from competitors
-                    const possessionTeam = competitors.find(comp => comp.team.id == possessionTeamId);
-                    const teamName = possessionTeam ? possessionTeam.team.abbreviation : possessionTeamId;
+                    const possessionTeam = competitors.find(comp => comp.team.id == event.lastPlay.possession);
+                    const teamName = possessionTeam ? possessionTeam.team.abbreviation : event.lastPlay.possession;
                     playText += `${teamName} Ball\n`;
                 }
-                
-                // Add down and distance
                 if (event.lastPlay.downDistanceText) {
-                    playText += event.lastPlay.downDistanceText;
-                    playText += '\n';
+                    playText += event.lastPlay.downDistanceText + '\n';
                 }
-                
-                // Add current drive description
                 if (event.lastPlay.drive?.description) {
-                    // Try to determine whose drive it is
                     let driveTeam = '';
                     if (event.lastPlay.drive.team) {
                         const driveTeamData = competitors.find(comp => comp.team.id == event.lastPlay.drive.team);
@@ -630,62 +751,47 @@ class PackersTracker {
                     }
                     playText += `${driveTeam}Drive: ${event.lastPlay.drive.description}\n`;
                 }
-                
-                // Add last play text
                 if (event.lastPlay.text) {
                     playText += `\nLast Play:\n${event.lastPlay.text}`;
                 }
-                
+
                 if (playText.trim()) {
                     lastPlayDiv.textContent = playText.trim();
                     gameDetails.appendChild(lastPlayDiv);
                 }
             }
         }
-        
-        // Add countdown for next game
+
         if (isNext) {
             const countdownDiv = document.createElement('div');
             countdownDiv.className = 'countdown-small';
-            
-            const gameDate = new Date(event.date);
-            const now = new Date();
-            const timeLeft = gameDate - now;
-            
+
+            const timeLeft = date - now;
             if (timeLeft > 0) {
                 const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
                 const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
                 const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
-                
+
                 let countdownText = '⏰ ';
-                if (days > 0) {
-                    countdownText += `${days}d ${hours}h ${minutes}m`;
-                } else if (hours > 0) {
-                    countdownText += `${hours}h ${minutes}m`;
-                } else {
-                    countdownText += `${minutes}m`;
-                }
-                
+                if (days > 0) countdownText += `${days}d ${hours}h ${minutes}m`;
+                else if (hours > 0) countdownText += `${hours}h ${minutes}m`;
+                else countdownText += `${minutes}m`;
+
                 countdownDiv.textContent = countdownText;
             } else {
                 countdownDiv.textContent = '🏈 Game Time!';
             }
-            
+
             gameDetails.appendChild(countdownDiv);
         }
-        
+
         gameInfo.appendChild(gameDetails);
-        
-        // Create game result
-        const gameResult = document.createElement('div');
-        gameResult.className = 'game-result';
-        
         gameItem.appendChild(gameInfo);
-        
+
         if (isCompleted) {
             const scoreDiv = document.createElement('div');
             scoreDiv.className = 'game-score';
-            
+
             let resultIndicator = '';
             if (packersScore > opponentScore) {
                 scoreDiv.classList.add('win');
@@ -696,8 +802,7 @@ class PackersTracker {
             } else {
                 resultIndicator = 'T ';
             }
-            
-            // Create clickable link to ESPN box score
+
             const scoreLink = document.createElement('a');
             scoreLink.href = `https://www.espn.com/nfl/game/_/gameId/${event.id}`;
             scoreLink.target = '_blank';
@@ -705,7 +810,7 @@ class PackersTracker {
             scoreLink.textContent = `${resultIndicator}${packersScore}-${opponentScore}`;
             scoreLink.style.color = 'inherit';
             scoreLink.style.textDecoration = 'none';
-            
+
             scoreDiv.appendChild(scoreLink);
             scoreDiv.style.textAlign = 'center';
             scoreDiv.style.marginTop = '0.5rem';
@@ -713,10 +818,8 @@ class PackersTracker {
             gameItem.appendChild(scoreDiv);
         } else if (isLive || isInProgress) {
             const scoreDiv = document.createElement('div');
-            scoreDiv.className = 'game-score';
-            scoreDiv.classList.add('live');
-            
-            // Create clickable link to ESPN box score for live games too
+            scoreDiv.className = 'game-score live';
+
             const scoreLink = document.createElement('a');
             scoreLink.href = `https://www.espn.com/nfl/game/_/gameId/${event.id}`;
             scoreLink.target = '_blank';
@@ -724,27 +827,21 @@ class PackersTracker {
             scoreLink.textContent = `${packersScore}-${opponentScore}`;
             scoreLink.style.color = 'inherit';
             scoreLink.style.textDecoration = 'none';
-            
+
             scoreDiv.appendChild(scoreLink);
             scoreDiv.style.textAlign = 'center';
             scoreDiv.style.marginTop = '0.5rem';
             scoreDiv.style.width = '100%';
             gameItem.appendChild(scoreDiv);
         }
-            
+
         return gameItem;
     }
+
     startLiveUpdates() {
-        
-        // Clear any existing intervals
-        if (this.liveUpdateInterval) {
-            clearInterval(this.liveUpdateInterval);
-        }
-        if (this.countdownInterval) {
-            clearInterval(this.countdownInterval);
-        }
-        
-        // Update every 30 seconds during live games
+        if (this.liveUpdateInterval) clearInterval(this.liveUpdateInterval);
+        if (this.countdownInterval) clearInterval(this.countdownInterval);
+
         this.liveUpdateInterval = setInterval(async () => {
             try {
                 await this.fetchPackersData();
@@ -754,26 +851,30 @@ class PackersTracker {
         }, 30000);
     }
 
+    setDataCredit(show) {
+        const el = document.getElementById('data-credit');
+        if (el) el.style.display = show ? '' : 'none';
+    }
+
     showLastUpdated() {
         const el = document.getElementById('last-updated');
         const now = new Date();
         el.textContent = `Last updated: ${now.toLocaleDateString()} at ${now.toLocaleTimeString()}`;
     }
-    
+
     setupShareButtons() {
         const copyBtn = document.getElementById('share-copy');
-        
         copyBtn.addEventListener('click', () => this.copyLink());
     }
-    
+
     getShareMessage() {
         const answerEl = document.getElementById('answer');
         const recordEl = document.getElementById('record');
-        
+
         const isUndefeated = answerEl.textContent.includes('YES');
         const isOffseason = answerEl.textContent.includes('OFFSEASON');
         const record = recordEl.textContent;
-        
+
         if (isOffseason) {
             return `🏈 Green Bay Packers offseason - can't wait for the new season! #GoPackGo`;
         } else if (isUndefeated) {
@@ -782,40 +883,33 @@ class PackersTracker {
             return `The Green Bay Packers are ${record} this season. #GoPackGo`;
         }
     }
-    
+
     async copyLink() {
         const copyBtn = document.getElementById('share-copy');
         const message = this.getShareMessage();
         const url = window.location.href;
         const shareText = `${message}\n\nCheck it out: ${url}`;
-        
+
         try {
             await navigator.clipboard.writeText(shareText);
-            
-            // Visual feedback
             const originalText = copyBtn.innerHTML;
             copyBtn.innerHTML = '<span class="share-icon">✅</span>Copied!';
             copyBtn.classList.add('copy-success');
-            
             setTimeout(() => {
                 copyBtn.innerHTML = originalText;
                 copyBtn.classList.remove('copy-success');
             }, 2000);
-            
         } catch (err) {
-            // Fallback for older browsers
             const textArea = document.createElement('textarea');
             textArea.value = shareText;
             document.body.appendChild(textArea);
             textArea.select();
             document.execCommand('copy');
             document.body.removeChild(textArea);
-            
-            // Visual feedback
+
             const originalText = copyBtn.innerHTML;
             copyBtn.innerHTML = '<span class="share-icon">✅</span>Copied!';
             copyBtn.classList.add('copy-success');
-            
             setTimeout(() => {
                 copyBtn.innerHTML = originalText;
                 copyBtn.classList.remove('copy-success');
@@ -826,12 +920,12 @@ class PackersTracker {
     showError(message) {
         const answerEl = document.getElementById('answer');
         const recordEl = document.getElementById('record');
-        
+
         if (answerEl) {
             answerEl.innerHTML = `<div style="color: #ff6b6b;">${message}</div>`;
             answerEl.className = 'answer error';
         }
-        
+
         if (recordEl) {
             recordEl.textContent = 'Unable to load data';
         }

@@ -238,6 +238,22 @@ h1 {
     color: #ffb612;
 }
 
+.data-credit {
+    margin-top: 0.5rem;
+    font-size: 0.8rem;
+    opacity: 0.6;
+    color: #ffb612;
+}
+
+.data-credit a {
+    color: #ffb612;
+    text-decoration: underline;
+}
+
+.data-credit a:hover {
+    opacity: 1;
+}
+
 .share-section {
     margin-top: 2rem;
     padding-top: 1.5rem;
