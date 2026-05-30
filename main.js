@@ -45,7 +45,10 @@ class PackersTracker {
                     this.csvMaxSeason = seasons[seasons.length - 1];
                 }
             }
-            await this.fetchPackersData();
+            const params = new URLSearchParams(window.location.search);
+            const seasonParam = params.get('season');
+            const requestedSeason = seasonParam ? parseInt(seasonParam, 10) : null;
+            await this.fetchPackersData(requestedSeason || undefined);
             this.setupSeasonSelector();
         } catch (error) {
             this.showError('Failed to load Packers data');
