@@ -4,6 +4,17 @@ A simple web app that answers the only question that matters: are the Green Bay 
 
 Browse every season from 1921 to the present, with full game-by-game schedules and results.
 
+## Linking to a Specific Season
+
+Append the year to the URL to jump directly to any season:
+
+```
+example.com/1924
+example.com/?season=1924
+```
+
+Both formats are supported. The path form (`/1924`) requires your host to be configured with a rewrite rule that serves `index.html` for all routes.
+
 ## Data Sources
 
 **Current and recent seasons** — live and historical schedule data is fetched from the [ESPN API](https://www.espn.com).

@@ -47,7 +47,10 @@ class PackersTracker {
             }
             const params = new URLSearchParams(window.location.search);
             const seasonParam = params.get('season');
-            const requestedSeason = seasonParam ? parseInt(seasonParam, 10) : null;
+            const pathMatch = window.location.pathname.match(/\/(\d{4})\/?$/);
+            const requestedSeason = seasonParam
+                ? parseInt(seasonParam, 10)
+                : pathMatch ? parseInt(pathMatch[1], 10) : null;
             await this.fetchPackersData(requestedSeason || undefined);
             this.setupSeasonSelector();
         } catch (error) {
