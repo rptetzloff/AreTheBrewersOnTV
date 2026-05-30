@@ -67,6 +67,11 @@ class PackersTracker {
         const firstBtn = document.getElementById('season-first');
         const lastBtn = document.getElementById('season-last');
 
+        window.addEventListener('popstate', (e) => {
+            const season = e.state?.season;
+            if (season) this.loadSeason(season, false);
+        });
+
         firstBtn.addEventListener('click', () => {
             if (this.currentSeason !== this.earliestSeason) this.loadSeason(this.earliestSeason);
         });
@@ -112,7 +117,7 @@ class PackersTracker {
         lastBtn.disabled = this.currentSeason >= this.latestSeason;
     }
 
-    async loadSeason(year) {
+    async loadSeason(year, pushState = true) {
         if (this.liveUpdateInterval) {
             clearInterval(this.liveUpdateInterval);
             this.liveUpdateInterval = null;
@@ -123,6 +128,13 @@ class PackersTracker {
         answerEl.className = 'answer loading';
         recordEl.textContent = '';
         document.getElementById('schedule-grid').innerHTML = '<div class="loading">Loading schedule...</div>';
+
+        if (pushState) {
+            const url = new URL(window.location.href);
+            url.pathname = `/${year}`;
+            url.searchParams.delete('season');
+            history.pushState({ season: year }, '', url.toString());
+        }
 
         try {
             await this.fetchPackersData(year);
