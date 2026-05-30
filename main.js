@@ -1,32 +1,23 @@
-import csvRaw from './data/packers_games_1921-2020.csv?raw';
-
-// Parse the CSV once at startup
-const CSV_GAMES = (() => {
-    const lines = csvRaw.trim().split('\n');
+function parseCsv(raw) {
+    const lines = raw.trim().split('\n');
     const headers = lines[0].split(',');
     return lines.slice(1).map(line => {
-        // Handle potential commas inside quoted fields (none expected here, but safe split)
         const vals = line.split(',');
         const obj = {};
         headers.forEach((h, i) => { obj[h.trim()] = (vals[i] || '').trim(); });
         return obj;
     });
-})();
+}
 
-// Build a map: season (number) -> array of game rows
-const CSV_BY_SEASON = (() => {
+function buildSeasonMap(games) {
     const map = {};
-    CSV_GAMES.forEach(g => {
+    games.forEach(g => {
         const yr = parseInt(g.season);
         if (!map[yr]) map[yr] = [];
         map[yr].push(g);
     });
     return map;
-})();
-
-const CSV_SEASONS = Object.keys(CSV_BY_SEASON).map(Number).sort((a, b) => a - b);
-const CSV_MIN_SEASON = CSV_SEASONS[0];   // 1921
-const CSV_MAX_SEASON = CSV_SEASONS[CSV_SEASONS.length - 1]; // 2020
+}
 
 class PackersTracker {
     constructor() {
@@ -35,12 +26,25 @@ class PackersTracker {
         this.liveUpdateInterval = null;
         this.currentSeason = null;
         this.latestSeason = null;
-        this.earliestSeason = CSV_MIN_SEASON;
+        this.earliestSeason = 1921;
+        this.csvBySeason = {};
+        this.csvMaxSeason = 2020;
         this.init();
     }
 
     async init() {
         try {
+            const res = await fetch('./data/packers_games_1921-2020.csv');
+            if (res.ok) {
+                const raw = await res.text();
+                const games = parseCsv(raw);
+                this.csvBySeason = buildSeasonMap(games);
+                const seasons = Object.keys(this.csvBySeason).map(Number).sort((a, b) => a - b);
+                if (seasons.length) {
+                    this.earliestSeason = seasons[0];
+                    this.csvMaxSeason = seasons[seasons.length - 1];
+                }
+            }
             await this.fetchPackersData();
             this.setupSeasonSelector();
         } catch (error) {
@@ -121,9 +125,8 @@ class PackersTracker {
         }
     }
 
-    // Returns true if we should use CSV data for this season
     usesCsvData(season) {
-        return season != null && season <= CSV_MAX_SEASON && CSV_BY_SEASON[season] != null;
+        return season != null && season <= this.csvMaxSeason && this.csvBySeason[season] != null;
     }
 
     async fetchPackersData(season) {
@@ -180,7 +183,7 @@ class PackersTracker {
     }
 
     processCsvSeasonData(season) {
-        const games = CSV_BY_SEASON[season] || [];
+        const games = this.csvBySeason[season] || [];
 
         this.currentSeason = season;
         if (!this.latestSeason) {
