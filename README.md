@@ -4,6 +4,10 @@ A simple web app that answers the only question that matters: are the Green Bay 
 
 Browse every season from 1921 to the present, with full game-by-game schedules and results.
 
+**Live site:** [arethepackersundefeated.com](https://arethepackersundefeated.com)
+
+Vibe coded with [Bolt](https://bolt.new) and [Claude Code](https://claude.ai/code). Hosted on [Render](https://render.com).
+
 ## Linking to a Specific Season
 
 Append the year to the URL to jump directly to any season:
