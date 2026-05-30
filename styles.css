@@ -489,3 +489,27 @@ h1 {
         min-width: 100%;
     }
 }
+
+.site-footer {
+    margin-top: 1.5rem;
+    padding-bottom: 0.5rem;
+    text-align: center;
+}
+
+.github-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: rgba(255, 255, 255, 0.5);
+    text-decoration: none;
+    font-size: 0.8rem;
+    transition: color 0.2s;
+}
+
+.github-link:hover {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.github-link .mdi {
+    font-size: 1rem;
+}

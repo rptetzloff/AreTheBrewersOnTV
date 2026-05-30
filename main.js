@@ -211,7 +211,7 @@ class PackersTracker {
         }
         this.updateSeasonSelector();
 
-        document.getElementById('schedule-title').textContent = `📅 ${season} Season Schedule`;
+        document.getElementById('schedule-title').innerHTML = `<i class="mdi mdi-calendar-month"></i> ${season} Season Schedule`;
 
         // Tally regular season and playoff records from CSV
         let wins = 0, losses = 0, ties = 0;
@@ -494,7 +494,7 @@ class PackersTracker {
         const yearLabel = year ? `${year} ` : '';
         const isRegular = !seasonType || seasonType.toLowerCase().includes('regular');
         const typeLabel = !isRegular ? ` (${seasonType})` : '';
-        titleEl.textContent = `📅 ${yearLabel}Season Schedule${typeLabel}`;
+        titleEl.innerHTML = `<i class="mdi mdi-calendar-month"></i> ${yearLabel}Season Schedule${typeLabel}`;
     }
 
     isOffseason(events) {
@@ -891,17 +891,38 @@ class PackersTracker {
     getShareMessage() {
         const answerEl = document.getElementById('answer');
         const recordEl = document.getElementById('record');
+        const answerText = answerEl.textContent;
 
-        const isUndefeated = answerEl.textContent.includes('YES');
-        const isOffseason = answerEl.textContent.includes('OFFSEASON');
-        const record = recordEl.textContent;
+        const isOffseason = answerText.includes('OFFSEASON');
+        const isChampions = answerText.includes('CHAMPIONS');
+        const isUndefeated = answerText.includes('YES');
+        const season = this.currentSeason;
+        const isPast = season && this.latestSeason && season < this.latestSeason;
+
+        const recordText = recordEl.innerText.split('\n')[0].replace(/^(Final|Current) Record:\s*/, '').trim();
 
         if (isOffseason) {
-            return `🏈 Green Bay Packers offseason - can't wait for the new season! #GoPackGo`;
-        } else if (isUndefeated) {
-            return `🧀 The Green Bay Packers are UNDEFEATED! ${record} 🧀 #GoPackGo`;
+            return `🏈 Green Bay Packers offseason - can't wait for the ${season} season! #GoPackGo`;
+        }
+
+        if (isChampions) {
+            const sbLine = answerText.match(/(SUPER BOWL [IVXLCDM]+)/i);
+            const sbName = sbLine ? sbLine[1] : 'the Super Bowl';
+            return `🏆 The ${season} Green Bay Packers won ${sbName}! #GoPackGo`;
+        }
+
+        if (isPast) {
+            if (isUndefeated) {
+                return `🧀 The ${season} Green Bay Packers finished the regular season UNDEFEATED at ${recordText}! #GoPackGo`;
+            } else {
+                return `The ${season} Green Bay Packers finished ${recordText}. #GoPackGo`;
+            }
         } else {
-            return `The Green Bay Packers are ${record} this season. #GoPackGo`;
+            if (isUndefeated) {
+                return `🧀 The Green Bay Packers are UNDEFEATED so far in ${season}! ${recordText} 🧀 #GoPackGo`;
+            } else {
+                return `The Green Bay Packers are ${recordText} so far in the ${season} season. #GoPackGo`;
+            }
         }
     }
 
@@ -914,7 +935,7 @@ class PackersTracker {
         try {
             await navigator.clipboard.writeText(shareText);
             const originalText = copyBtn.innerHTML;
-            copyBtn.innerHTML = '<span class="share-icon">✅</span>Copied!';
+            copyBtn.innerHTML = '<i class="mdi mdi-check share-icon"></i>Copied!';
             copyBtn.classList.add('copy-success');
             setTimeout(() => {
                 copyBtn.innerHTML = originalText;
@@ -929,7 +950,7 @@ class PackersTracker {
             document.body.removeChild(textArea);
 
             const originalText = copyBtn.innerHTML;
-            copyBtn.innerHTML = '<span class="share-icon">✅</span>Copied!';
+            copyBtn.innerHTML = '<i class="mdi mdi-check share-icon"></i>Copied!';
             copyBtn.classList.add('copy-success');
             setTimeout(() => {
                 copyBtn.innerHTML = originalText;
