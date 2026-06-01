@@ -53,6 +53,28 @@
         </a>
     </footer>
 
+    <div id="lightbox" class="lightbox" role="dialog" aria-modal="true" aria-label="Full size photo" hidden>
+        <button id="lightbox-close" class="lightbox-close" aria-label="Close"><i class="mdi mdi-close"></i></button>
+        <button id="lightbox-prev" class="lightbox-nav lightbox-nav-prev" aria-label="Previous photo"><i class="mdi mdi-chevron-left"></i></button>
+        <button id="lightbox-next" class="lightbox-nav lightbox-nav-next" aria-label="Next photo"><i class="mdi mdi-chevron-right"></i></button>
+        <img id="lightbox-img" src="" alt="">
+        <div class="lightbox-info">
+            <p id="lightbox-caption" class="lightbox-caption"></p>
+            <p id="lightbox-license" class="lightbox-license"></p>
+        </div>
+    </div>
+
+    <div id="photo-gallery-modal" class="gallery-modal" role="dialog" aria-modal="true" aria-label="Season photo gallery" hidden>
+        <div class="gallery-backdrop"></div>
+        <div class="gallery-dialog">
+            <div class="gallery-header">
+                <h2 id="gallery-title" class="gallery-title"></h2>
+                <button id="gallery-close" class="gallery-close" aria-label="Close gallery"><i class="mdi mdi-close"></i></button>
+            </div>
+            <div id="gallery-grid" class="gallery-grid"></div>
+        </div>
+    </div>
+
     <script src="main.js" type="module"></script>
 </body>
 </html>

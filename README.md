@@ -35,6 +35,19 @@ npm run update-data
 
 This fetches `games.csv` from the nflverse-data releases, extracts all completed Packers games from 1999 onward, merges them with the pre-1999 FiveThirtyEight base data, and rewrites both CSV files in place.
 
+## Photos
+
+`data/photos.csv` — historical photos displayed alongside certain seasons. Each row contains a season year, image URL, caption, license, and license URL. Images are sourced from Wikimedia Commons and must be freely licensed (Public Domain or Creative Commons).
+
+To add a photo for a season, append a row to `photos.csv`:
+
+```
+season,url,caption,license,license_url
+1967,https://upload.wikimedia.org/.../photo.jpg,Caption text,Public Domain,https://commons.wikimedia.org/wiki/File:photo.jpg
+```
+
+Multiple photos per season are supported — they will all be displayed.
+
 ## Data Sources
 
 **1921–1998** — game data is derived from the [nfl-elo-game](https://github.com/fivethirtyeight/nfl-elo-game) dataset published by [FiveThirtyEight](https://fivethirtyeight.com), used under the MIT License. See [LICENSE-DATA](LICENSE-DATA) for details.
@@ -48,3 +61,5 @@ Application source code is released under the MIT License. See [LICENSE](LICENSE
 The FiveThirtyEight NFL ELO game data in `data/packers_games.csv` (seasons 1921–1998) is redistributed under the MIT License granted by FiveThirtyEight. See [LICENSE-DATA](LICENSE-DATA).
 
 The nflverse-data content in `data/packers_games.csv` (seasons 1999–present) is used under the [Creative Commons Attribution 4.0 International License](https://creativecommons.org/licenses/by/4.0/). Credit: [nflverse contributors](https://github.com/nflverse/nflverse-data).
+
+Photos in `data/photos.csv` are sourced from [Wikimedia Commons](https://commons.wikimedia.org/) under their respective licenses (Public Domain or Creative Commons). See the `license` and `license_url` columns in the CSV for per-image attribution.
