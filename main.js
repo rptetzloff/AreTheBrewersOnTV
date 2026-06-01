@@ -29,14 +29,18 @@ class PackersTracker {
         this.earliestSeason = 1921;
         this.csvBySeason = {};
         this.csvMaxSeason = 2020;
+        this.seasonRecords = {};
         this.init();
     }
 
     async init() {
         try {
-            const res = await fetch('./data/packers_games_1921-2020.csv');
-            if (res.ok) {
-                const raw = await res.text();
+            const [gamesRes, recordsRes] = await Promise.all([
+                fetch('./data/packers_games.csv'),
+                fetch('./data/packers_season_records.csv'),
+            ]);
+            if (gamesRes.ok) {
+                const raw = await gamesRes.text();
                 const games = parseCsv(raw);
                 this.csvBySeason = buildSeasonMap(games);
                 const seasons = Object.keys(this.csvBySeason).map(Number).sort((a, b) => a - b);
@@ -44,6 +48,12 @@ class PackersTracker {
                     this.earliestSeason = seasons[0];
                     this.csvMaxSeason = seasons[seasons.length - 1];
                 }
+            }
+            if (recordsRes.ok) {
+                const raw = await recordsRes.text();
+                parseCsv(raw).forEach(r => {
+                    this.seasonRecords[parseInt(r.season)] = r;
+                });
             }
             const params = new URLSearchParams(window.location.search);
             const seasonParam = params.get('season');
@@ -148,7 +158,7 @@ class PackersTracker {
     }
 
     async fetchPackersData(season) {
-        // For seasons covered by the CSV (1921-2020), use local data
+        // For seasons covered by the CSV, use local data
         if (season && this.usesCsvData(season)) {
             this.processCsvSeasonData(season);
             return;
@@ -248,6 +258,7 @@ class PackersTracker {
         this.displayCsvSchedule(games, season);
         this.showLastUpdated();
         this.setDataCredit(true);
+        this.updateLastUndefeated(wins, losses);
         this.setupShareButtons();
     }
 
@@ -424,6 +435,7 @@ class PackersTracker {
             this.displayOffseasonMessage();
             this.displaySchedule(events, true);
             this.showLastUpdated();
+            this.updateLastUndefeated(0, 0);
             this.setupShareButtons();
             return;
         }
@@ -485,6 +497,7 @@ class PackersTracker {
         this.displaySchedule(events, isPastSeason);
         this.showLastUpdated();
         this.setDataCredit(false);
+        this.updateLastUndefeated(wins, losses);
         this.setupShareButtons();
     }
 
@@ -956,6 +969,42 @@ class PackersTracker {
                 copyBtn.innerHTML = originalText;
                 copyBtn.classList.remove('copy-success');
             }, 2000);
+        }
+    }
+
+    updateLastUndefeated(currentSeasonWins, currentSeasonLosses) {
+        const el = document.getElementById('last-undefeated');
+        if (!el) return;
+
+        // Check if current season being viewed is itself undefeated (in-progress or final)
+        const currentIsUndefeated = currentSeasonLosses === 0 && currentSeasonWins > 0;
+
+        // Find last undefeated season from CSV records (excluding current if it's live)
+        let lastYear = null;
+        const csvYears = Object.keys(this.seasonRecords).map(Number).sort((a, b) => a - b);
+        for (const yr of csvYears) {
+            const r = this.seasonRecords[yr];
+            if (parseInt(r.reg_l) === 0 && parseInt(r.reg_w) > 0) {
+                lastYear = yr;
+            }
+        }
+
+        // Also account for ESPN seasons (post-2020): if current season is undefeated and complete, it qualifies
+        // but we want the last historical one to link to, not the current
+        if (!lastYear) {
+            el.innerHTML = '';
+            return;
+        }
+
+        const isCurrent = this.currentSeason === lastYear;
+        const suffix = isCurrent ? '' : `The Packers were last undefeated in <a href="/${lastYear}" class="last-undefeated-link">${lastYear}</a>.`;
+
+        if (currentIsUndefeated && this.currentSeason === this.latestSeason) {
+            el.innerHTML = '';
+        } else if (isCurrent) {
+            el.innerHTML = '';
+        } else {
+            el.innerHTML = suffix;
         }
     }
 
