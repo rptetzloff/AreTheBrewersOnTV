@@ -35,6 +35,18 @@ class PackersTracker {
 
     async init() {
         try {
+            const toggle = document.getElementById('emoji-toggle');
+            toggle.checked = this.showEmojis;
+            toggle.addEventListener('change', () => {
+                localStorage.setItem('showEmojis', toggle.checked ? 'true' : 'false');
+                if (this._isOffseason) {
+                    this.displayOffseasonMessage();
+                } else if (this._lastResult) {
+                    const { isUndefeated, wins, losses, ties, isPastSeason, superBowlName, postRecord, preRecord } = this._lastResult;
+                    this.displayResult(isUndefeated, wins, losses, ties, isPastSeason, superBowlName, postRecord, preRecord);
+                }
+            });
+
             const [gamesRes, recordsRes] = await Promise.all([
                 fetch('./data/packers_games.csv'),
                 fetch('./data/packers_season_records.csv'),
@@ -526,7 +538,10 @@ class PackersTracker {
         const answerEl = document.getElementById('answer');
         const recordEl = document.getElementById('record');
 
-        answerEl.innerHTML = `🏈<br>OFFSEASON`;
+        const footballHtml = this.showEmojis ? '🏈<br>' : '';
+        this._lastResult = null;
+        this._isOffseason = true;
+        answerEl.innerHTML = `${footballHtml}OFFSEASON`;
         answerEl.className = 'answer offseason';
         document.body.classList.remove('undefeated');
         document.body.classList.add('offseason');
@@ -534,13 +549,29 @@ class PackersTracker {
         recordEl.textContent = 'The season hasn\'t started yet!';
     }
 
+    get showEmojis() {
+        return localStorage.getItem('showEmojis') !== 'false';
+    }
+
+    emojiRowHtml(emoji, count) {
+        if (count <= 0) return '';
+        const spans = Array.from({ length: count }, () => `<span>${emoji}</span>`).join('');
+        return `<div class="emoji-row">${spans}</div>`;
+    }
+
     displayResult(isUndefeated, wins, losses, ties, isPastSeason = false, superBowlName = null, postRecord = null, preRecord = null) {
         const answerEl = document.getElementById('answer');
         const recordEl = document.getElementById('record');
 
+        this._lastResult = { isUndefeated, wins, losses, ties, isPastSeason, superBowlName, postRecord, preRecord };
+        this._isOffseason = false;
+
+        const emojis = this.showEmojis;
+
         if (isUndefeated) {
-            const cheeseBlocks = wins > 0 ? '🧀 '.repeat(wins).trim() : '';
-            answerEl.innerHTML = `${cheeseBlocks}<br>YES!!!`;
+            const cheeseHtml = emojis && wins > 0 ? this.emojiRowHtml('🧀', wins) : '';
+            const footballHtml = emojis && !isPastSeason ? this.emojiRowHtml('🏈', 1) : '';
+            answerEl.innerHTML = `${cheeseHtml}YES!!!${footballHtml}`;
             answerEl.className = 'answer yes';
             document.body.classList.add('undefeated');
         } else if (superBowlName) {
@@ -548,9 +579,10 @@ class PackersTracker {
             answerEl.className = 'answer champions';
             document.body.classList.remove('undefeated');
         } else {
-            const cheeseBlocks = wins > 0 ? '🧀 '.repeat(wins).trim() + '<br>' : '';
-            const frownFaces = losses > 0 ? '<br>' + '😢 '.repeat(losses).trim() : '';
-            answerEl.innerHTML = `${cheeseBlocks}NO${frownFaces}`;
+            const cheeseHtml = emojis && wins > 0 ? this.emojiRowHtml('🧀', wins) : '';
+            const footballHtml = emojis && !isPastSeason ? this.emojiRowHtml('🏈', 1) : '';
+            const frownHtml = emojis && losses > 0 ? this.emojiRowHtml('😢', losses) : '';
+            answerEl.innerHTML = `${cheeseHtml}NO${footballHtml}${frownHtml}`;
             answerEl.className = 'answer no';
             document.body.classList.remove('undefeated');
         }
