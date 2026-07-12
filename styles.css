@@ -247,6 +247,63 @@ h1 {
     color: #ffb612;
 }
 
+/* Collapsible toggle sections */
+.collapsible-section {
+    width: 572px;
+    margin: 0.4rem auto 0;
+    box-sizing: border-box;
+}
+
+.collapsible-section[open] > .collapsible-summary {
+    margin-bottom: 0.4rem;
+}
+
+.collapsible-summary {
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    cursor: pointer;
+    user-select: none;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: rgba(255, 182, 18, 0.55);
+    padding: 0.1rem 0;
+    width: fit-content;
+    transition: color 0.2s;
+}
+
+.collapsible-summary::-webkit-details-marker { display: none; }
+
+.collapsible-summary::before {
+    content: '\F0142'; /* mdi chevron-down */
+    font-family: 'Material Design Icons';
+    font-size: 0.85rem;
+    transition: transform 0.2s;
+    display: inline-block;
+}
+
+details:not([open]) > .collapsible-summary::before {
+    transform: rotate(-90deg);
+}
+
+.collapsible-summary:hover {
+    color: rgba(255, 182, 18, 0.85);
+}
+
+/* keep streak-banner from having its own outer margin when inside details */
+.collapsible-section .streak-banner {
+    margin-top: 0;
+}
+
+/* keep on-this-day from having its own outer margin when inside details */
+.collapsible-section .on-this-day {
+    margin-top: 0;
+    width: 100%;
+}
+
 .streak-banner {
     background: rgba(255, 182, 18, 0.08);
     border: 1px solid rgba(255, 182, 18, 0.3);
@@ -306,6 +363,169 @@ h1 {
     padding-top: 1.5rem;
     border-top: 1px solid rgba(255, 182, 18, 0.3);
 }
+
+/* On This Day */
+.on-this-day {
+    background: rgba(32, 55, 49, 0.8);
+    border: 1px solid rgba(255, 182, 18, 0.25);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    box-sizing: border-box;
+}
+
+.otd-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+}
+
+.otd-label {
+    color: #ffb612;
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.otd-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.otd-reset {
+    font-size: 0.72rem;
+    color: rgba(255, 182, 18, 0.6);
+    border: 1px solid rgba(255, 182, 18, 0.3);
+    border-radius: 5px;
+    padding: 0.15rem 0.5rem;
+    text-decoration: none;
+    transition: color 0.2s, border-color 0.2s;
+    white-space: nowrap;
+}
+
+.otd-reset:hover {
+    color: #ffb612;
+    border-color: #ffb612;
+}
+
+.otd-refresh {
+    background: none;
+    border: 1px solid rgba(255, 182, 18, 0.35);
+    border-radius: 6px;
+    color: rgba(255, 182, 18, 0.7);
+    cursor: pointer;
+    padding: 0.2rem 0.45rem;
+    font-size: 1rem;
+    line-height: 1;
+    transition: color 0.2s, border-color 0.2s;
+}
+
+.otd-refresh:hover {
+    color: #ffb612;
+    border-color: #ffb612;
+}
+
+.otd-body {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+}
+
+.otd-photo-link {
+    flex-shrink: 0;
+}
+
+.otd-photo {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 182, 18, 0.3);
+    display: block;
+}
+
+.otd-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.otd-season-link {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.otd-year {
+    color: #ffb612;
+    font-weight: 700;
+    font-size: 1rem;
+    text-decoration: none;
+}
+
+.otd-year:hover {
+    text-decoration: underline;
+    color: #ffd050;
+}
+
+.otd-game-type {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.5);
+    background: rgba(255, 255, 255, 0.08);
+    padding: 0.1rem 0.45rem;
+    border-radius: 4px;
+}
+
+.otd-game-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.otd-result-badge {
+    font-size: 0.75rem;
+    font-weight: 800;
+    padding: 0.15rem 0.45rem;
+    border-radius: 4px;
+    letter-spacing: 0.03em;
+}
+
+.otd-result-badge.win  { background: rgba(76, 175, 80, 0.25); color: #4caf50; }
+.otd-result-badge.loss { background: rgba(244, 67, 54, 0.25); color: #f44336; }
+.otd-result-badge.tie  { background: rgba(255, 152, 0, 0.25); color: #ff9800; }
+
+.otd-matchup {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 0.95rem;
+}
+
+.otd-score {
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 0.85rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.otd-date {
+    font-size: 0.78rem;
+    color: rgba(255, 255, 255, 0.45);
+}
+
+@media (max-width: 620px) {
+    .collapsible-section {
+        width: 100%;
+    }
+    .on-this-day {
+        border-radius: 10px;
+        padding: 0.9rem 1rem;
+    }
+}
+
+
 
 .share-section h3 {
     color: #ffb612;
