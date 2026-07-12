@@ -28,6 +28,35 @@
         		this.init();
         	}
 
+        	getTvStatus(game) {
+        		if (!game) return 'no';
+        		const broadcasts = game.competitions?.[0]?.broadcasts || [];
+        		const networks = broadcasts.flatMap(b => {
+        			const names = [];
+        			if (b.media?.shortName) names.push(b.media.shortName.toLowerCase());
+        			if (b.names) names.push(...b.names.map(n => n.toLowerCase()));
+        			return names;
+        		});
+        		const streamingOnly = [
+        			'mlb.tv', 'brewers.tv', 'mlbtv',
+        			'apple tv', 'apple tv+', 'appletv+',
+        			'peacock', 'espn+', 'espnplus',
+        			'paramount+', 'fubo', 'sling',
+        		];
+        		const onTv = [
+        			'fox', 'fs1', 'fs2', 'espn', 'espn2', 'abc',
+        			'tbs', 'tnt', 'mlb network', 'mlbn',
+        			'bally', 'bsmi', 'bswi', 'nbcs', 'nbc sports',
+        		];
+        		if (networks.length === 0) return 'no';
+        		const hasTV = networks.some(n => onTv.some(tv => n.includes(tv)));
+        		if (hasTV) return 'yes';
+        		const hasStreaming = networks.some(n => streamingOnly.some(s => n.includes(s)));
+        		if (hasStreaming) return 'streaming';
+        		// unknown network — treat as on TV
+        		return 'yes';
+        	}
+
         	async init() {
         		try {
         			const toggle = document.getElementById('emoji-toggle');
@@ -37,8 +66,8 @@
         				if (this._isOffseason) {
         					this.displayOffseasonMessage();
         				} else if (this._lastResult) {
-        					const { isUndefeated, wins, losses, ties, isPastSeason, superBowlName, postRecord, preRecord } = this._lastResult;
-        					this.displayResult(isUndefeated, wins, losses, ties, isPastSeason, superBowlName, postRecord, preRecord);
+        					const { isUndefeated, wins, losses, ties, isPastSeason, superBowlName, postRecord, preRecord, tvStatus } = this._lastResult;
+        					this.displayResult(isUndefeated, wins, losses, ties, isPastSeason, superBowlName, postRecord, preRecord, tvStatus);
         				}
         			});
 
@@ -590,7 +619,24 @@ createCsvGameItem(g, showH2h = false) {
         		});
 
         		const isUndefeated = losses === 0 && wins > 0;
-        		this.displayResult(isUndefeated, wins, losses, ties, isPastSeason, worldSeriesName, postRecord, preRecord);
+
+        		// Determine TV status for today's game (current season only)
+        		let tvStatus = null;
+        		if (!isPastSeason) {
+        			const now = new Date();
+        			const liveNow = events.find(e => {
+        				const s = e.competitions?.[0]?.status?.type?.name;
+        				return s === 'STATUS_IN_PROGRESS' || s === 'STATUS_HALFTIME' ||
+        					s === 'STATUS_DELAYED' || s === 'STATUS_BREAK' ||
+        					s === 'STATUS_TIMEOUT' || s === 'STATUS_END_PERIOD' || s === 'STATUS_RAIN_DELAY';
+        			});
+        			const nextScheduled = events
+        				.filter(e => new Date(e.date) > now && e.competitions?.[0]?.status?.type?.name === 'STATUS_SCHEDULED')
+        				.sort((a, b) => new Date(a.date) - new Date(b.date))[0];
+        			tvStatus = this.getTvStatus(liveNow || nextScheduled);
+        		}
+
+        		this.displayResult(isUndefeated, wins, losses, ties, isPastSeason, worldSeriesName, postRecord, preRecord, tvStatus);
         		this.displaySchedule(events, isPastSeason);
         		this.showLastUpdated();
         		this.setDataCredit(false);
@@ -656,25 +702,43 @@ createCsvGameItem(g, showH2h = false) {
         		return `<div class="emoji-row">${spans}</div>`;
         	}
 
-        	displayResult(isUndefeated, wins, losses, ties, isPastSeason = false, worldSeriesName = null, postRecord = null, preRecord = null) {
+        	displayResult(isUndefeated, wins, losses, ties, isPastSeason = false, worldSeriesName = null, postRecord = null, preRecord = null, tvStatus = null) {
         		const answerEl = document.getElementById('answer');
         		const recordEl = document.getElementById('record');
 
-        		this._lastResult = { isUndefeated, wins, losses, ties, isPastSeason, worldSeriesName, postRecord, preRecord };
+        		this._lastResult = { isUndefeated, wins, losses, ties, isPastSeason, worldSeriesName, postRecord, preRecord, tvStatus };
         		this._isOffseason = false;
 
         		const emojis = this.showEmojis;
 
-        		if (isUndefeated) {
+        		if (worldSeriesName) {
+        			answerEl.innerHTML = `🏆⚾🍺<br>${worldSeriesName.toUpperCase()}<br>CHAMPIONS!<br>🎉🎊🎉`;
+        			answerEl.className = 'answer champions';
+        			document.body.classList.remove('undefeated');
+        		} else if (!isPastSeason && tvStatus !== null) {
+        			// Current season: answer based on whether today's game is on TV
+        			if (tvStatus === 'yes') {
+        				const tvHtml = emojis ? this.emojiRowHtml('📺', 1) : '';
+        				answerEl.innerHTML = `${tvHtml}YES!!!`;
+        				answerEl.className = 'answer yes';
+        				document.body.classList.add('undefeated');
+        			} else if (tvStatus === 'streaming') {
+        				const streamHtml = emojis ? this.emojiRowHtml('📱', 1) : '';
+        				answerEl.innerHTML = `${streamHtml}STREAMING ONLY`;
+        				answerEl.className = 'answer streaming';
+        				document.body.classList.remove('undefeated');
+        			} else {
+        				const baseballHtml = emojis ? this.emojiRowHtml('⚾', 1) : '';
+        				answerEl.innerHTML = `${baseballHtml}NO`;
+        				answerEl.className = 'answer no';
+        				document.body.classList.remove('undefeated');
+        			}
+        		} else if (isUndefeated) {
         			const baseballHtml = emojis && wins > 0 ? this.emojiRowHtml('⚾', wins) : '';
         			const beerHtml = emojis && !isPastSeason ? this.emojiRowHtml('🍺', 1) : '';
         			answerEl.innerHTML = `${baseballHtml}YES!!!${beerHtml}`;
         			answerEl.className = 'answer yes';
         			document.body.classList.add('undefeated');
-        		} else if (worldSeriesName) {
-        			answerEl.innerHTML = `🏆⚾🍺<br>${worldSeriesName.toUpperCase()}<br>CHAMPIONS!<br>🎉🎊🎉`;
-        			answerEl.className = 'answer champions';
-        			document.body.classList.remove('undefeated');
         		} else {
         			const baseballHtml = emojis && wins > 0 ? this.emojiRowHtml('⚾', wins) : '';
         			const beerHtml = emojis && !isPastSeason ? this.emojiRowHtml('🍺', 1) : '';
@@ -779,9 +843,9 @@ createCsvGameItem(g, showH2h = false) {
 }
 
 if (mostRecentCompletedIndex >= 0) {
- const gameItems = scheduleGrid.children;
- if (gameItems[mostRecentCompletedIndex]) {
-    const gameItem = gameItems[mostRecentCompletedIndex];
+  const targetEvent = sortedEvents[mostRecentCompletedIndex];
+  const gameItem = scheduleGrid.querySelector(`[data-event-id="${targetEvent.id}"]`);
+  if (gameItem) {
     const containerHeight = scheduleGrid.clientHeight;
     const itemHeight = gameItem.offsetHeight;
     const itemTop = gameItem.offsetTop;
@@ -791,7 +855,7 @@ if (mostRecentCompletedIndex >= 0) {
        top: Math.max(0, scrollTop),
        behavior: 'smooth'
    });
-}
+  }
 }
 }
 
@@ -830,6 +894,7 @@ createGameItem(event, nextGame, liveGame, now) {
 
   const gameItem = document.createElement('div');
   gameItem.className = 'game-item';
+  gameItem.dataset.eventId = event.id;
 
   const isNext = nextGame && event.id === nextGame.id && !isLive;
   const isCompleted = status.type.name === 'STATUS_FINAL';
