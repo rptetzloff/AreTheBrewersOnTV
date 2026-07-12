@@ -62,20 +62,20 @@ function copy(state) {
   const are = past ? 'finished' : 'are';
   switch (state.kind) {
     case 'undefeated':
-      return { title: `Are the Brewers Undefeated? YES — ${state.record} (${s})`,
+      return { title: `Are the Brewers On TV? YES — ${state.record} (${s})`,
         desc: `The ${s} Milwaukee Brewers ${past ? 'finished' : 'are'} UNDEFEATED at ${state.record}.` };
     case 'champions':
       return { title: `${s} Milwaukee Brewers — World Series Champions`,
         desc: `The ${s} Milwaukee Brewers won ${state.worldSeriesName || 'the World Series'}.` };
     case 'offseason':
-      return { title: `Are the Brewers Undefeated? — ${s} offseason`,
+      return { title: `Are the Brewers On TV? — ${s} offseason`,
         desc: `The ${s} season hasn't started yet. Undefeated for now!` };
     case 'no':
-      return { title: `Are the Brewers Undefeated? NO — ${state.record} (${s})`,
+      return { title: `Are the Brewers On TV? NO — ${state.record} (${s})`,
         desc: `The ${s} Milwaukee Brewers ${are} ${state.record}.` };
     default:
-      return { title: 'Are the Brewers Undefeated?',
-        desc: 'The only question that matters: are the Milwaukee Brewers undefeated this season?' };
+      return { title: 'Are the Brewers On TV?',
+        desc: 'Are the Milwaukee Brewers on TV today? Check the current schedule.' };
   }
 }
 
@@ -91,7 +91,7 @@ function metaBlock({ title, desc, img, canonical }) {
     <meta property="og:image:height" content="630">
     <meta property="og:url" content="${esc(canonical)}">
     <meta property="og:type" content="website">
-    <meta property="og:site_name" content="Are the Brewers Undefeated?">
+    <meta property="og:site_name" content="Are the Brewers On TV?">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="${esc(title)}">
     <meta name="twitter:description" content="${esc(desc)}">

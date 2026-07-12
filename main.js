@@ -146,8 +146,8 @@
           if (!el) return;
           const past = this.currentSeason && this.latestSeason && this.currentSeason < this.latestSeason;
           el.textContent = past
-              ? `Were the Brewers Undefeated in ${this.currentSeason}?`
-              : 'Are the Brewers Undefeated?';
+              ? `Were the Brewers On TV in ${this.currentSeason}?`
+              : 'Are the Brewers On TV?';
       }
 
       // Compact franchise-history sparkline under the answer; the currently
