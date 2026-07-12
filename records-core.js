@@ -31,7 +31,7 @@ export function formatDate(iso) {
 	return `${MONTHS[m - 1]} ${d}, ${y}`;
 }
 
-const rec = (w, l, t) => (t > 0 ? `${w}–${l}–${t}` : `${w}–${l}`);
+export const rec = (w, l, t) => (t > 0 ? `${w}–${l}–${t}` : `${w}–${l}`);
 
 export const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
