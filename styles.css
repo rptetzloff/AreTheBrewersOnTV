@@ -92,7 +92,7 @@ h1 {
 }
 
 .next-game {
-    background: rgba(32, 55, 49, 0.8);
+    background: rgba(18, 40, 75, 0.8);
     padding: 1.5rem;
     border-radius: 10px;
     margin-top: 2rem;
@@ -374,7 +374,7 @@ details:not([open]) > .collapsible-summary::before {
 
 /* On This Day */
 .on-this-day {
-    background: rgba(32, 55, 49, 0.8);
+    background: rgba(18, 40, 75, 0.8);
     border: 1px solid rgba(255, 197, 47, 0.25);
     border-radius: 12px;
     padding: 1rem 1.25rem;
@@ -568,7 +568,7 @@ details:not([open]) > .collapsible-summary::before {
 }
 
 .schedule-section {
-    background: rgba(32, 55, 49, 0.8);
+    background: rgba(18, 40, 75, 0.8);
     margin: 0.25rem auto;
     width: 572px;
     box-sizing: border-box;
@@ -1212,7 +1212,7 @@ details:not([open]) > .collapsible-summary::before {
 }
 
 .record-card {
-    background: rgba(32, 55, 49, 0.8);
+    background: rgba(18, 40, 75, 0.8);
     border: 2px solid #FFC52F;
     border-radius: 10px;
     padding: 1.25rem 1.25rem 1rem;
@@ -1394,7 +1394,7 @@ details:not([open]) > .collapsible-summary::before {
 
 .h2h-select {
     padding: 0.5rem 0.9rem;
-    background: rgba(32, 55, 49, 0.8);
+    background: rgba(18, 40, 75, 0.8);
     border: 1.5px solid rgba(255, 197, 47, 0.5);
     border-radius: 20px;
     color: white;
@@ -1437,7 +1437,7 @@ details:not([open]) > .collapsible-summary::before {
     max-width: 12rem;
     box-sizing: border-box;
     padding: 0.5rem 0.9rem;
-    background: rgba(32, 55, 49, 0.8);
+    background: rgba(18, 40, 75, 0.8);
     border: 1.5px solid rgba(255, 197, 47, 0.5);
     border-radius: 20px;
     color: white;
@@ -1460,7 +1460,7 @@ details:not([open]) > .collapsible-summary::before {
 .h2h-table {
     width: 100%;
     border-collapse: collapse;
-    background: rgba(32, 55, 49, 0.8);
+    background: rgba(18, 40, 75, 0.8);
     border: 2px solid #FFC52F;
     border-radius: 10px;
     overflow: hidden;
@@ -1580,7 +1580,7 @@ details:not([open]) > .collapsible-summary::before {
 
 .history-chart {
     position: relative;
-    background: rgba(32, 55, 49, 0.8);
+    background: rgba(18, 40, 75, 0.8);
     border: 2px solid #FFC52F;
     border-radius: 10px;
     padding: 0.75rem;
