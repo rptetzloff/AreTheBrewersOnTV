@@ -79,6 +79,16 @@
         				}
         			});
 
+        			['streak-details', 'otd-details'].forEach(id => {
+        				const details = document.getElementById(id);
+        				if (!details) return;
+        				const stored = localStorage.getItem(`sectionOpen:${id}`);
+        				if (stored !== null) details.open = stored === 'true';
+        				details.addEventListener('toggle', () => {
+        					localStorage.setItem(`sectionOpen:${id}`, details.open ? 'true' : 'false');
+        				});
+        			});
+
         			const [gamesRes, recordsRes, photosRes] = await Promise.all([
         				fetch('./data/packers_games.csv'),
         				fetch('./data/packers_season_records.csv'),
