@@ -200,9 +200,11 @@ class PackersTracker {
         }
         const answerEl = document.getElementById('answer');
         const recordEl = document.getElementById('record');
+        const streakEl = document.getElementById('streak-banner');
         answerEl.innerHTML = 'Loading...';
         answerEl.className = 'answer loading';
         recordEl.textContent = '';
+        if (streakEl) streakEl.hidden = true;
         document.getElementById('schedule-grid').innerHTML = '<div class="loading">Loading schedule...</div>';
 
         if (pushState) {
@@ -326,6 +328,11 @@ class PackersTracker {
         this.setDataCredit(true);
         this.updateLastUndefeated(wins, losses);
         this.setupShareButtons();
+
+        const csvCompletedGames = games
+            .filter(g => g.regular_season === '1' && g['Packers Win'])
+            .map(g => ({ result: g['Packers Win'], date: new Date(g.date) }));
+        this.updateStreakBanner(csvCompletedGames, season !== this.latestSeason);
     }
 
     displayCsvSchedule(games, season) {
@@ -503,6 +510,8 @@ class PackersTracker {
             this.showLastUpdated();
             this.updateLastUndefeated(0, 0);
             this.setupShareButtons();
+            const el = document.getElementById('streak-banner');
+            if (el) el.hidden = true;
             return;
         }
 
@@ -565,6 +574,18 @@ class PackersTracker {
         this.setDataCredit(false);
         this.updateLastUndefeated(wins, losses);
         this.setupShareButtons();
+
+        const espnCompletedGames = completedRegular.map(event => {
+            const competitors = event.competitions[0].competitors;
+            let packersScore = 0, opponentScore = 0;
+            competitors.forEach(c => {
+                if (c.team.abbreviation === 'GB') packersScore = parseInt(c.score?.value || c.score || 0);
+                else opponentScore = parseInt(c.score?.value || c.score || 0);
+            });
+            const result = packersScore > opponentScore ? 'WIN' : packersScore < opponentScore ? 'LOSS' : 'TIE';
+            return { result, date: new Date(event.date) };
+        });
+        this.updateStreakBanner(espnCompletedGames, isPastSeason);
     }
 
     updateScheduleTitle(year, seasonType) {
@@ -1055,6 +1076,87 @@ class PackersTracker {
                 copyBtn.innerHTML = originalText;
                 copyBtn.classList.remove('copy-success');
             }, 2000);
+        }
+    }
+
+    computeStreak(completedGames) {
+        const sorted = [...completedGames].sort((a, b) => a.date - b.date);
+        let lastLoss = null;
+        for (let i = sorted.length - 1; i >= 0; i--) {
+            if (sorted[i].result === 'LOSS') { lastLoss = sorted[i]; break; }
+        }
+        let winStreak = 0;
+        for (let i = sorted.length - 1; i >= 0; i--) {
+            if (sorted[i].result === 'WIN') winStreak++;
+            else break;
+        }
+        const now = new Date();
+        const daysSince = lastLoss
+            ? Math.floor((now - lastLoss.date) / (1000 * 60 * 60 * 24))
+            : null;
+        return { winStreak, lastLoss, daysSince };
+    }
+
+    updateStreakBanner(completedGames, isPastSeason) {
+        const el = document.getElementById('streak-banner');
+        if (!el) return;
+        if (completedGames.length === 0) {
+            el.hidden = true;
+            return;
+        }
+        const sorted = [...completedGames].sort((a, b) => a.date - b.date);
+
+        if (isPastSeason) {
+            // Opening win streak: wins before the first loss
+            let openingStreak = 0;
+            let firstLoss = null;
+            for (const g of sorted) {
+                if (g.result === 'WIN') openingStreak++;
+                else { firstLoss = g; break; }
+            }
+            let html;
+            if (!firstLoss) {
+                html = `Finished the regular season undefeated &mdash; <strong>${openingStreak}-0</strong>`;
+            } else if (openingStreak === 0) {
+                html = `Lost the opener &mdash; undefeated for <strong>0 games</strong> to start the season`;
+            } else {
+                const firstGame = sorted[0];
+                const daysToLoss = Math.round((firstLoss.date - firstGame.date) / (1000 * 60 * 60 * 24));
+                const gamesText = openingStreak === 1 ? '1 game' : `${openingStreak} games`;
+                html = `Undefeated for <strong>${gamesText}</strong> (${daysToLoss} days) to start the season before first loss`;
+            }
+            el.innerHTML = html;
+            el.hidden = false;
+        } else {
+            // Current season: opening streak + active win streak
+            let openingStreak = 0;
+            let firstLoss = null;
+            for (const g of sorted) {
+                if (g.result === 'WIN') openingStreak++;
+                else { firstLoss = g; break; }
+            }
+            let winStreak = 0;
+            for (let i = sorted.length - 1; i >= 0; i--) {
+                if (sorted[i].result === 'WIN') winStreak++;
+                else break;
+            }
+
+            let html;
+            if (!firstLoss) {
+                html = `Undefeated to start the season &mdash; <strong>${openingStreak}</strong>-game win streak`;
+            } else if (openingStreak === 0) {
+                const streakText = winStreak === 1 ? '1-game' : `${winStreak}-game`;
+                html = `Lost the opener. Currently on a <strong>${streakText}</strong> win streak.`;
+            } else {
+                const firstGame = sorted[0];
+                const daysToLoss = Math.round((firstLoss.date - firstGame.date) / (1000 * 60 * 60 * 24));
+                const gamesText = openingStreak === 1 ? '1 game' : `${openingStreak} games`;
+                const daysText = daysToLoss === 1 ? '1 day' : `${daysToLoss} days`;
+                const streakText = winStreak === 1 ? '1-game' : `${winStreak}-game`;
+                html = `The Packers started the season undefeated for <strong>${gamesText}</strong> (${daysText}). Currently on a <strong>${streakText}</strong> win streak.`;
+            }
+            el.innerHTML = html;
+            el.hidden = false;
         }
     }
 
