@@ -5,6 +5,7 @@
 import http from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, normalize, extname } from 'node:path';
 import { renderPng } from './lib/cards.js';
@@ -22,6 +23,20 @@ const INDEX = [
   /<meta[^>]*\b(?:property=["']og:[^"']*["']|name=["']twitter:[^"']*["']|name=["']description["'])[^>]*>\s*/gi,
   /<link[^>]*\brel=["']canonical["'][^>]*>\s*/gi,
 ].reduce((html, re) => html.replace(re, ''), RAW_INDEX);
+
+// Stamp a short content hash onto local asset refs so a new deploy busts the
+// browser cache automatically (main.js?v=<hash>). Change the file -> new hash.
+function assetVersion(file) {
+  try { return createHash('sha1').update(readFileSync(join(ROOT, file))).digest('hex').slice(0, 8); }
+  catch { return null; }
+}
+const INDEX_VERSIONED = ['main.js', 'styles.css'].reduce((html, asset) => {
+  const v = assetVersion(asset);
+  if (!v) return html;
+  return html
+    .replace(`src="${asset}"`, `src="${asset}?v=${v}"`)
+    .replace(`href="${asset}"`, `href="${asset}?v=${v}"`);
+}, INDEX);
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
@@ -90,7 +105,7 @@ async function serveHtml(req, res, season) {
   // string (Facebook/X append ?fbclid=, ?utm_*), and never fall back to root
   // for a season page, or crawlers will canonicalize the whole thing away.
   const canonical = season ? `${origin}/${state.season}` : `${origin}/`;
-  const html = INDEX.replace('</head>', `${metaTags(state, origin, canonical)}\n</head>`);
+  const html = INDEX_VERSIONED.replace('</head>', `${metaTags(state, origin, canonical)}\n</head>`);
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
   res.end(html);
 }
@@ -124,9 +139,10 @@ async function serveStatic(req, res, pathname) {
     const st = await stat(file);
     if (st.isDirectory()) throw new Error('dir');
     const body = await readFile(file);
+    const versioned = /[?&]v=/.test(req.url);
     res.writeHead(200, {
       'Content-Type': MIME[extname(file).toLowerCase()] || 'application/octet-stream',
-      'Cache-Control': 'public, max-age=3600',
+      'Cache-Control': versioned ? 'public, max-age=31536000, immutable' : 'public, max-age=3600',
     });
     res.end(body);
   } catch {
