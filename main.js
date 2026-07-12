@@ -1,4 +1,5 @@
         import { parseGamesCsv } from './records-core.js';
+        import { computeHeadToHead, canonicalOpponent } from './h2h-core.js';
         import { intentUrls, copyText, flashCopied } from './share-core.js';
 
         function buildSeasonMap(games) {
@@ -59,6 +60,8 @@
         				const raw = await gamesRes.text();
         				const games = parseGamesCsv(raw);
         				this.csvBySeason = buildSeasonMap(games);
+        				// name -> all-time head-to-head entry, for schedule annotations
+        				this.h2hByName = new Map(computeHeadToHead(games).opponents.map(o => [o.name, o]));
         				const seasons = Object.keys(this.csvBySeason).map(Number).sort((a, b) => a - b);
         				if (seasons.length) {
         					this.earliestSeason = seasons[0];
@@ -307,9 +310,25 @@ processCsvSeasonData(season) {
  this.updateStreakBanner(csvCompletedGames, season !== this.latestSeason);
 }
 
+// All-time head-to-head note linking to the opponent's rivalry page.
+// Returns null for opponents with no CSV history (shouldn't happen).
+h2hNote(opponentName) {
+  const o = this.h2hByName?.get(canonicalOpponent(opponentName));
+  if (!o) return null;
+  const note = document.createElement('a');
+  note.className = 'game-h2h';
+  note.href = `/vs/${o.slug}`;
+  note.textContent = `All-time: ${o.record}`;
+  note.title = `Packers vs ${o.name} — all-time head-to-head`;
+  return note;
+}
+
 displayCsvSchedule(games, season) {
   const scheduleGrid = document.getElementById('schedule-grid');
   scheduleGrid.innerHTML = '';
+
+  // Head-to-head notes only make sense on the current season's schedule.
+  const showH2h = season === this.latestSeason;
 
         		// Sort by date
   const sorted = [...games].sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -329,11 +348,11 @@ displayCsvSchedule(games, season) {
         scheduleGrid.appendChild(divider);
     }
 
-    scheduleGrid.appendChild(this.createCsvGameItem(g));
+    scheduleGrid.appendChild(this.createCsvGameItem(g, showH2h));
 });
 }
 
-createCsvGameItem(g) {
+createCsvGameItem(g, showH2h = false) {
         		const result = g['Packers Win']; // WIN / LOSS / TIE
         		const opponent = g.Opponent;
         		const location = g.location; // HOME / AWAY / NEUTRAL
@@ -367,6 +386,11 @@ createCsvGameItem(g) {
 
         		gameDetails.appendChild(opponentDiv);
         		gameDetails.appendChild(dateDiv);
+
+        		if (showH2h) {
+        			const h2h = this.h2hNote(opponent);
+        			if (h2h) gameDetails.appendChild(h2h);
+        		}
 
         		if (isSuperBowl) {
         			const sbLabel = document.createElement('div');
@@ -836,6 +860,14 @@ if (isLive || isInProgress) {
 
 gameDetails.appendChild(opponentDiv);
 gameDetails.appendChild(dateDiv);
+
+// H2H notes only on the current season's schedule (offseason included —
+// displaySchedule's isPastSeason arg also covers "don't autoscroll", so
+// key off the season instead).
+if (this.currentSeason === this.latestSeason) {
+ const h2h = this.h2hNote(opponent);
+ if (h2h) gameDetails.appendChild(h2h);
+}
 
 if (isLive || isInProgress) {
  const statusDiv = document.createElement('div');

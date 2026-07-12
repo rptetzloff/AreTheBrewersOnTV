@@ -50,6 +50,14 @@ When the override is active, a small reset link appears in the card header to cl
 
 The computation lives in `records-core.js`, a dependency-free module shared verbatim by the browser page (`records.html` + `records.js`) and the web service (`lib/records.js`), so the page and the link previews can never disagree.
 
+## Head-to-Head
+
+`/vs` lists the Packers' all-time record against every opponent they've ever faced (defunct franchises included), sorted by meetings played. The table can be filtered by name, venue (home/away), game type (regular season/playoffs) — these recompute the records from the raw game rows, not just hide rows — and restricted to current franchises only. Each opponent gets its own rivalry page at `/vs/<opponent-slug>` (e.g. `/vs/chicago-bears`): overall and playoff record, first/last meeting, current streak, biggest win, share buttons, and a server-rendered social card at `/og/vs/<slug>.png`. Computation lives in `h2h-core.js`, shared by the browser page (`vs.html` + `vs.js`) and the web service (`lib/h2h.js`).
+
+The CSV's pre-1999 rows map franchises to modern names but the 1999+ rows use as-of-game names, so `h2h-core.js` folds relocated-franchise aliases together (St. Louis Rams → Los Angeles Rams, San Diego → Los Angeles Chargers, Oakland → Las Vegas Raiders). The 1950 Baltimore Colts and the 1945–52 Dallas Texans lineage are distinct defunct franchises and stay separate.
+
+The current season's schedule on the main page annotates each game with the all-time head-to-head record against that opponent, linking to the rivalry page.
+
 ## Data Files
 
 `data/packers_games.csv` — game-by-game results for every Packers game from 1921 to the present, including opponent, score, location, and playoff/Super Bowl flags. Pre-1999 rows come from the FiveThirtyEight source; 1999–present rows are sourced from nflverse-data.
@@ -112,7 +120,9 @@ server.js            # web service (static serving + meta injection + card route
 lib/cards.js         # SVG -> PNG card generator (seasons + records)
 lib/seasons.js       # per-season record from CSV + live ESPN feed
 lib/records.js       # records/superlatives data + meta for /records routes
+lib/h2h.js           # head-to-head data + meta for /vs routes
 records-core.js      # shared superlative computation (browser + node)
+h2h-core.js          # shared head-to-head computation (browser + node)
 fonts/               # Liberation Sans (SIL OFL 1.1), bundled for deterministic rendering
 render.yaml          # Render Blueprint
 ```

@@ -8,9 +8,10 @@ import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, normalize, extname } from 'node:path';
-import { renderPng, renderRecordsPng } from './lib/cards.js';
+import { renderPng, renderRecordsPng, renderH2hPng } from './lib/cards.js';
 import { getSeasonState, defaultSeason } from './lib/seasons.js';
 import { records, recordsMeta, isRecordSlug } from './lib/records.js';
+import { h2h, h2hMeta, isOpponentSlug } from './lib/h2h.js';
 import { esc } from './records-core.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -48,6 +49,7 @@ function loadShell(file, assets) {
 }
 const INDEX_VERSIONED = loadShell('index.html', ['main.js', 'styles.css']);
 const RECORDS_VERSIONED = loadShell('records.html', ['records.js', 'styles.css']);
+const VS_VERSIONED = loadShell('vs.html', ['vs.js', 'styles.css']);
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
@@ -136,14 +138,23 @@ function serveRecordsHtml(req, res, slug) {
   sendPage(res, RECORDS_VERSIONED, { title, desc, img, canonical });
 }
 
-// Records data is fixed for the lifetime of the process (CSV is read at
+// /vs and /vs/<opponent>: same shell, per-opponent meta + social card.
+function serveVsHtml(req, res, slug) {
+  const origin = originOf(req);
+  const { title, desc } = h2hMeta(slug);
+  const canonical = slug ? `${origin}/vs/${slug}` : `${origin}/vs`;
+  const img = `${origin}/og/vs/${slug || 'overview'}.png`;
+  sendPage(res, VS_VERSIONED, { title, desc, img, canonical });
+}
+
+// Records/h2h data is fixed for the lifetime of the process (CSV is read at
 // startup; updates arrive via redeploy), so render each card at most once.
-const recordsImgCache = new Map(); // slug -> buf
-function serveRecordsImage(res, slug) {
-  let buf = recordsImgCache.get(slug);
+const staticImgCache = new Map(); // cache key -> buf
+function serveCachedPng(res, key, render) {
+  let buf = staticImgCache.get(key);
   if (!buf) {
-    buf = renderRecordsPng(slug, records);
-    recordsImgCache.set(slug, buf);
+    buf = render();
+    staticImgCache.set(key, buf);
   }
   res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' });
   res.end(buf);
@@ -208,7 +219,13 @@ const server = http.createServer(async (req, res) => {
     const ogRec = pathname.match(/^\/og\/records\/([a-z-]+)\.png$/);
     if (ogRec) {
       if (ogRec[1] !== 'overview' && !isRecordSlug(ogRec[1])) return notFound(res);
-      return serveRecordsImage(res, ogRec[1]);
+      return serveCachedPng(res, `records:${ogRec[1]}`, () => renderRecordsPng(ogRec[1], records));
+    }
+
+    const ogVs = pathname.match(/^\/og\/vs\/([a-z0-9-]+)\.png$/);
+    if (ogVs) {
+      if (ogVs[1] !== 'overview' && !isOpponentSlug(ogVs[1])) return notFound(res);
+      return serveCachedPng(res, `vs:${ogVs[1]}`, () => renderH2hPng(ogVs[1], h2h));
     }
 
     const img = pathname.match(/^\/og\/(\d{4})\.png$/);
@@ -236,6 +253,14 @@ const server = http.createServer(async (req, res) => {
       const slug = pathname.slice('/records/'.length).replace(/\/$/, '');
       if (!isRecordSlug(slug)) return notFound(res);
       return serveRecordsHtml(req, res, slug);
+    }
+
+    if (pathname === '/vs' || pathname === '/vs/' || pathname === '/vs.html')
+      return serveVsHtml(req, res, undefined);
+    if (pathname.startsWith('/vs/')) {
+      const slug = pathname.slice('/vs/'.length).replace(/\/$/, '');
+      if (!isOpponentSlug(slug)) return notFound(res);
+      return serveVsHtml(req, res, slug);
     }
 
     return await serveStatic(req, res, pathname);
