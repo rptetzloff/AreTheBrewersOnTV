@@ -50,6 +50,12 @@ const CARDS = [
 		note: 'Biggest margins of defeat, playoffs included',
 		entries: (d) => d.lopsidedLosses.map(blowoutEntry),
 	},
+	{
+		slug: 'ties', icon: 'mdi-equal', title: 'Ties',
+		note: 'Every tie in franchise history, most recent first — overtime arrived in 1974',
+		entries: (d) => d.ties.map(blowoutEntry),
+		empty: 'The Packers have never tied a game.',
+	},
 ];
 
 function entryHtml(e, i) {

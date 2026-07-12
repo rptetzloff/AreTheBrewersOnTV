@@ -117,27 +117,32 @@ export function computeSuperlatives(rows, { top = 5, now = new Date() } = {}) {
 		.slice(0, top)
 		.map(streakEntry);
 
+	const gameInfo = (g) => {
+		const pf = parseInt(g.packers_score, 10) || 0;
+		const pa = parseInt(g.opponent_score, 10) || 0;
+		return {
+			date: g.date, season: parseInt(g.season, 10), opponent: g.Opponent,
+			pf, pa,
+			playoff: g.regular_season !== '1',
+			superbowl: !!(g.superbowl && g.superbowl.trim()),
+		};
+	};
+
 	// Biggest margins, either direction; sort by margin, then winner's score, then date.
 	const lopsided = (result) => games
 		.filter((g) => g['Packers Win'] === result)
-		.map((g) => {
-			const pf = parseInt(g.packers_score, 10) || 0;
-			const pa = parseInt(g.opponent_score, 10) || 0;
-			return {
-				date: g.date, season: parseInt(g.season, 10), opponent: g.Opponent,
-				pf, pa,
-				playoff: g.regular_season !== '1',
-				superbowl: !!(g.superbowl && g.superbowl.trim()),
-			};
-		})
+		.map(gameInfo)
 		.sort((a, b) => Math.abs(b.pf - b.pa) - Math.abs(a.pf - a.pa)
 			|| Math.max(b.pf, b.pa) - Math.max(a.pf, a.pa)
 			|| (a.date < b.date ? -1 : 1))
 		.slice(0, top);
 
+	// Every tie ever, not a top-N list; newest first.
+	const ties = games.filter((g) => g['Packers Win'] === 'TIE').map(gameInfo).reverse();
+
 	return {
 		seasonRange, bestStarts, perfectSeasons, winStreaks: topStreaks, worstStarts,
-		lopsidedWins: lopsided('WIN'), lopsidedLosses: lopsided('LOSS'),
+		lopsidedWins: lopsided('WIN'), lopsidedLosses: lopsided('LOSS'), ties,
 	};
 }
 
@@ -193,12 +198,20 @@ export function recordsCopy(slug, data) {
 				desc: `The most lopsided loss in Green Bay Packers history: ${g.pa}–${g.pf} to the ${g.opponent} on ${formatDate(g.date)}. We don't talk about it.`,
 			};
 		}
+		case 'ties': {
+			const t = data.ties[0];
+			if (!t) return { title: 'Packers Ties', desc: 'The Packers have never tied a game.' };
+			return {
+				title: `Packers Ties — ${data.ties.length} all-time`,
+				desc: `The Packers have played ${data.ties.length} ties. Most recent: ${t.pf}–${t.pa} vs the ${t.opponent} on ${formatDate(t.date)}.`,
+			};
+		}
 		default:
 			return {
 				title: 'Packers Records & Superlatives',
-				desc: `Best starts, perfect seasons, longest win streaks, worst starts, lopsided wins, and worst losses — Green Bay Packers, ${range}.`,
+				desc: `Best starts, perfect seasons, longest win streaks, worst starts, lopsided wins, worst losses, and every tie — Green Bay Packers, ${range}.`,
 			};
 	}
 }
 
-export const RECORD_SLUGS = ['best-starts', 'perfect-seasons', 'win-streaks', 'worst-starts', 'lopsided-wins', 'worst-losses'];
+export const RECORD_SLUGS = ['best-starts', 'perfect-seasons', 'win-streaks', 'worst-starts', 'lopsided-wins', 'worst-losses', 'ties'];

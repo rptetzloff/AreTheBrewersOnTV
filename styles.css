@@ -1281,6 +1281,14 @@ details:not([open]) > .collapsible-summary::before {
     flex: 1;
 }
 
+/* The ties card lists every tie (39 and counting) — scroll it instead of
+   letting it stretch the whole grid row. */
+#card-ties .record-list {
+    max-height: 21rem;
+    overflow-y: auto;
+    padding-right: 0.4rem;
+}
+
 .record-share {
     display: flex;
     gap: 0.4rem;
