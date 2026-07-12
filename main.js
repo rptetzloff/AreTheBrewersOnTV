@@ -1005,32 +1005,41 @@ class PackersTracker {
     }
 
     setupShareButtons() {
+        if (this._shareSetup) {
+            this.updateIntentLinks();
+            return;
+        }
+        this._shareSetup = true;
+
+        const nativeBtn = document.getElementById('share-native');
         const copyBtn = document.getElementById('share-copy');
+
+        if (navigator.share) {
+            nativeBtn.hidden = false;
+            nativeBtn.addEventListener('click', () => this.nativeShare());
+        }
+
         copyBtn.addEventListener('click', () => this.copyLink());
+        this.updateIntentLinks();
     }
 
     getShareMessage() {
-        const answerEl = document.getElementById('answer');
-        const recordEl = document.getElementById('record');
-        const answerText = answerEl.textContent;
-
-        const isOffseason = answerText.includes('OFFSEASON');
-        const isChampions = answerText.includes('CHAMPIONS');
-        const isUndefeated = answerText.includes('YES');
         const season = this.currentSeason;
         const isPast = season && this.latestSeason && season < this.latestSeason;
 
-        const recordText = recordEl.innerText.split('\n')[0].replace(/^(Final|Current) Record:\s*/, '').trim();
-
-        if (isOffseason) {
+        if (this._isOffseason) {
             return `🏈 Green Bay Packers offseason - can't wait for the ${season} season! #GoPackGo`;
         }
 
-        if (isChampions) {
-            const sbLine = answerText.match(/(SUPER BOWL [IVXLCDM]+)/i);
-            const sbName = sbLine ? sbLine[1] : 'the Super Bowl';
-            return `🏆 The ${season} Green Bay Packers won ${sbName}! #GoPackGo`;
+        if (!this._lastResult) return `Green Bay Packers ${season} season #GoPackGo`;
+
+        const { isUndefeated, wins, losses, ties, superBowlName } = this._lastResult;
+
+        if (superBowlName) {
+            return `🏆 The ${season} Green Bay Packers won ${superBowlName.toUpperCase()}! #GoPackGo`;
         }
+
+        const recordText = ties > 0 ? `${wins}-${losses}-${ties}` : `${wins}-${losses}`;
 
         if (isPast) {
             if (isUndefeated) {
@@ -1047,21 +1056,46 @@ class PackersTracker {
         }
     }
 
+    updateIntentLinks() {
+        const message = this.getShareMessage();
+        const url = window.location.href;
+        const shareText = `${message}\n\n${url}`;
+
+        const xBtn = document.getElementById('share-x');
+        const bskyBtn = document.getElementById('share-bsky');
+        if (xBtn) xBtn.href = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`;
+        if (bskyBtn) bskyBtn.href = `https://bsky.app/intent/compose?text=${encodeURIComponent(shareText)}`;
+    }
+
+    async nativeShare() {
+        const message = this.getShareMessage();
+        const url = window.location.href;
+        try {
+            await navigator.share({ text: message, url });
+        } catch (err) {
+            if (err.name !== 'AbortError') this.copyLink();
+        }
+    }
+
     async copyLink() {
         const copyBtn = document.getElementById('share-copy');
         const message = this.getShareMessage();
         const url = window.location.href;
         const shareText = `${message}\n\nCheck it out: ${url}`;
 
-        try {
-            await navigator.clipboard.writeText(shareText);
-            const originalText = copyBtn.innerHTML;
+        const flash = () => {
+            const originalHTML = copyBtn.innerHTML;
             copyBtn.innerHTML = '<i class="mdi mdi-check share-icon"></i>Copied!';
             copyBtn.classList.add('copy-success');
             setTimeout(() => {
-                copyBtn.innerHTML = originalText;
+                copyBtn.innerHTML = originalHTML;
                 copyBtn.classList.remove('copy-success');
             }, 2000);
+        };
+
+        try {
+            await navigator.clipboard.writeText(shareText);
+            flash();
         } catch (err) {
             const textArea = document.createElement('textarea');
             textArea.value = shareText;
@@ -1069,14 +1103,7 @@ class PackersTracker {
             textArea.select();
             document.execCommand('copy');
             document.body.removeChild(textArea);
-
-            const originalText = copyBtn.innerHTML;
-            copyBtn.innerHTML = '<i class="mdi mdi-check share-icon"></i>Copied!';
-            copyBtn.classList.add('copy-success');
-            setTimeout(() => {
-                copyBtn.innerHTML = originalText;
-                copyBtn.classList.remove('copy-success');
-            }, 2000);
+            flash();
         }
     }
 

@@ -360,6 +360,10 @@ details:not([open]) > .collapsible-summary::before {
 
 .share-section {
     margin-top: 1.25rem;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.5rem;
 }
 
 /* On This Day */
