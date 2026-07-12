@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Packers All-Time Head-to-Head</title>
+    <meta name="description" content="The Green Bay Packers' all-time record against every opponent they've ever faced.">
+    <meta property="og:title" content="Packers All-Time Head-to-Head">
+    <meta property="og:description" content="The Green Bay Packers' all-time record against every opponent they've ever faced.">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+    <!-- Absolute asset paths: this shell is also served at /vs/<opponent>, where relative paths would break. -->
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <div class="container records-container">
+        <a href="/" class="records-back"><i class="mdi mdi-arrow-left"></i> Are the Packers Undefeated?</a>
+        <h1 class="records-title">Head-to-Head</h1>
+        <p id="h2h-subtitle" class="records-subtitle"></p>
+        <div id="h2h-focus"></div>
+        <div class="h2h-controls">
+            <input id="h2h-filter" class="h2h-filter" type="search" placeholder="Filter opponents..." aria-label="Filter opponents">
+        </div>
+        <div id="h2h-table-wrap" class="h2h-table-wrap">
+            <div class="loading">Loading opponents...</div>
+        </div>
+    </div>
+
+    <footer class="site-footer">
+        <a href="https://github.com/rptetzloff/AreThePackersUndefeated" target="_blank" rel="noopener noreferrer" class="github-link">
+            <i class="mdi mdi-github"></i>
+            View on GitHub
+        </a>
+    </footer>
+
+    <script src="/vs.js" type="module"></script>
+</body>
+</html>

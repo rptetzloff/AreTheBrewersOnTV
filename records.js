@@ -1,7 +1,7 @@
 // Records & Superlatives page: computes superlatives from the games CSV
 // (records-core.js, shared with the server) and renders one shareable card each.
 import { parseGamesCsv, computeSuperlatives, recordsCopy, formatDate, RECORD_SLUGS, esc } from './records-core.js';
-import { intentUrls, copyText, flashCopied } from './share-core.js';
+import { shareButtonsHtml, wireShareRow } from './share-core.js';
 
 const yearLink = (yr) => `<a href="/${yr}">${yr}</a>`;
 const gameFlag = (g) => (g.superbowl ? ' · Super Bowl' : g.playoff ? ' · Playoffs' : '');
@@ -69,17 +69,7 @@ function entryHtml(e, i) {
 }
 
 function shareRowHtml(slug) {
-	const native = !!navigator.share;
-	const alts = native ? '' : `
-		<a class="share-btn record-share-btn" data-share="x" href="#" target="_blank" rel="noopener noreferrer" aria-label="Post on X"><i class="mdi mdi-twitter"></i></a>
-		<a class="share-btn record-share-btn" data-share="bsky" href="#" target="_blank" rel="noopener noreferrer" aria-label="Post on Bluesky"><i class="mdi mdi-butterfly"></i></a>
-		<a class="share-btn record-share-btn" data-share="fb" href="#" target="_blank" rel="noopener noreferrer" aria-label="Share on Facebook"><i class="mdi mdi-facebook"></i></a>
-		<a class="share-btn record-share-btn" data-share="reddit" href="#" target="_blank" rel="noopener noreferrer" aria-label="Post on Reddit"><i class="mdi mdi-reddit"></i></a>`;
-	return `<div class="record-share" data-slug="${slug}">
-		${native ? '<button class="share-btn record-share-btn" data-share="native" aria-label="Share"><i class="mdi mdi-share-variant"></i></button>' : ''}
-		${alts}
-		<button class="share-btn record-share-btn" data-share="copy" aria-label="Copy link"><i class="mdi mdi-clipboard-outline"></i></button>
-	</div>`;
+	return `<div class="record-share" data-slug="${slug}">${shareButtonsHtml('share-btn record-share-btn')}</div>`;
 }
 
 function cardHtml(card, data) {
@@ -98,28 +88,7 @@ function cardHtml(card, data) {
 function wireShares(grid, data) {
 	grid.querySelectorAll('.record-share').forEach((row) => {
 		const slug = row.dataset.slug;
-		const url = `${window.location.origin}/records/${slug}`;
-		const message = recordsCopy(slug, data).desc;
-		const links = intentUrls(message, url);
-		row.querySelectorAll('[data-share]').forEach((btn) => {
-			switch (btn.dataset.share) {
-				case 'x': btn.href = links.x; break;
-				case 'bsky': btn.href = links.bsky; break;
-				case 'fb': btn.href = links.fb; break;
-				case 'reddit': btn.href = links.reddit; break;
-				case 'native':
-					btn.addEventListener('click', async () => {
-						try { await navigator.share({ text: message, url }); } catch { /* user cancelled */ }
-					});
-					break;
-				case 'copy':
-					btn.addEventListener('click', () => {
-						flashCopied(btn, '<i class="mdi mdi-check"></i>');
-						copyText(`${message}\n\n${url}`);
-					});
-					break;
-			}
-		});
+		wireShareRow(row, recordsCopy(slug, data).desc, `${window.location.origin}/records/${slug}`);
 	});
 }
 
