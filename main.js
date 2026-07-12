@@ -1020,6 +1020,8 @@ class PackersTracker {
         } else {
             document.getElementById('share-x').hidden = false;
             document.getElementById('share-bsky').hidden = false;
+            document.getElementById('share-fb').hidden = false;
+            document.getElementById('share-reddit').hidden = false;
             copyBtn.hidden = false;
             copyBtn.addEventListener('click', () => this.copyLink());
         }
@@ -1067,8 +1069,12 @@ class PackersTracker {
 
         const xBtn = document.getElementById('share-x');
         const bskyBtn = document.getElementById('share-bsky');
+        const fbBtn = document.getElementById('share-fb');
+        const redditBtn = document.getElementById('share-reddit');
         if (xBtn) xBtn.href = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`;
         if (bskyBtn) bskyBtn.href = `https://bsky.app/intent/compose?text=${encodeURIComponent(shareText)}`;
+        if (fbBtn) fbBtn.href = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(message)}`;
+        if (redditBtn) redditBtn.href = `https://www.reddit.com/submit?url=${encodeURIComponent(url)}&title=${encodeURIComponent(message)}`;
     }
 
     async nativeShare() {
