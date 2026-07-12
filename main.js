@@ -200,9 +200,11 @@ class PackersTracker {
         }
         const answerEl = document.getElementById('answer');
         const recordEl = document.getElementById('record');
+        const streakEl = document.getElementById('streak-banner');
         answerEl.innerHTML = 'Loading...';
         answerEl.className = 'answer loading';
         recordEl.textContent = '';
+        if (streakEl) streakEl.hidden = true;
         document.getElementById('schedule-grid').innerHTML = '<div class="loading">Loading schedule...</div>';
 
         if (pushState) {
@@ -326,6 +328,11 @@ class PackersTracker {
         this.setDataCredit(true);
         this.updateLastUndefeated(wins, losses);
         this.setupShareButtons();
+
+        const csvCompletedGames = games
+            .filter(g => g.regular_season === '1' && g['Packers Win'])
+            .map(g => ({ result: g['Packers Win'], date: new Date(g.date) }));
+        this.updateStreakBanner(csvCompletedGames, season === this.latestSeason);
     }
 
     displayCsvSchedule(games, season) {
@@ -503,6 +510,8 @@ class PackersTracker {
             this.showLastUpdated();
             this.updateLastUndefeated(0, 0);
             this.setupShareButtons();
+            const el = document.getElementById('streak-banner');
+            if (el) el.hidden = true;
             return;
         }
 
@@ -565,6 +574,18 @@ class PackersTracker {
         this.setDataCredit(false);
         this.updateLastUndefeated(wins, losses);
         this.setupShareButtons();
+
+        const espnCompletedGames = completedRegular.map(event => {
+            const competitors = event.competitions[0].competitors;
+            let packersScore = 0, opponentScore = 0;
+            competitors.forEach(c => {
+                if (c.team.abbreviation === 'GB') packersScore = parseInt(c.score?.value || c.score || 0);
+                else opponentScore = parseInt(c.score?.value || c.score || 0);
+            });
+            const result = packersScore > opponentScore ? 'WIN' : packersScore < opponentScore ? 'LOSS' : 'TIE';
+            return { result, date: new Date(event.date) };
+        });
+        this.updateStreakBanner(espnCompletedGames, !isPastSeason);
     }
 
     updateScheduleTitle(year, seasonType) {
@@ -1056,6 +1077,44 @@ class PackersTracker {
                 copyBtn.classList.remove('copy-success');
             }, 2000);
         }
+    }
+
+    computeStreak(completedGames) {
+        const sorted = [...completedGames].sort((a, b) => a.date - b.date);
+        let lastLoss = null;
+        for (let i = sorted.length - 1; i >= 0; i--) {
+            if (sorted[i].result === 'LOSS') { lastLoss = sorted[i]; break; }
+        }
+        let winStreak = 0;
+        for (let i = sorted.length - 1; i >= 0; i--) {
+            if (sorted[i].result === 'WIN') winStreak++;
+            else break;
+        }
+        const now = new Date();
+        const daysSince = lastLoss
+            ? Math.floor((now - lastLoss.date) / (1000 * 60 * 60 * 24))
+            : null;
+        return { winStreak, lastLoss, daysSince };
+    }
+
+    updateStreakBanner(completedGames, isCurrentSeason) {
+        const el = document.getElementById('streak-banner');
+        if (!el) return;
+        if (!isCurrentSeason || completedGames.length === 0) {
+            el.hidden = true;
+            return;
+        }
+        const { winStreak, daysSince } = this.computeStreak(completedGames);
+        let html;
+        if (daysSince === null) {
+            html = `Undefeated all season &mdash; <strong>${winStreak}</strong>-game win streak`;
+        } else {
+            const daysText = daysSince === 1 ? '1 day' : `${daysSince} days`;
+            const streakPart = winStreak > 0 ? ` &bull; <strong>${winStreak}</strong>-game win streak` : '';
+            html = `The Packers have been undefeated for <strong>${daysText}</strong>${streakPart}`;
+        }
+        el.innerHTML = html;
+        el.hidden = false;
     }
 
     updateLastUndefeated(currentSeasonWins, currentSeasonLosses) {
