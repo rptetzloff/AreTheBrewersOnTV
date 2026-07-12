@@ -1267,7 +1267,7 @@ date,season,regular_season,playoff,superbowl,Opponent,Packers Win,packers_score,
 2011-01-09,2010,0,1,,Philadelphia Eagles,WIN,21,16,AWAY
 2011-01-15,2010,0,1,,Atlanta Falcons,WIN,48,21,AWAY
 2011-01-23,2010,0,1,,Chicago Bears,WIN,21,14,AWAY
-2011-02-06,2010,0,1,SB,Pittsburgh Steelers,WIN,31,25,NEUTRAL
+2011-02-06,2010,0,1,xlv,Pittsburgh Steelers,WIN,31,25,NEUTRAL
 2011-09-08,2011,1,0,,New Orleans Saints,WIN,42,34,HOME
 2011-09-18,2011,1,0,,Carolina Panthers,WIN,30,23,AWAY
 2011-09-25,2011,1,0,,Chicago Bears,WIN,27,17,AWAY
