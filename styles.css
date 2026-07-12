@@ -591,22 +591,26 @@ details:not([open]) > .collapsible-summary::before {
     scrollbar-color: #ffb612 #203731;
 }
 
-.schedule-grid::-webkit-scrollbar {
+.schedule-grid::-webkit-scrollbar,
+#card-ties .record-list::-webkit-scrollbar {
     width: 8px;
 }
 
-.schedule-grid::-webkit-scrollbar-track {
+.schedule-grid::-webkit-scrollbar-track,
+#card-ties .record-list::-webkit-scrollbar-track {
     background: #203731;
     border-radius: 4px;
 }
 
-.schedule-grid::-webkit-scrollbar-thumb {
+.schedule-grid::-webkit-scrollbar-thumb,
+#card-ties .record-list::-webkit-scrollbar-thumb {
     background: #ffb612;
     border-radius: 4px;
     border: 1px solid #203731;
 }
 
-.schedule-grid::-webkit-scrollbar-thumb:hover {
+.schedule-grid::-webkit-scrollbar-thumb:hover,
+#card-ties .record-list::-webkit-scrollbar-thumb:hover {
     background: #ffd050;
 }
 
@@ -1282,11 +1286,14 @@ details:not([open]) > .collapsible-summary::before {
 }
 
 /* The ties card lists every tie (39 and counting) — scroll it instead of
-   letting it stretch the whole grid row. */
+   letting it stretch the whole grid row. Scrollbar matches .schedule-grid
+   (shared ::-webkit-scrollbar rules above). */
 #card-ties .record-list {
     max-height: 21rem;
     overflow-y: auto;
     padding-right: 0.4rem;
+    scrollbar-width: thin;
+    scrollbar-color: #ffb612 #203731;
 }
 
 .record-share {
