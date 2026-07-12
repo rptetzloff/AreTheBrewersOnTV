@@ -30,6 +30,10 @@ h1 {
     color: #ffb612;
 }
 
+.site-title {
+    margin-bottom: 0;
+}
+
 .answer {
     font-size: 4rem;
     font-weight: bold;
