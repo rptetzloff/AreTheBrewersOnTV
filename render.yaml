@@ -1,0 +1,11 @@
+# Render Blueprint — converts the site to a small Node web service so that
+# per-season Open Graph tags and social cards can be rendered server-side.
+services:
+  - type: web
+    name: are-the-packers-undefeated
+    runtime: node
+    plan: free            # bump to "starter" to avoid cold-start spin-down
+    buildCommand: npm install
+    startCommand: node server.js
+    autoDeploy: true
+    healthCheckPath: /

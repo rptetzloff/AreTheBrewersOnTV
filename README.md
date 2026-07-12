@@ -6,7 +6,7 @@ Browse every season from 1921 to the present, with full game-by-game schedules a
 
 **Live site:** [arethepackersundefeated.com](https://arethepackersundefeated.com)
 
-Vibe coded with [Bolt](https://bolt.new) and [Claude Code](https://claude.ai/code). Hosted on [Render](https://render.com).
+Vibe coded with [Bolt](https://bolt.new) and [Claude Code](https://claude.ai/code). Served by a small Node web service and hosted on [Render](https://render.com).
 
 ## Linking to a Specific Season
 
@@ -17,7 +17,7 @@ example.com/1924
 example.com/?season=1924
 ```
 
-Both formats are supported. The path form (`/1924`) requires your host to be configured with a rewrite rule that serves `index.html` for all routes.
+Both formats are supported. The web service (`server.js`) serves `index.html` for `/YYYY` routes directly — no separate rewrite rule is needed — and injects a season-specific link preview for that URL (see [Social Cards](#social-cards--link-previews)).
 
 ## Streak Box
 
@@ -80,6 +80,69 @@ Below the schedule, a row of share buttons lets visitors spread the current seas
 
 On mobile browsers with native share support only the system Share button is shown. On desktop (or browsers without `navigator.share`) the individual platform buttons and Copy button are shown instead.
 
+## Social Cards & Link Previews
+
+When a season link is shared, the preview card (Open Graph / Twitter Card) is generated per season by the web service, so a shared link shows that season's actual answer instead of a generic image.
+
+- **Meta tags** — for `/`, `/YYYY`, and `/?season=YYYY`, the server injects season-specific `og:title`, `og:description`, `og:image`, and `twitter:card` tags into the returned HTML. This is server-rendered because social crawlers (X, Facebook, iMessage, Slack, Discord) do not run JavaScript and would otherwise only see generic tags.
+- **Card images** — `GET /og/<season>.png` returns a 1200×630 card rendered on the fly. There are five states: **undefeated** (YES), **record** (NO), **Super Bowl champions**, **offseason**, and a generic default. Images are cached — long-lived/immutable for past seasons, briefly for the current season.
+
+Records for past seasons come from `data/packers_games.csv`; the current season uses the live ESPN feed, matching the front-end logic. Cards are rendered with the bundled Liberation Sans fonts (`fonts/`) so output is identical regardless of the host's system fonts.
+
+> **Data note:** the 2010 row in `packers_games.csv` has `superbowl = SB` where every other Super Bowl row uses a roman numeral (e.g. `xxxi`). The card falls back to "SUPER BOWL CHAMPIONS" for that case, but `main.js` renders it literally as "Super Bowl SB" on the page. Changing that cell to `xlv` fixes both.
+
+## Deployment
+
+The site is served by `server.js`, a small Node web service that:
+
+1. Serves the static site (`index.html`, `main.js`, `styles.css`, `data/…`).
+2. Injects per-URL link-preview meta tags (see [Social Cards](#social-cards--link-previews)).
+3. Renders per-season card images at `/og/<season>.png`.
+
+### Relevant files
+
+```
+server.js            # web service (static serving + meta injection + card route)
+lib/cards.js         # SVG -> PNG card generator
+lib/seasons.js       # per-season record from CSV + live ESPN feed
+fonts/               # Liberation Sans (SIL OFL 1.1), bundled for deterministic rendering
+render.yaml          # Render Blueprint
+```
+
+Dependencies: `@resvg/resvg-js` (SVG→PNG) and `opentype.js` (text measurement).
+
+### Run locally
+
+```
+npm install
+npm start            # http://localhost:3000
+```
+
+Then open `http://localhost:3000/1996` and view source to see the injected per-season tags, or `http://localhost:3000/og/1996.png` for the card.
+
+### Render
+
+The service is a Render **Web Service** (not a Static Site), so moving from an existing static-site deployment is a one-time service-type change. Render sets `PORT` automatically; no other environment variables are required (the ESPN endpoints are public and unauthenticated).
+
+**Option A — Blueprint (recommended):** commit `render.yaml`, then on Render choose **New → Blueprint** and pick this repo. Render creates the web service from the file.
+
+**Option B — Manual:** on Render choose **New → Web Service** → this repo, then set:
+
+- **Build command:** `npm install`
+- **Start command:** `node server.js`
+
+If you're replacing an existing static site, move the custom domain `arethepackersundefeated.com` to the new web service (**Settings → Custom Domains**) and delete the old static site.
+
+> **Cold starts:** Render's free web-service tier spins down after inactivity and takes ~30–50s to wake. A social crawler that hits a cold link may time out before the preview renders. The Starter plan keeps the service always-on; on the free tier, previews warm up after the first request.
+
+### Validate link previews
+
+After deploying, confirm the cards render:
+
+- **X:** [cards-dev.twitter.com/validator](https://cards-dev.twitter.com/validator)
+- **Facebook:** [developers.facebook.com/tools/debug](https://developers.facebook.com/tools/debug/) — use **Scrape Again** to refresh a cached preview
+- Or paste a season link (e.g. `arethepackersundefeated.com/1996`) into iMessage, Slack, or Discord.
+
 ## Photos
 
 `data/photos.csv` — historical photos displayed alongside certain seasons. Each row contains a season year, image URL, caption, license, and license URL. Images are sourced from Wikimedia Commons and must be freely licensed (Public Domain or Creative Commons).
@@ -110,5 +173,7 @@ Application source code is released under the MIT License. See [LICENSE](LICENSE
 The FiveThirtyEight NFL ELO game data in `data/packers_games.csv` (seasons 1921–1998) is redistributed under the MIT License granted by FiveThirtyEight. See [LICENSE-DATA](LICENSE-DATA).
 
 The nflverse-data content in `data/packers_games.csv` (seasons 1999–present) is used under the [Creative Commons Attribution 4.0 International License](https://creativecommons.org/licenses/by/4.0/). Credit: [nflverse contributors](https://github.com/nflverse/nflverse-data).
+
+The bundled Liberation Sans fonts in `fonts/` are © Red Hat, Inc. and licensed under the [SIL Open Font License 1.1](https://github.com/liberationfonts/liberation-fonts).
 
 Photos in `data/photos.csv` are sourced from [Wikimedia Commons](https://commons.wikimedia.org/) under their respective licenses (Public Domain or Creative Commons). See the `license` and `license_url` columns in the CSV for per-image attribution.
