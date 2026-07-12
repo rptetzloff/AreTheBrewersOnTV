@@ -13,7 +13,15 @@ import { getSeasonState, defaultSeason } from './lib/seasons.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = __dirname;
 const PORT = process.env.PORT || 3000;
-const INDEX = readFileSync(join(ROOT, 'index.html'), 'utf8');
+const RAW_INDEX = readFileSync(join(ROOT, 'index.html'), 'utf8');
+// Strip any hardcoded <title>/description/OG/Twitter/canonical tags so the
+// server is the single source of truth and pages never ship duplicate,
+// conflicting meta (a static og:url=root will otherwise override per-season tags).
+const INDEX = [
+  /<title>[\s\S]*?<\/title>\s*/i,
+  /<meta[^>]*\b(?:property=["']og:[^"']*["']|name=["']twitter:[^"']*["']|name=["']description["'])[^>]*>\s*/gi,
+  /<link[^>]*\brel=["']canonical["'][^>]*>\s*/gi,
+].reduce((html, re) => html.replace(re, ''), RAW_INDEX);
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
@@ -77,8 +85,11 @@ function originOf(req) {
 
 async function serveHtml(req, res, season) {
   const origin = originOf(req);
-  const canonical = `${origin}${req.url}`;
   const state = await getSeasonState(season);
+  // Canonical/og:url must be the CLEAN per-season URL — never echo the query
+  // string (Facebook/X append ?fbclid=, ?utm_*), and never fall back to root
+  // for a season page, or crawlers will canonicalize the whole thing away.
+  const canonical = season ? `${origin}/${state.season}` : `${origin}/`;
   const html = INDEX.replace('</head>', `${metaTags(state, origin, canonical)}\n</head>`);
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
   res.end(html);
