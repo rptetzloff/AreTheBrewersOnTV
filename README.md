@@ -52,7 +52,11 @@ The computation lives in `records-core.js`, a dependency-free module shared verb
 
 ## Head-to-Head
 
-`/vs` lists the Packers' all-time record against every opponent they've ever faced (defunct franchises included — the CSV normalizes relocated teams to their modern names), sorted by meetings played with a filter box. Each opponent gets its own rivalry page at `/vs/<opponent-slug>` (e.g. `/vs/chicago-bears`): overall and playoff record, first/last meeting, current streak, biggest win, share buttons, and a server-rendered social card at `/og/vs/<slug>.png`. Computation lives in `h2h-core.js`, shared by the browser page (`vs.html` + `vs.js`) and the web service (`lib/h2h.js`).
+`/vs` lists the Packers' all-time record against every opponent they've ever faced (defunct franchises included), sorted by meetings played. The table can be filtered by name, venue (home/away), game type (regular season/playoffs) — these recompute the records from the raw game rows, not just hide rows — and restricted to current franchises only. Each opponent gets its own rivalry page at `/vs/<opponent-slug>` (e.g. `/vs/chicago-bears`): overall and playoff record, first/last meeting, current streak, biggest win, share buttons, and a server-rendered social card at `/og/vs/<slug>.png`. Computation lives in `h2h-core.js`, shared by the browser page (`vs.html` + `vs.js`) and the web service (`lib/h2h.js`).
+
+The CSV's pre-1999 rows map franchises to modern names but the 1999+ rows use as-of-game names, so `h2h-core.js` folds relocated-franchise aliases together (St. Louis Rams → Los Angeles Rams, San Diego → Los Angeles Chargers, Oakland → Las Vegas Raiders). The 1950 Baltimore Colts and the 1945–52 Dallas Texans lineage are distinct defunct franchises and stay separate.
+
+The current season's schedule on the main page annotates each game with the all-time head-to-head record against that opponent, linking to the rivalry page.
 
 ## Data Files
 

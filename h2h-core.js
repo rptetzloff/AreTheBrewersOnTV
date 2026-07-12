@@ -5,6 +5,29 @@ import { rec, formatDate } from './records-core.js';
 export const slugifyOpponent = (name) =>
 	name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
+// The CSV's pre-1999 rows (FiveThirtyEight) map franchises to modern names,
+// but the 1999+ rows (nflverse) use as-of-game names, splitting relocated
+// franchises in two. Fold those eras together. (Baltimore Colts and Dallas
+// Texans are NOT aliases — those are distinct defunct franchises.)
+const FRANCHISE_ALIASES = {
+	'St. Louis Rams': 'Los Angeles Rams',
+	'San Diego Chargers': 'Los Angeles Chargers',
+	'Oakland Raiders': 'Las Vegas Raiders',
+};
+export const canonicalOpponent = (name) => FRANCHISE_ALIASES[name] || name;
+
+// The 31 other active NFL franchises, by the canonical names used in the CSV.
+const CURRENT_FRANCHISES = new Set([
+	'Arizona Cardinals', 'Atlanta Falcons', 'Baltimore Ravens', 'Buffalo Bills',
+	'Carolina Panthers', 'Chicago Bears', 'Cincinnati Bengals', 'Cleveland Browns',
+	'Dallas Cowboys', 'Denver Broncos', 'Detroit Lions', 'Houston Texans',
+	'Indianapolis Colts', 'Jacksonville Jaguars', 'Kansas City Chiefs', 'Las Vegas Raiders',
+	'Los Angeles Chargers', 'Los Angeles Rams', 'Miami Dolphins', 'Minnesota Vikings',
+	'New England Patriots', 'New Orleans Saints', 'New York Giants', 'New York Jets',
+	'Philadelphia Eagles', 'Pittsburgh Steelers', 'San Francisco 49ers', 'Seattle Seahawks',
+	'Tampa Bay Buccaneers', 'Tennessee Titans', 'Washington Commanders',
+]);
+
 const RESULTS = new Set(['WIN', 'LOSS', 'TIE']);
 
 // rows: parsed CSV rows. Returns { opponents, bySlug } — opponents sorted by
@@ -18,8 +41,9 @@ export function computeHeadToHead(rows) {
 
 	const byOpp = new Map();
 	for (const g of games) {
-		if (!byOpp.has(g.Opponent)) byOpp.set(g.Opponent, []);
-		byOpp.get(g.Opponent).push(g);
+		const name = canonicalOpponent(g.Opponent);
+		if (!byOpp.has(name)) byOpp.set(name, []);
+		byOpp.get(name).push(g);
 	}
 
 	const info = (g) => ({
@@ -48,6 +72,7 @@ export function computeHeadToHead(rows) {
 		const playoffGames = playoff.WIN + playoff.LOSS + playoff.TIE;
 		return {
 			name, slug: slugifyOpponent(name),
+			current: CURRENT_FRANCHISES.has(name),
 			games: list.length,
 			wins: count.WIN, losses: count.LOSS, ties: count.TIE,
 			record: rec(count.WIN, count.LOSS, count.TIE),
