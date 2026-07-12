@@ -32,6 +32,8 @@ export function computeCoaches(rows, tenures, championSeasons) {
 
 	const spans = tenures.map((t) => ({
 		name: t.coach, from: t.from, to: t.to || '9999-12-31',
+		interim: t.interim === '1',
+		image: t.image || null, imagePage: t.image_page || null,
 	}));
 	const coachOf = (date) => spans.find((s) => date >= s.from && date <= s.to)?.name ?? null;
 
@@ -73,6 +75,8 @@ export function computeCoaches(rows, tenures, championSeasons) {
 			const lastSeason = parseInt(list[list.length - 1].season, 10);
 			return {
 				name: s.name, slug: slugifyCoach(s.name),
+				interim: s.interim,
+				image: s.image, imagePage: s.imagePage,
 				firstSeason, lastSeason,
 				tenure: firstSeason === lastSeason ? String(firstSeason) : `${firstSeason}–${lastSeason}`,
 				games: list.length,

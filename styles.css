@@ -1641,3 +1641,42 @@ details:not([open]) > .collapsible-summary::before {
 #history-share {
     justify-content: center;
 }
+
+
+/* --- Coach photos & interim markers --- */
+
+.coach-photo-cell {
+    width: 44px;
+}
+
+.coach-photo {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    display: block;
+    border: 1.5px solid rgba(255, 182, 18, 0.5);
+}
+
+.coach-photo-none {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 1.1rem;
+}
+
+.coach-interim {
+    color: #ffb612;
+    margin-left: 0.15rem;
+}
+
+@media (max-width: 600px) {
+    .coaches-table .coach-photo-cell {
+        display: none;
+    }
+    .coaches-table thead th:first-child {
+        display: none;
+    }
+}

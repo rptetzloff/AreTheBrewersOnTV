@@ -22,7 +22,7 @@ function seasonLabel(s) {
 }
 
 function coachLabel(c) {
-	const bits = [`${c.name} · ${c.tenure} · ${c.record} (${pct(c.winPct)})`];
+	const bits = [`${c.name}${c.interim ? ' (interim)' : ''} · ${c.tenure} · ${c.record} (${pct(c.winPct)})`];
 	if (c.playoffRecord) bits.push(`playoffs ${c.playoffRecord}`);
 	if (c.titles) bits.push(`${c.titles} title${c.titles === 1 ? '' : 's'}`);
 	return bits.join(' · ');
@@ -49,6 +49,11 @@ function render(history, coaches, metrics) {
 	chartEl.innerHTML = buildChartSvg(history, {
 		metrics, axes: true, eras, hitAreas: true, emoji: true,
 	});
+	// The tooltip must live INSIDE the position:relative chart container or
+	// its absolute coordinates resolve against the page, far from the cursor.
+	// innerHTML above wipes the container, so re-append after every render.
+	tooltip.hidden = true;
+	chartEl.appendChild(tooltip);
 	const bySeason = new Map(history.map((s) => [s.season, s]));
 	const coachBySlug = new Map(coaches.map((c) => [c.slug, c]));
 

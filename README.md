@@ -68,7 +68,9 @@ The chart is built by `history-chart.js`, a pure SVG-string module shared by the
 
 ## Head Coaches
 
-`/coaches` lists every Packers head coach in tenure order with regular-season record, win %, playoff record, and championships. Tenures live in `data/packers_coaches.csv` as from/to **dates**, not seasons, so mid-season changes split correctly (Ronzani → Devore/McLean with two games left in 1953; McCarthy → Philbin after week 13 of 2018) — every game is assigned to a coach by date. Championships count for the coach who coached that champion season's final game. Computation lives in `coaches-core.js`, shared by the browser page (`coaches.html` + `coaches.js`) and the web service (`lib/coaches.js`); the social card is at `/og/coaches.png`.
+`/coaches` lists every Packers head coach in tenure order with photo, regular-season record, win %, playoff record, and championships. Tenures live in `data/packers_coaches.csv` as from/to **dates**, not seasons, so mid-season changes split correctly (Ronzani → Devore/McLean with two games left in 1953; McCarthy → Philbin after week 13 of 2018) — every game is assigned to a coach by date. Interim stints are marked with an asterisk and can be excluded via a persisted toggle. Championships count for the coach who coached that champion season's final game. Computation lives in `coaches-core.js`, shared by the browser page (`coaches.html` + `coaches.js`) and the web service (`lib/coaches.js`); the social card is at `/og/coaches.png`.
+
+Coach photos come from Wikimedia Commons (public domain or Creative Commons; the `image_page` column links each photo's source/license page, and clicking a photo opens it). Coaches without a free image on Commons get a placeholder.
 
 ## Data Files
 

@@ -7,18 +7,27 @@ import { shareButtonsHtml, wireShareRow } from './share-core.js';
 
 const pct = (p) => (p >= 1 ? '1.000' : p.toFixed(3).replace(/^0/, ''));
 
+function photoHtml(c) {
+	if (!c.image) return '<span class="coach-photo coach-photo-none"><i class="mdi mdi-account"></i></span>';
+	// Linking to the Commons file page carries the attribution/license.
+	return `<a href="${esc(c.imagePage || c.image)}" target="_blank" rel="noopener noreferrer" title="Photo: Wikimedia Commons (click for source & license)">
+		<img class="coach-photo" src="${esc(c.image)}" alt="${esc(c.name)}">
+	</a>`;
+}
+
 function tableHtml(coaches) {
 	const rows = coaches.map((c) => `
 		<tr>
-			<td>${esc(c.name)}</td>
+			<td class="coach-photo-cell">${photoHtml(c)}</td>
+			<td>${esc(c.name)}${c.interim ? '<span class="coach-interim" title="Interim">*</span>' : ''}</td>
 			<td class="h2h-num"><a href="/${c.firstSeason}">${esc(c.tenure)}</a></td>
 			<td class="h2h-num">${esc(c.record)}</td>
 			<td class="h2h-num">${pct(c.winPct)}</td>
 			<td class="h2h-num">${c.playoffRecord ? esc(c.playoffRecord) : '—'}</td>
 			<td class="h2h-num">${c.titles || '—'}</td>
 		</tr>`).join('');
-	return `<table class="h2h-table">
-		<thead><tr><th>Coach</th><th class="h2h-num">Tenure</th><th class="h2h-num">Record</th><th class="h2h-num">Win %</th><th class="h2h-num">Playoffs</th><th class="h2h-num">Titles</th></tr></thead>
+	return `<table class="h2h-table coaches-table">
+		<thead><tr><th></th><th>Coach</th><th class="h2h-num">Tenure</th><th class="h2h-num">Record</th><th class="h2h-num">Win %</th><th class="h2h-num">Playoffs</th><th class="h2h-num">Titles</th></tr></thead>
 		<tbody>${rows}</tbody>
 	</table>`;
 }
@@ -37,7 +46,18 @@ async function init() {
 
 		document.getElementById('coaches-subtitle').textContent =
 			`Green Bay Packers · ${data.coaches.length} head coaches since ${data.coaches[0].firstSeason}`;
-		wrap.innerHTML = tableHtml(data.coaches);
+
+		// Interim exclusion persists like the site's other settings.
+		const interimBox = document.getElementById('coaches-interim');
+		interimBox.checked = localStorage.getItem('coachesShowInterim') !== 'false';
+		const renderTable = () => {
+			wrap.innerHTML = tableHtml(interimBox.checked ? data.coaches : data.coaches.filter((c) => !c.interim));
+		};
+		interimBox.addEventListener('change', () => {
+			localStorage.setItem('coachesShowInterim', String(interimBox.checked));
+			renderTable();
+		});
+		renderTable();
 
 		const share = document.getElementById('coaches-share');
 		share.innerHTML = shareButtonsHtml('share-btn record-share-btn');
