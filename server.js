@@ -146,7 +146,13 @@ async function serveStatic(req, res, pathname) {
     });
     res.end(body);
   } catch {
-    // Unknown route: serve the app shell with default meta (SPA fallback).
+    // Real assets (paths with a file extension) that don't exist must 404 —
+    // returning HTML for a missing .png/.ico/.txt confuses crawlers (esp. Twitterbot).
+    if (extname(pathname)) {
+      res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+      return res.end('Not found');
+    }
+    // Extension-less route: serve the app shell with default meta (SPA fallback).
     await serveHtml(req, res, undefined);
   }
 }
@@ -160,6 +166,11 @@ const server = http.createServer(async (req, res) => {
     if (img) return await serveImage(req, res, parseInt(img[1], 10));
     if (pathname === '/og/default.png' || pathname === '/og.png')
       return await serveImage(req, res, defaultSeason());
+
+    if (pathname === '/robots.txt') {
+      res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=86400' });
+      return res.end('User-agent: *\nAllow: /\n');
+    }
 
     if (pathname === '/' || pathname === '/index.html') {
       const q = url.searchParams.get('season');
