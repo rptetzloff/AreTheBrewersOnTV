@@ -1499,3 +1499,24 @@ details:not([open]) > .collapsible-summary::before {
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
 }
+
+@media (max-width: 600px) {
+    /* Tighten the table so it fits a phone viewport instead of overflowing
+       into a horizontal scroll (opponent names wrap; numbers stay nowrap). */
+    .h2h-table th,
+    .h2h-table td {
+        padding: 0.4rem 0.45rem;
+    }
+
+    .h2h-table td {
+        font-size: 0.9rem;
+    }
+
+    .h2h-table th {
+        font-size: 0.72rem;
+    }
+
+    .h2h-filter {
+        max-width: 100%;
+    }
+}
