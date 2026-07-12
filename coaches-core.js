@@ -1,7 +1,6 @@
-// Shared (browser + node) head-coach records, computed by assigning every
-// game to a coaching tenure by date. Tenures come from
-// data/packers_coaches.csv (from/to dates, so mid-season changes like
-// Ronzani -> Devore/McLean in 1953 or McCarthy -> Philbin in 2018 split
+// Shared (browser + node) head-manager records, computed by assigning every
+// game to a managing tenure by date. Tenures come from
+// data/brewers_coaches.csv (from/to dates, so mid-season changes split
 // correctly). Pure functions only.
 import { rec, splitCsvLine } from './records-core.js';
 
@@ -20,13 +19,13 @@ export function parseCoachesCsv(raw) {
 
 const RESULTS = new Set(['WIN', 'LOSS', 'TIE']);
 
-// games: parsed packers_games.csv rows. tenures: parsed packers_coaches.csv
+// games: parsed brewers_games.csv rows. tenures: parsed brewers_coaches.csv
 // rows ({coach, from, to}; empty to = present). Returns { coaches, bySlug },
-// coaches in tenure order. A championship counts for the coach who coached
+// coaches in tenure order. A championship counts for the manager who managed
 // that champion season's final game.
 export function computeCoaches(rows, tenures, championSeasons) {
 	const games = rows
-		.filter((g) => RESULTS.has(g['Packers Win']))
+		.filter((g) => RESULTS.has(g['Brewers Win']))
 		.slice()
 		.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 
@@ -43,7 +42,7 @@ export function computeCoaches(rows, tenures, championSeasons) {
 		if (name) byCoach.get(name).push(g);
 	}
 
-	// Champion season -> coach of that season's final game.
+	// Champion season -> manager of that season's final game.
 	const titleCount = new Map();
 	const bySeason = new Map();
 	for (const g of games) {
@@ -60,13 +59,12 @@ export function computeCoaches(rows, tenures, championSeasons) {
 		.filter((s) => byCoach.get(s.name).length > 0)
 		.map((s) => {
 			const list = byCoach.get(s.name);
-			// Coach records follow convention: regular season, playoffs split out.
 			const reg = { WIN: 0, LOSS: 0, TIE: 0 };
 			const playoff = { WIN: 0, LOSS: 0, TIE: 0 };
 			let pf = 0, pa = 0;
 			for (const g of list) {
-				(g.regular_season === '1' ? reg : playoff)[g['Packers Win']]++;
-				pf += parseInt(g.packers_score, 10) || 0;
+				(g.regular_season === '1' ? reg : playoff)[g['Brewers Win']]++;
+				pf += parseInt(g.brewers_score, 10) || 0;
 				pa += parseInt(g.opponent_score, 10) || 0;
 			}
 			const regGames = reg.WIN + reg.LOSS + reg.TIE;
@@ -99,7 +97,7 @@ export function coachesCopy(data) {
 	const wins = [...coaches].sort((a, b) => b.wins - a.wins)[0];
 	const titles = coaches.reduce((s, c) => s + c.titles, 0);
 	return {
-		title: `Packers Head Coaches, ${coaches[0].firstSeason}–present`,
-		desc: `Every Green Bay Packers head coach and their record — ${coaches.length} of them, ${titles} championships. Most wins: ${wins.name} (${wins.record}).`,
+		title: `Brewers Managers, ${coaches[0].firstSeason}–present`,
+		desc: `Every Milwaukee Brewers manager and their record — ${coaches.length} of them, ${titles} championships. Most wins: ${wins.name} (${wins.record}).`,
 	};
 }

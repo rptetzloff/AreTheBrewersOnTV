@@ -5,7 +5,6 @@ import { parseGamesCsv, formatDate, esc } from './records-core.js';
 import { computeHeadToHead, h2hCopy, streakSentence } from './h2h-core.js';
 import { shareButtonsHtml, wireShareRow } from './share-core.js';
 
-// Standard sports-page winning percentage: ties count half. ".622" / "1.000".
 const pct = (p) => (p >= 1 ? '1.000' : p.toFixed(3).replace(/^0/, ''));
 
 const resultLetter = { WIN: 'W', LOSS: 'L', TIE: 'T' };
@@ -43,7 +42,6 @@ function tableHtml(opponents) {
 	</table>`;
 }
 
-// /vs/<slug> deep link (or ?vs=<slug> when served statically in dev).
 function requestedSlug(data) {
 	const m = window.location.pathname.match(/\/vs\/([a-z0-9-]+)\/?$/);
 	const slug = m ? m[1] : new URLSearchParams(window.location.search).get('vs');
@@ -53,14 +51,12 @@ function requestedSlug(data) {
 async function init() {
 	const wrap = document.getElementById('h2h-table-wrap');
 	try {
-		const res = await fetch('/data/packers_games.csv');
+		const res = await fetch('/data/brewers_games.csv');
 		if (!res.ok) throw new Error(`CSV fetch failed: ${res.status}`);
 		const rows = parseGamesCsv(await res.text());
-		// The focus card and share copy always use the full all-time data;
-		// the venue/type filters recompute a fresh table from the raw rows.
 		const allTime = computeHeadToHead(rows);
 		document.getElementById('h2h-subtitle').textContent =
-			`Green Bay Packers · all-time vs ${allTime.opponents.length} opponents`;
+			`Milwaukee Brewers · all-time vs ${allTime.opponents.length} opponents`;
 
 		const controls = {
 			q: document.getElementById('h2h-filter'),
@@ -70,8 +66,6 @@ async function init() {
 		};
 		const countEl = document.getElementById('h2h-count');
 
-		// Filter settings persist across sessions (like the emoji toggle and
-		// section states); the typed name query is transient.
 		try {
 			const stored = JSON.parse(localStorage.getItem('h2hFilters') || '{}');
 			if ([...controls.venue.options].some((o) => o.value === stored.venue)) controls.venue.value = stored.venue;

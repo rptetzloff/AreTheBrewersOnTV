@@ -1,7 +1,7 @@
-// Franchise history page: one point per season since 1921, rendered from the
+// Franchise history page: one point per season since 1969, rendered from the
 // shared chart builder (history-chart.js) over the shared season computation
 // (records-core.js). Multiple metrics can be plotted at once, playoffs can be
-// folded in, coach-era strips carry each coach's record, hover shows a
+// folded in, manager-era strips carry each manager's record, hover shows a
 // season's numbers, and clicking a season opens its page.
 import { parseGamesCsv, computeSeasonHistory, historyCopy } from './records-core.js';
 import { parseCoachesCsv, computeCoaches } from './coaches-core.js';
@@ -15,10 +15,10 @@ const pct = (p) => (p >= 1 ? '1.000' : p.toFixed(3).replace(/^0/, ''));
 
 function seasonLabel(s) {
 	const notes = [];
-	if (s.superbowl) notes.push('Super Bowl champions');
-	else if (s.champion) notes.push('NFL champions');
+	if (s.worldseries) notes.push('World Series champions');
+	else if (s.champion) notes.push('MLB champions');
 	if (s.undefeated) notes.push('perfect season');
-	return `${s.season} · ${s.record} · PF ${s.pf} · PA ${s.pa}${notes.length ? ` · ${notes.join(', ')}` : ''}`;
+	return `${s.season} · ${s.record} · RS ${s.pf} · RA ${s.pa}${notes.length ? ` · ${notes.join(', ')}` : ''}`;
 }
 
 function coachLabel(c) {
@@ -28,7 +28,7 @@ function coachLabel(c) {
 	return bits.join(' · ');
 }
 
-// "Curly Lambeau" -> "Lambeau", "Hugh Devore & Scooter McLean" -> "Devore/McLean"
+// "Dave Bristol" -> "Bristol", "Phil Garner" -> "Garner"
 const bandLabel = (name) => name.split('&').map((p) => p.trim().split(' ').pop()).join('/');
 
 function showTooltip(text) {
@@ -49,9 +49,6 @@ function render(history, coaches, metrics) {
 	chartEl.innerHTML = buildChartSvg(history, {
 		metrics, axes: true, eras, hitAreas: true, emoji: true,
 	});
-	// The tooltip must live INSIDE the position:relative chart container or
-	// its absolute coordinates resolve against the page, far from the cursor.
-	// innerHTML above wipes the container, so re-append after every render.
 	tooltip.hidden = true;
 	chartEl.appendChild(tooltip);
 	const bySeason = new Map(history.map((s) => [s.season, s]));
@@ -76,8 +73,8 @@ function render(history, coaches, metrics) {
 async function init() {
 	try {
 		const [gamesRes, coachesRes] = await Promise.all([
-			fetch('/data/packers_games.csv'),
-			fetch('/data/packers_coaches.csv'),
+			fetch('/data/brewers_games.csv'),
+			fetch('/data/brewers_coaches.csv'),
 		]);
 		if (!gamesRes.ok || !coachesRes.ok) throw new Error('CSV fetch failed');
 		const rows = parseGamesCsv(await gamesRes.text());
@@ -91,9 +88,8 @@ async function init() {
 		const titles = histories.regular.filter((s) => s.champion).length;
 		const range = `${histories.regular[0].season}–${histories.regular[histories.regular.length - 1].season}`;
 		document.getElementById('history-subtitle').textContent =
-			`Green Bay Packers · ${range} · ${titles} championships · ${coaches.length} head coaches`;
+			`Milwaukee Brewers · ${range} · ${titles} championships · ${coaches.length} managers`;
 
-		// Metric selection and playoffs inclusion persist like other settings.
 		let metrics;
 		try { metrics = JSON.parse(localStorage.getItem('historyMetrics') || '[]'); } catch { metrics = []; }
 		metrics = metrics.filter((m) => METRICS[m]);
@@ -116,7 +112,7 @@ async function init() {
 			chip.addEventListener('click', () => {
 				const key = chip.dataset.metric;
 				metrics = metrics.includes(key) ? metrics.filter((m) => m !== key) : [...metrics, key];
-				if (!metrics.length) metrics = [key]; // at least one metric stays on
+				if (!metrics.length) metrics = [key];
 				metrics.sort((a, b) => Object.keys(METRICS).indexOf(a) - Object.keys(METRICS).indexOf(b));
 				localStorage.setItem('historyMetrics', JSON.stringify(metrics));
 				apply();

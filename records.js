@@ -4,9 +4,7 @@ import { parseGamesCsv, computeSuperlatives, recordsCopy, formatDate, RECORD_SLU
 import { shareButtonsHtml, wireShareRow } from './share-core.js';
 
 const yearLink = (yr) => `<a href="/${yr}">${yr}</a>`;
-const gameFlag = (g) => (g.superbowl ? ' · Super Bowl' : g.playoff ? ' · Playoffs' : '');
-// Blowout entries link the date to the game's season page (a January playoff
-// game belongs to the prior year's season, so the season, not the date's year).
+const gameFlag = (g) => (g.worldseries ? ' · World Series' : g.playoff ? ' · Playoffs' : '');
 const blowoutEntry = (g) => ({
 	main: `${g.pf}–${g.pa}`, sub: `vs ${g.opponent}`,
 	detailHtml: `<a href="/${g.season}">${esc(formatDate(g.date))}</a>${esc(gameFlag(g))}`,
@@ -52,9 +50,9 @@ const CARDS = [
 	},
 	{
 		slug: 'ties', icon: 'mdi-equal', title: 'Ties',
-		note: 'Every tie in franchise history, most recent first — overtime arrived in 1974',
+		note: 'Every tie in franchise history, most recent first',
 		entries: (d) => d.ties.map(blowoutEntry),
-		empty: 'The Packers have never tied a game.',
+		empty: 'The Brewers have never tied a game.',
 	},
 ];
 
@@ -92,7 +90,6 @@ function wireShares(grid, data) {
 	});
 }
 
-// /records/<slug> deep link (or ?card=<slug> when served statically in dev).
 function requestedSlug() {
 	const m = window.location.pathname.match(/\/records\/([a-z-]+)\/?$/);
 	const slug = m ? m[1] : new URLSearchParams(window.location.search).get('card');
@@ -102,11 +99,11 @@ function requestedSlug() {
 async function init() {
 	const grid = document.getElementById('records-grid');
 	try {
-		const res = await fetch('/data/packers_games.csv');
+		const res = await fetch('/data/brewers_games.csv');
 		if (!res.ok) throw new Error(`CSV fetch failed: ${res.status}`);
 		const data = computeSuperlatives(parseGamesCsv(await res.text()));
 		document.getElementById('records-subtitle').textContent =
-			`Green Bay Packers · ${data.seasonRange.first}–${data.seasonRange.last}`;
+			`Milwaukee Brewers · ${data.seasonRange.first}–${data.seasonRange.last}`;
 		grid.innerHTML = CARDS.map((c) => cardHtml(c, data)).join('');
 		wireShares(grid, data);
 

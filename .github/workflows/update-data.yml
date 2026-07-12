@@ -1,9 +1,9 @@
-name: Update Packers Data
+name: Update Brewers Data
 
 on:
-  # Tuesday 10:00 UTC — covers Monday night games that finish late
+  # Wednesday 10:00 UTC — covers Tuesday night games that finish late
   schedule:
-    - cron: '0 10 * * 2'
+    - cron: '0 10 * * 3'
   # Allow manual runs from the Actions tab at any time
   workflow_dispatch:
 
@@ -35,6 +35,6 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/packers_games.csv data/packers_season_records.csv
-          git commit -m "chore: update Packers game data [skip ci]"
+          git add data/brewers_games.csv data/brewers_season_records.csv
+          git commit -m "chore: update Brewers game data [skip ci]"
           git push

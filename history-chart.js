@@ -2,9 +2,9 @@
 // point per season. Pure string output, no DOM — the /history page, the
 // homepage sparkline, and the server-rendered social card all use it.
 
-const GOLD = '#FFB612';
+const GOLD = '#FFC52F';
 const WHITE = '#FFFFFF';
-const DARK = '#152A1E';
+const DARK = '#0d1d38';
 
 // Plottable per-season metrics. Metrics in the same scale group share a real
 // labeled axis; mixing groups falls back to per-series normalization (shapes
@@ -12,8 +12,8 @@ const DARK = '#152A1E';
 export const METRICS = {
 	winPct: { label: 'Win %', color: GOLD, group: 'pct' },
 	wins: { label: 'Wins', color: WHITE, group: 'count' },
-	pf: { label: 'Points For', color: '#7FC4FF', group: 'points' },
-	pa: { label: 'Points Against', color: '#FF6B6B', group: 'points' },
+	pf: { label: 'Runs Scored', color: '#7FC4FF', group: 'points' },
+	pa: { label: 'Runs Allowed', color: '#FF6B6B', group: 'points' },
 };
 
 // history: computeSeasonHistory() output. Options:

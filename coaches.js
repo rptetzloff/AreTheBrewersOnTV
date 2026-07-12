@@ -1,4 +1,4 @@
-// Head Coaches page: every Packers head coach in tenure order with their
+// Managers page: every Brewers manager in tenure order with their
 // record, computed from the shared coaches-core.js (games assigned to
 // tenures by exact dates, so mid-season changes split correctly).
 import { parseGamesCsv, computeSeasonHistory, esc } from './records-core.js';
@@ -9,7 +9,6 @@ const pct = (p) => (p >= 1 ? '1.000' : p.toFixed(3).replace(/^0/, ''));
 
 function photoHtml(c) {
 	if (!c.image) return '<span class="coach-photo coach-photo-none"><i class="mdi mdi-account"></i></span>';
-	// Linking to the Commons file page carries the attribution/license.
 	return `<a href="${esc(c.imagePage || c.image)}" target="_blank" rel="noopener noreferrer" title="Photo: Wikimedia Commons (click for source & license)">
 		<img class="coach-photo" src="${esc(c.image)}" alt="${esc(c.name)}">
 	</a>`;
@@ -27,7 +26,7 @@ function tableHtml(coaches) {
 			<td class="h2h-num">${c.titles || '—'}</td>
 		</tr>`).join('');
 	return `<table class="h2h-table coaches-table">
-		<thead><tr><th></th><th>Coach</th><th class="h2h-num">Tenure</th><th class="h2h-num">Record</th><th class="h2h-num">Win %</th><th class="h2h-num">Playoffs</th><th class="h2h-num">Titles</th></tr></thead>
+		<thead><tr><th></th><th>Manager</th><th class="h2h-num">Tenure</th><th class="h2h-num">Record</th><th class="h2h-num">Win %</th><th class="h2h-num">Playoffs</th><th class="h2h-num">Titles</th></tr></thead>
 		<tbody>${rows}</tbody>
 	</table>`;
 }
@@ -36,8 +35,8 @@ async function init() {
 	const wrap = document.getElementById('coaches-table-wrap');
 	try {
 		const [gamesRes, coachesRes] = await Promise.all([
-			fetch('/data/packers_games.csv'),
-			fetch('/data/packers_coaches.csv'),
+			fetch('/data/brewers_games.csv'),
+			fetch('/data/brewers_coaches.csv'),
 		]);
 		if (!gamesRes.ok || !coachesRes.ok) throw new Error('CSV fetch failed');
 		const rows = parseGamesCsv(await gamesRes.text());
@@ -45,9 +44,8 @@ async function init() {
 		const data = computeCoaches(rows, parseCoachesCsv(await coachesRes.text()), champions);
 
 		document.getElementById('coaches-subtitle').textContent =
-			`Green Bay Packers · ${data.coaches.length} head coaches since ${data.coaches[0].firstSeason}`;
+			`Milwaukee Brewers · ${data.coaches.length} managers since ${data.coaches[0].firstSeason}`;
 
-		// Interim exclusion persists like the site's other settings.
 		const interimBox = document.getElementById('coaches-interim');
 		interimBox.checked = localStorage.getItem('coachesShowInterim') !== 'false';
 		const renderTable = () => {

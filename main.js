@@ -13,14 +13,14 @@
         	return map;
         }
 
-        class PackersTracker {
+        class BrewersTracker {
         	constructor() {
-        		this.apiUrl = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/gb/schedule';
+        		this.apiUrl = 'https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/teams/mil/schedule';
         		this.countdownInterval = null;
         		this.liveUpdateInterval = null;
         		this.currentSeason = null;
         		this.latestSeason = null;
-        		this.earliestSeason = 1921;
+        		this.earliestSeason = 1969;
         		this.csvBySeason = {};
         		this.csvMaxSeason = 2020;
         		this.seasonRecords = {};
@@ -53,8 +53,8 @@
         			});
 
         			const [gamesRes, recordsRes, photosRes] = await Promise.all([
-        				fetch('./data/packers_games.csv'),
-        				fetch('./data/packers_season_records.csv'),
+        				fetch('./data/brewers_games.csv'),
+        				fetch('./data/brewers_season_records.csv'),
         				fetch('./data/photos.csv'),
         			]);
         			if (gamesRes.ok) {
@@ -93,10 +93,10 @@
         			const requestedSeason = seasonParam
                     ? parseInt(seasonParam, 10)
                     : pathMatch ? parseInt(pathMatch[1], 10) : null;
-                    await this.fetchPackersData(requestedSeason || undefined);
+                    await this.fetchBrewersData(requestedSeason || undefined);
                     this.setupSeasonSelector();
                 } catch (error) {
-                 this.showError('Failed to load Packers data');
+                 this.showError('Failed to load Brewers data');
                  console.error('Error:', error);
              }
          }
@@ -146,8 +146,8 @@
           if (!el) return;
           const past = this.currentSeason && this.latestSeason && this.currentSeason < this.latestSeason;
           el.textContent = past
-              ? `Were the Packers Undefeated in ${this.currentSeason}?`
-              : 'Are the Packers Undefeated?';
+              ? `Were the Brewers Undefeated in ${this.currentSeason}?`
+              : 'Are the Brewers Undefeated?';
       }
 
       // Compact franchise-history sparkline under the answer; the currently
@@ -216,7 +216,7 @@
      }
 
      try {
-         await this.fetchPackersData(year);
+         await this.fetchBrewersData(year);
      } catch (error) {
          this.showError('Failed to load season data');
      }
@@ -226,7 +226,7 @@
   return season != null && season <= this.csvMaxSeason && this.csvBySeason[season] != null;
 }
 
-async fetchPackersData(season) {
+async fetchBrewersData(season) {
         		// For seasons covered by the CSV, use local data
   if (season && this.usesCsvData(season)) {
      this.processCsvSeasonData(season);
@@ -297,7 +297,7 @@ processCsvSeasonData(season) {
  let postWins = 0, postLosses = 0, postTies = 0;
 
  games.forEach(g => {
-     const result = g['Packers Win'];
+     const result = g['Brewers Win'];
      const isPlayoff = g.playoff === '1';
      const isRegular = g.regular_season === '1';
 
@@ -312,18 +312,18 @@ processCsvSeasonData(season) {
     }
 });
 
-        		// Check for Super Bowl win (superbowl column is non-empty)
- let superBowlName = null;
+        		// Check for World Series win (worldseries column is non-empty)
+ let worldSeriesName = null;
  games.forEach(g => {
-     if (g.superbowl && g.superbowl.trim() !== '' && g['Packers Win'] === 'WIN') {
-        superBowlName = `Super Bowl ${g.superbowl.toUpperCase()}`;
+     if (g.worldseries && g.worldseries.trim() !== '' && g['Brewers Win'] === 'WIN') {
+        worldSeriesName = `World Series ${g.worldseries.toUpperCase()}`;
     }
 });
 
  const isUndefeated = losses === 0 && wins > 0;
  const postRecord = (postWins > 0 || postLosses > 0) ? { w: postWins, l: postLosses, t: postTies } : null;
 
- this.displayResult(isUndefeated, wins, losses, ties, true, superBowlName, postRecord, null);
+ this.displayResult(isUndefeated, wins, losses, ties, true, worldSeriesName, postRecord, null);
  this.displayCsvSchedule(games, season);
  this.showLastUpdated();
  this.setDataCredit(true);
@@ -331,8 +331,8 @@ processCsvSeasonData(season) {
  this.setupShareButtons();
 
  const csvCompletedGames = games
- .filter(g => g.regular_season === '1' && g['Packers Win'])
- .map(g => ({ result: g['Packers Win'], date: new Date(g.date) }));
+ .filter(g => g.regular_season === '1' && g['Brewers Win'])
+ .map(g => ({ result: g['Brewers Win'], date: new Date(g.date) }));
  this.updateStreakBanner(csvCompletedGames, season !== this.latestSeason);
 }
 
@@ -345,7 +345,7 @@ h2hNote(opponentName) {
   note.className = 'game-h2h';
   note.href = `/vs/${o.slug}`;
   note.textContent = `All-time: ${o.record}`;
-  note.title = `Packers vs ${o.name} — all-time head-to-head`;
+  note.title = `Brewers vs ${o.name} — all-time head-to-head`;
   return note;
 }
 
@@ -379,13 +379,13 @@ displayCsvSchedule(games, season) {
 }
 
 createCsvGameItem(g, showH2h = false) {
-        		const result = g['Packers Win']; // WIN / LOSS / TIE
+        		const result = g['Brewers Win']; // WIN / LOSS / TIE
         		const opponent = g.Opponent;
         		const location = g.location; // HOME / AWAY / NEUTRAL
-        		const packersScore = parseInt(g.packers_score) || 0;
+        		const brewersScore = parseInt(g.brewers_score) || 0;
         		const opponentScore = parseInt(g.opponent_score) || 0;
         		const date = new Date(g.date);
-        		const isSuperBowl = g.superbowl && g.superbowl.trim() !== '';
+        		const isWorldSeries = g.worldseries && g.worldseries.trim() !== '';
 
         		const gameItem = document.createElement('div');
         		gameItem.className = 'game-item completed';
@@ -418,10 +418,10 @@ createCsvGameItem(g, showH2h = false) {
         			if (h2h) gameDetails.appendChild(h2h);
         		}
 
-        		if (isSuperBowl) {
+        		if (isWorldSeries) {
         			const sbLabel = document.createElement('div');
         			sbLabel.className = 'game-status';
-        			sbLabel.textContent = `Super Bowl ${g.superbowl.toUpperCase()}`;
+        			sbLabel.textContent = `World Series ${g.worldseries.toUpperCase()}`;
         			gameDetails.appendChild(sbLabel);
         		}
 
@@ -434,7 +434,7 @@ createCsvGameItem(g, showH2h = false) {
         		else if (result === 'LOSS') scoreDiv.classList.add('loss');
 
         		const resultPrefix = result === 'WIN' ? 'W ' : result === 'LOSS' ? 'L ' : 'T ';
-        		scoreDiv.textContent = `${resultPrefix}${packersScore}-${opponentScore}`;
+        		scoreDiv.textContent = `${resultPrefix}${brewersScore}-${opponentScore}`;
         		scoreDiv.style.textAlign = 'center';
         		scoreDiv.style.marginTop = '0.5rem';
         		scoreDiv.style.width = '100%';
@@ -446,7 +446,7 @@ createCsvGameItem(g, showH2h = false) {
         	async fetchLiveGameScore(liveGame, scheduleData) {
         		try {
         			const gameId = liveGame.id;
-        			const scoreboardUrl = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard`;
+        			const scoreboardUrl = `https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard`;
         			const response = await fetch(scoreboardUrl);
         			const scoreboardData = await response.json();
 
@@ -472,7 +472,7 @@ createCsvGameItem(g, showH2h = false) {
         					};
         				}
         			} else {
-        				const boxscoreUrl = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${gameId}`;
+        				const boxscoreUrl = `https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/summary?event=${gameId}`;
         				const boxResponse = await fetch(boxscoreUrl);
         				const boxscoreData = await boxResponse.json();
 
@@ -541,16 +541,16 @@ createCsvGameItem(g, showH2h = false) {
         			let w = 0, l = 0, t = 0;
         			gameList.forEach(event => {
         				const competitors = event.competitions[0].competitors;
-        				let packersScore = 0, opponentScore = 0;
+        				let brewersScore = 0, opponentScore = 0;
         				competitors.forEach(competitor => {
-        					if (competitor.team.abbreviation === 'GB') {
-        						packersScore = parseInt(competitor.score.value) || 0;
+        					if (competitor.team.abbreviation === 'MIL') {
+        						brewersScore = parseInt(competitor.score.value) || 0;
         					} else {
         						opponentScore = parseInt(competitor.score.value) || 0;
         					}
         				});
-        				if (packersScore > opponentScore) w++;
-        				else if (packersScore < opponentScore) l++;
+        				if (brewersScore > opponentScore) w++;
+        				else if (brewersScore < opponentScore) l++;
         				else t++;
         			});
         			return { w, l, t };
@@ -575,22 +575,22 @@ createCsvGameItem(g, showH2h = false) {
         		const { w: wins, l: losses, t: ties } = countRecord(completedRegular);
         		const postRecord = countRecord(completedPost);
 
-        		let superBowlName = null;
+        		let worldSeriesName = null;
         		completedPost.forEach(event => {
         			const notes = event.competitions?.[0]?.notes || [];
-        			const sbNote = notes.find(n => /super bowl/i.test(n.headline || ''));
+        			const sbNote = notes.find(n => /world series/i.test(n.headline || ''));
         			if (!sbNote) return;
         			const competitors = event.competitions[0].competitors;
-        			let packersScore = 0, opponentScore = 0;
+        			let brewersScore = 0, opponentScore = 0;
         			competitors.forEach(c => {
-        				if (c.team.abbreviation === 'GB') packersScore = parseInt(c.score?.value) || 0;
+        				if (c.team.abbreviation === 'MIL') brewersScore = parseInt(c.score?.value) || 0;
         				else opponentScore = parseInt(c.score?.value) || 0;
         			});
-        			if (packersScore > opponentScore) superBowlName = sbNote.headline;
+        			if (brewersScore > opponentScore) worldSeriesName = sbNote.headline;
         		});
 
         		const isUndefeated = losses === 0 && wins > 0;
-        		this.displayResult(isUndefeated, wins, losses, ties, isPastSeason, superBowlName, postRecord, preRecord);
+        		this.displayResult(isUndefeated, wins, losses, ties, isPastSeason, worldSeriesName, postRecord, preRecord);
         		this.displaySchedule(events, isPastSeason);
         		this.showLastUpdated();
         		this.setDataCredit(false);
@@ -599,12 +599,12 @@ createCsvGameItem(g, showH2h = false) {
 
         		const espnCompletedGames = completedRegular.map(event => {
         			const competitors = event.competitions[0].competitors;
-        			let packersScore = 0, opponentScore = 0;
+        			let brewersScore = 0, opponentScore = 0;
         			competitors.forEach(c => {
-        				if (c.team.abbreviation === 'GB') packersScore = parseInt(c.score?.value || c.score || 0);
+        				if (c.team.abbreviation === 'MIL') brewersScore = parseInt(c.score?.value || c.score || 0);
         				else opponentScore = parseInt(c.score?.value || c.score || 0);
         			});
-        			const result = packersScore > opponentScore ? 'WIN' : packersScore < opponentScore ? 'LOSS' : 'TIE';
+        			const result = brewersScore > opponentScore ? 'WIN' : brewersScore < opponentScore ? 'LOSS' : 'TIE';
         			return { result, date: new Date(event.date) };
         		});
         		this.updateStreakBanner(espnCompletedGames, isPastSeason);
@@ -621,7 +621,7 @@ createCsvGameItem(g, showH2h = false) {
 
         	isOffseason(events) {
         		const now = new Date();
-        		const isOffseasonMonth = now.getMonth() >= 2 && now.getMonth() <= 7;
+        		const isOffseasonMonth = now.getMonth() >= 10 || now.getMonth() <= 2;
         		const thirtyDaysFromNow = new Date(now.getTime() + (30 * 24 * 60 * 60 * 1000));
         		const hasUpcomingGames = events.some(event => {
         			const gameDate = new Date(event.date);
@@ -635,10 +635,10 @@ createCsvGameItem(g, showH2h = false) {
         		const answerEl = document.getElementById('answer');
         		const recordEl = document.getElementById('record');
 
-        		const footballHtml = this.showEmojis ? '🏈<br>' : '';
+        		const baseballHtml = this.showEmojis ? '⚾<br>' : '';
         		this._lastResult = null;
         		this._isOffseason = true;
-        		answerEl.innerHTML = `${footballHtml}OFFSEASON`;
+        		answerEl.innerHTML = `${baseballHtml}OFFSEASON`;
         		answerEl.className = 'answer offseason';
         		document.body.classList.remove('undefeated');
         		document.body.classList.add('offseason');
@@ -656,30 +656,30 @@ createCsvGameItem(g, showH2h = false) {
         		return `<div class="emoji-row">${spans}</div>`;
         	}
 
-        	displayResult(isUndefeated, wins, losses, ties, isPastSeason = false, superBowlName = null, postRecord = null, preRecord = null) {
+        	displayResult(isUndefeated, wins, losses, ties, isPastSeason = false, worldSeriesName = null, postRecord = null, preRecord = null) {
         		const answerEl = document.getElementById('answer');
         		const recordEl = document.getElementById('record');
 
-        		this._lastResult = { isUndefeated, wins, losses, ties, isPastSeason, superBowlName, postRecord, preRecord };
+        		this._lastResult = { isUndefeated, wins, losses, ties, isPastSeason, worldSeriesName, postRecord, preRecord };
         		this._isOffseason = false;
 
         		const emojis = this.showEmojis;
 
         		if (isUndefeated) {
-        			const cheeseHtml = emojis && wins > 0 ? this.emojiRowHtml('🧀', wins) : '';
-        			const footballHtml = emojis && !isPastSeason ? this.emojiRowHtml('🏈', 1) : '';
-        			answerEl.innerHTML = `${cheeseHtml}YES!!!${footballHtml}`;
+        			const baseballHtml = emojis && wins > 0 ? this.emojiRowHtml('⚾', wins) : '';
+        			const beerHtml = emojis && !isPastSeason ? this.emojiRowHtml('🍺', 1) : '';
+        			answerEl.innerHTML = `${baseballHtml}YES!!!${beerHtml}`;
         			answerEl.className = 'answer yes';
         			document.body.classList.add('undefeated');
-        		} else if (superBowlName) {
-        			answerEl.innerHTML = `🏆🏈🧀<br>${superBowlName.toUpperCase()}<br>CHAMPIONS!<br>🎉🎊🎉`;
+        		} else if (worldSeriesName) {
+        			answerEl.innerHTML = `🏆⚾🍺<br>${worldSeriesName.toUpperCase()}<br>CHAMPIONS!<br>🎉🎊🎉`;
         			answerEl.className = 'answer champions';
         			document.body.classList.remove('undefeated');
         		} else {
-        			const cheeseHtml = emojis && wins > 0 ? this.emojiRowHtml('🧀', wins) : '';
-        			const footballHtml = emojis && !isPastSeason ? this.emojiRowHtml('🏈', 1) : '';
+        			const baseballHtml = emojis && wins > 0 ? this.emojiRowHtml('⚾', wins) : '';
+        			const beerHtml = emojis && !isPastSeason ? this.emojiRowHtml('🍺', 1) : '';
         			const frownHtml = emojis && losses > 0 ? this.emojiRowHtml('😢', losses) : '';
-        			answerEl.innerHTML = `${cheeseHtml}NO${footballHtml}${frownHtml}`;
+        			answerEl.innerHTML = `${baseballHtml}NO${beerHtml}${frownHtml}`;
         			answerEl.className = 'answer no';
         			document.body.classList.remove('undefeated');
         		}
@@ -803,14 +803,14 @@ createGameItem(event, nextGame, liveGame, now) {
 
   const isLive = liveGame && event.id === liveGame.id;
 
-  let packersScore = 0;
+  let brewersScore = 0;
   let opponentScore = 0;
   let opponent = '';
   let isHome = false;
 
   competitors.forEach(competitor => {
-     if (competitor.team.abbreviation === 'GB') {
-        packersScore = parseInt(
+     if (competitor.team.abbreviation === 'MIL') {
+        brewersScore = parseInt(
            competitor.score?.value ||
            competitor.score?.displayValue ||
            competitor.score ||
@@ -847,9 +847,9 @@ createGameItem(event, nextGame, liveGame, now) {
      gameItem.classList.add('next');
  } else if (isCompleted) {
      gameItem.classList.add('completed');
-     if (packersScore > opponentScore) {
+     if (brewersScore > opponentScore) {
         gameItem.classList.add('win');
-    } else if (packersScore < opponentScore) {
+    } else if (brewersScore < opponentScore) {
         gameItem.classList.add('loss');
     }
 }
@@ -950,7 +950,7 @@ if (isNext) {
 
     countdownDiv.textContent = countdownText;
 } else {
-    countdownDiv.textContent = '🏈 Game Time!';
+    countdownDiv.textContent = '⏰ Game Time!';
 }
 
 gameDetails.appendChild(countdownDiv);
@@ -964,10 +964,10 @@ if (isCompleted) {
  scoreDiv.className = 'game-score';
 
  let resultIndicator = '';
- if (packersScore > opponentScore) {
+ if (brewersScore > opponentScore) {
     scoreDiv.classList.add('win');
     resultIndicator = 'W ';
-} else if (packersScore < opponentScore) {
+} else if (brewersScore < opponentScore) {
     scoreDiv.classList.add('loss');
     resultIndicator = 'L ';
 } else {
@@ -975,10 +975,10 @@ if (isCompleted) {
 }
 
 const scoreLink = document.createElement('a');
-scoreLink.href = `https://www.espn.com/nfl/game/_/gameId/${event.id}`;
+scoreLink.href = `https://www.espn.com/mlb/game/_/gameId/${event.id}`;
 scoreLink.target = '_blank';
 scoreLink.rel = 'noopener noreferrer';
-scoreLink.textContent = `${resultIndicator}${packersScore}-${opponentScore}`;
+scoreLink.textContent = `${resultIndicator}${brewersScore}-${opponentScore}`;
 scoreLink.style.color = 'inherit';
 scoreLink.style.textDecoration = 'none';
 
@@ -992,10 +992,10 @@ gameItem.appendChild(scoreDiv);
  scoreDiv.className = 'game-score live';
 
  const scoreLink = document.createElement('a');
- scoreLink.href = `https://www.espn.com/nfl/game/_/gameId/${event.id}`;
+ scoreLink.href = `https://www.espn.com/mlb/game/_/gameId/${event.id}`;
  scoreLink.target = '_blank';
  scoreLink.rel = 'noopener noreferrer';
- scoreLink.textContent = `${packersScore}-${opponentScore}`;
+ scoreLink.textContent = `${brewersScore}-${opponentScore}`;
  scoreLink.style.color = 'inherit';
  scoreLink.style.textDecoration = 'none';
 
@@ -1015,7 +1015,7 @@ startLiveUpdates() {
 
   this.liveUpdateInterval = setInterval(async () => {
      try {
-        await this.fetchPackersData();
+        await this.fetchBrewersData();
     } catch (error) {
         console.error('Error updating live game:', error);
     }
@@ -1066,30 +1066,30 @@ getShareMessage() {
   const isPast = season && this.latestSeason && season < this.latestSeason;
 
   if (this._isOffseason) {
-     return `🏈 Green Bay Packers offseason - can't wait for the ${season} season! #GoPackGo`;
+     return `⚾ Milwaukee Brewers offseason - can't wait for the ${season} season! #ThisIsMyCrew`;
  }
 
- if (!this._lastResult) return `Green Bay Packers ${season} season #GoPackGo`;
+ if (!this._lastResult) return `Milwaukee Brewers ${season} season #ThisIsMyCrew`;
 
- const { isUndefeated, wins, losses, ties, superBowlName } = this._lastResult;
+ const { isUndefeated, wins, losses, ties, worldSeriesName } = this._lastResult;
 
- if (superBowlName) {
-     return `🏆 The ${season} Green Bay Packers won ${superBowlName.toUpperCase()}! #GoPackGo`;
+ if (worldSeriesName) {
+     return `🏆 The ${season} Milwaukee Brewers won ${worldSeriesName.toUpperCase()}! #ThisIsMyCrew`;
  }
 
  const recordText = ties > 0 ? `${wins}-${losses}-${ties}` : `${wins}-${losses}`;
 
  if (isPast) {
      if (isUndefeated) {
-        return `🧀 The ${season} Green Bay Packers finished the regular season UNDEFEATED at ${recordText}! #GoPackGo`;
+        return `⚾ The ${season} Milwaukee Brewers finished the regular season UNDEFEATED at ${recordText}! #ThisIsMyCrew`;
     } else {
-        return `The ${season} Green Bay Packers finished ${recordText}. #GoPackGo`;
+        return `The ${season} Milwaukee Brewers finished ${recordText}. #ThisIsMyCrew`;
     }
 } else {
  if (isUndefeated) {
-    return `🧀 The Green Bay Packers are UNDEFEATED so far in ${season}! ${recordText} 🧀 #GoPackGo`;
+    return `⚾ The Milwaukee Brewers are UNDEFEATED so far in ${season}! ${recordText} ⚾ #ThisIsMyCrew`;
 } else {
-    return `The Green Bay Packers are ${recordText} so far in the ${season} season. #GoPackGo`;
+    return `The Milwaukee Brewers are ${recordText} so far in the ${season} season. #ThisIsMyCrew`;
 }
 }
 }
@@ -1150,17 +1150,17 @@ this._renderOnThisDay(el, pool[Math.floor(Math.random() * pool.length)], pool);
 
 _renderOnThisDay(el, pick, pool) {
   const { game, season, date } = pick;
-  const result = game['Packers Win'];
+  const result = game['Brewers Win'];
   const opponent = game['Opponent'] || game['opponent'] || 'Unknown';
-  const packersScore = game['packers_score'];
+  const brewersScore = game['brewers_score'];
   const oppScore = game['opponent_score'];
   const isPlayoff = game['playoff'] === '1' || game['playoff'] === 'true';
-  const isSuperbowl = game['superbowl'] && game['superbowl'] !== '';
+  const isWorldSeries = game['worldseries'] && game['worldseries'] !== '';
 
   const resultClass = result === 'WIN' ? 'win' : result === 'LOSS' ? 'loss' : 'tie';
   const resultLabel = result === 'WIN' ? 'W' : result === 'LOSS' ? 'L' : 'T';
-  const scoreText = packersScore && oppScore ? `${packersScore}–${oppScore}` : '';
-  const gameTypeLabel = isSuperbowl ? 'Super Bowl' : isPlayoff ? 'Playoff' : 'Regular Season';
+  const scoreText = brewersScore && oppScore ? `${brewersScore}–${oppScore}` : '';
+  const gameTypeLabel = isWorldSeries ? 'World Series' : isPlayoff ? 'Playoff' : 'Regular Season';
   const dateStr = date.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
 
   const photos = this.photosBySeason[season] || [];
@@ -1173,7 +1173,7 @@ _renderOnThisDay(el, pick, pool) {
 
   el.innerHTML = `
         			<div class="otd-header">
-        				<span class="otd-label"><i class="mdi mdi-calendar-today"></i> On This Day in Packers History</span>
+        				<span class="otd-label"><i class="mdi mdi-calendar-today"></i> On This Day in Brewers History</span>
         				<span class="otd-actions">
         					${resetLink}
         					<button class="otd-refresh" id="otd-refresh" aria-label="Show another"><i class="mdi mdi-refresh"></i></button>
@@ -1279,7 +1279,7 @@ if (!firstLoss) {
     const gamesText = openingStreak === 1 ? '1 game' : `${openingStreak} games`;
     const daysText = daysToLoss === 1 ? '1 day' : `${daysToLoss} days`;
     const streakText = winStreak === 1 ? '1-game' : `${winStreak}-game`;
-    html = `The Packers started the season undefeated for <strong>${gamesText}</strong> (${daysText}). Currently on a <strong>${streakText}</strong> win streak.`;
+    html = `The Brewers started the season undefeated for <strong>${gamesText}</strong> (${daysText}). Currently on a <strong>${streakText}</strong> win streak.`;
 }
 el.innerHTML = html;
 el.hidden = false;
@@ -1311,7 +1311,7 @@ if (!lastYear) {
 }
 
 const isCurrent = this.currentSeason === lastYear;
-const suffix = isCurrent ? '' : `The Packers were last undefeated in <a href="/${lastYear}" class="last-undefeated-link">${lastYear}</a>.`;
+const suffix = isCurrent ? '' : `The Brewers were last undefeated in <a href="/${lastYear}" class="last-undefeated-link">${lastYear}</a>.`;
 
 if (currentIsUndefeated && this.currentSeason === this.latestSeason) {
  el.innerHTML = '';
@@ -1451,5 +1451,5 @@ showError(message) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-   new PackersTracker();
+   new BrewersTracker();
 });

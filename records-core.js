@@ -1,5 +1,5 @@
-// Shared (browser + node) computation of Packers records/superlatives from
-// data/packers_games.csv. Pure functions only — no fs/fetch/DOM.
+// Shared (browser + node) computation of Brewers records/superlatives from
+// data/brewers_games.csv. Pure functions only — no fs/fetch/DOM.
 
 export function splitCsvLine(line) {
 	const out = []; let cur = ''; let q = false;
@@ -37,11 +37,9 @@ export const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
 
 const RESULTS = new Set(['WIN', 'LOSS', 'TIE']);
 
-// A season labelled Y runs into Jan/Feb of Y+1; by March 1 of Y+1 it is over.
-// Guards "perfect season" claims against the mid-season CSV updates the weekly
-// data workflow commits (an unbeaten October team hasn't finished anything).
+// A season labelled Y runs from April through October; by December 1 it is over.
 const seasonSettled = (yr, now) =>
-	now.getFullYear() > yr + 1 || (now.getFullYear() === yr + 1 && now.getMonth() >= 2);
+	now.getFullYear() > yr || (now.getFullYear() === yr && now.getMonth() >= 11);
 
 // rows: parsed CSV rows. Returns { seasonRange, bestStarts, perfectSeasons,
 // winStreaks, worstStarts, lopsidedWins } — each list sorted best-first,
@@ -50,7 +48,7 @@ const seasonSettled = (yr, now) =>
 // playoffs, flagged.
 export function computeSuperlatives(rows, { top = 5, now = new Date() } = {}) {
 	const games = rows
-		.filter((r) => RESULTS.has(r['Packers Win']))
+		.filter((r) => RESULTS.has(r['Brewers Win']))
 		.slice()
 		.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 	const regular = games.filter((r) => r.regular_season === '1');
@@ -70,7 +68,7 @@ export function computeSuperlatives(rows, { top = 5, now = new Date() } = {}) {
 		for (const yr of years) {
 			let n = 0;
 			for (const g of seasons.get(yr)) {
-				if (g['Packers Win'] === result) n++;
+				if (g['Brewers Win'] === result) n++;
 				else break;
 			}
 			if (n > 0) out.push({ season: yr, games: n });
@@ -84,8 +82,8 @@ export function computeSuperlatives(rows, { top = 5, now = new Date() } = {}) {
 	for (const yr of years) {
 		let w = 0, l = 0, t = 0;
 		for (const g of seasons.get(yr)) {
-			if (g['Packers Win'] === 'WIN') w++;
-			else if (g['Packers Win'] === 'LOSS') l++;
+			if (g['Brewers Win'] === 'WIN') w++;
+			else if (g['Brewers Win'] === 'LOSS') l++;
 			else t++;
 		}
 		if (l === 0 && w > 0 && seasonSettled(yr, now)) perfectSeasons.push({ season: yr, wins: w, record: rec(w, l, t) });
@@ -97,7 +95,7 @@ export function computeSuperlatives(rows, { top = 5, now = new Date() } = {}) {
 	let run = null;
 	const endRun = () => { if (run) { winStreaks.push(run); run = null; } };
 	for (const g of regular) {
-		if (g['Packers Win'] === 'WIN') {
+		if (g['Brewers Win'] === 'WIN') {
 			if (!run) run = { games: 0, start: null, end: null };
 			run.games++;
 			if (!run.start) run.start = g;
@@ -118,19 +116,19 @@ export function computeSuperlatives(rows, { top = 5, now = new Date() } = {}) {
 		.map(streakEntry);
 
 	const gameInfo = (g) => {
-		const pf = parseInt(g.packers_score, 10) || 0;
+		const pf = parseInt(g.brewers_score, 10) || 0;
 		const pa = parseInt(g.opponent_score, 10) || 0;
 		return {
 			date: g.date, season: parseInt(g.season, 10), opponent: g.Opponent,
 			pf, pa,
 			playoff: g.regular_season !== '1',
-			superbowl: !!(g.superbowl && g.superbowl.trim()),
+			worldseries: !!(g.worldseries && g.worldseries.trim()),
 		};
 	};
 
 	// Biggest margins, either direction; sort by margin, then winner's score, then date.
 	const lopsided = (result) => games
-		.filter((g) => g['Packers Win'] === result)
+		.filter((g) => g['Brewers Win'] === result)
 		.map(gameInfo)
 		.sort((a, b) => Math.abs(b.pf - b.pa) - Math.abs(a.pf - a.pa)
 			|| Math.max(b.pf, b.pa) - Math.max(a.pf, a.pa)
@@ -138,7 +136,7 @@ export function computeSuperlatives(rows, { top = 5, now = new Date() } = {}) {
 		.slice(0, top);
 
 	// Every tie ever, not a top-N list; newest first.
-	const ties = games.filter((g) => g['Packers Win'] === 'TIE').map(gameInfo).reverse();
+	const ties = games.filter((g) => g['Brewers Win'] === 'TIE').map(gameInfo).reverse();
 
 	return {
 		seasonRange, bestStarts, perfectSeasons, winStreaks: topStreaks, worstStarts,
@@ -149,18 +147,13 @@ export function computeSuperlatives(rows, { top = 5, now = new Date() } = {}) {
 export const streakSpan = (s) =>
 	s.startSeason === s.endSeason ? String(s.startSeason) : `${s.startSeason}–${s.endSeason}`;
 
-// The 1929-31 titles were awarded on standings — no championship game to win.
-// Every later title (NFL Championships and Super Bowls) is "won the season's
-// final playoff game".
-const STANDINGS_TITLES = new Set([1929, 1930, 1931]);
-
 // One entry per season, chronological: record, win% (ties count half), and
-// points for/against, plus championship/undefeated flags for chart markers.
-// `playoffs: true` folds postseason games into the record/points; the
+// runs for/against, plus championship/undefeated flags for chart markers.
+// `playoffs: true` folds postseason games into the record/runs; the
 // champion and undefeated flags always use their own rules regardless.
 export function computeSeasonHistory(rows, { now = new Date(), playoffs = false } = {}) {
 	const games = rows
-		.filter((r) => ['WIN', 'LOSS', 'TIE'].includes(r['Packers Win']))
+		.filter((r) => ['WIN', 'LOSS', 'TIE'].includes(r['Brewers Win']))
 		.slice()
 		.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 	const bySeason = new Map();
@@ -172,22 +165,22 @@ export function computeSeasonHistory(rows, { now = new Date(), playoffs = false 
 	return [...bySeason.keys()].sort((a, b) => a - b).map((yr) => {
 		let w = 0, l = 0, t = 0, pf = 0, pa = 0, regLosses = 0, regWins = 0;
 		let lastPlayoff = null;
-		let superbowl = false;
+		let worldseries = false;
 		for (const g of bySeason.get(yr)) {
 			const isReg = g.regular_season === '1';
 			if (!isReg) {
 				lastPlayoff = g;
-				if (g.superbowl && g.superbowl.trim() && g['Packers Win'] === 'WIN') superbowl = true;
+				if (g.worldseries && g.worldseries.trim() && g['Brewers Win'] === 'WIN') worldseries = true;
 			}
 			if (isReg) {
-				if (g['Packers Win'] === 'WIN') regWins++;
-				else if (g['Packers Win'] === 'LOSS') regLosses++;
+				if (g['Brewers Win'] === 'WIN') regWins++;
+				else if (g['Brewers Win'] === 'LOSS') regLosses++;
 			}
 			if (!isReg && !playoffs) continue;
-			if (g['Packers Win'] === 'WIN') w++;
-			else if (g['Packers Win'] === 'LOSS') l++;
+			if (g['Brewers Win'] === 'WIN') w++;
+			else if (g['Brewers Win'] === 'LOSS') l++;
 			else t++;
-			pf += parseInt(g.packers_score, 10) || 0;
+			pf += parseInt(g.brewers_score, 10) || 0;
 			pa += parseInt(g.opponent_score, 10) || 0;
 		}
 		const gamesPlayed = w + l + t;
@@ -197,8 +190,8 @@ export function computeSeasonHistory(rows, { now = new Date(), playoffs = false 
 			record: rec(w, l, t),
 			winPct: gamesPlayed ? (w + t / 2) / gamesPlayed : 0,
 			pf, pa,
-			champion: STANDINGS_TITLES.has(yr) || (lastPlayoff !== null && lastPlayoff['Packers Win'] === 'WIN'),
-			superbowl,
+			champion: lastPlayoff !== null && lastPlayoff['Brewers Win'] === 'WIN',
+			worldseries,
 			undefeated: regLosses === 0 && regWins > 0 && seasonSettled(yr, now),
 		};
 	});
@@ -210,8 +203,8 @@ export function historyCopy(history) {
 	const titles = history.filter((s) => s.champion).length;
 	const winning = history.filter((s) => s.winPct > 0.5).length;
 	return {
-		title: `Packers Season-by-Season History, ${first}–${last}`,
-		desc: `Every Green Bay Packers season since ${first} in one chart: ${titles} championships and ${winning} winning seasons across ${history.length} years.`,
+		title: `Brewers Season-by-Season History, ${first}–${last}`,
+		desc: `Every Milwaukee Brewers season since ${first} in one chart: ${titles} championships and ${winning} winning seasons across ${history.length} years.`,
 	};
 }
 
@@ -223,59 +216,59 @@ export function recordsCopy(slug, data) {
 		case 'best-starts': {
 			const b = data.bestStarts[0];
 			return {
-				title: `Best Packers Season Starts — ${b.games}–0 in ${b.season}`,
-				desc: `The best start in Green Bay Packers history: ${b.games}–0 to open the ${b.season} season. Top ${data.bestStarts.length} starts, ${range}.`,
+				title: `Best Brewers Season Starts — ${b.games}–0 in ${b.season}`,
+				desc: `The best start in Milwaukee Brewers history: ${b.games}–0 to open the ${b.season} season. Top ${data.bestStarts.length} starts, ${range}.`,
 			};
 		}
 		case 'perfect-seasons': {
 			const p = data.perfectSeasons[0];
 			return {
-				title: p ? `Perfect Packers Seasons — ${p.record} in ${p.season}` : 'Perfect Packers Seasons',
+				title: p ? `Perfect Brewers Seasons — ${p.record} in ${p.season}` : 'Perfect Brewers Seasons',
 				desc: p
-					? `Seasons the Green Bay Packers finished without a loss: ${data.perfectSeasons.map((x) => `${x.record} in ${x.season}`).join(', ')}.`
-					: 'No Packers season has finished without a loss. Yet.',
+					? `Seasons the Milwaukee Brewers finished without a loss: ${data.perfectSeasons.map((x) => `${x.record} in ${x.season}`).join(', ')}.`
+					: 'No Brewers season has finished without a loss. Yet.',
 			};
 		}
 		case 'win-streaks': {
 			const s = data.winStreaks[0];
 			return {
-				title: `Longest Packers Win Streaks — ${s.games} straight (${streakSpan(s)})`,
-				desc: `The longest regular-season win streak in Green Bay Packers history: ${s.games} straight, ${formatDate(s.startDate)} to ${formatDate(s.endDate)}.`,
+				title: `Longest Brewers Win Streaks — ${s.games} straight (${streakSpan(s)})`,
+				desc: `The longest regular-season win streak in Milwaukee Brewers history: ${s.games} straight, ${formatDate(s.startDate)} to ${formatDate(s.endDate)}.`,
 			};
 		}
 		case 'worst-starts': {
 			const w = data.worstStarts[0];
 			return {
-				title: `Worst Packers Season Starts — 0–${w.games} in ${w.season}`,
-				desc: `The worst start in Green Bay Packers history: 0–${w.games} to open the ${w.season} season. It happens to the best of us.`,
+				title: `Worst Brewers Season Starts — 0–${w.games} in ${w.season}`,
+				desc: `The worst start in Milwaukee Brewers history: 0–${w.games} to open the ${w.season} season. It happens to the best of us.`,
 			};
 		}
 		case 'lopsided-wins': {
 			const g = data.lopsidedWins[0];
 			return {
-				title: `Most Lopsided Packers Wins — ${g.pf}–${g.pa} over the ${g.opponent}`,
-				desc: `The biggest blowout in Green Bay Packers history: ${g.pf}–${g.pa} over the ${g.opponent} on ${formatDate(g.date)}.`,
+				title: `Most Lopsided Brewers Wins — ${g.pf}–${g.pa} over the ${g.opponent}`,
+				desc: `The biggest blowout in Milwaukee Brewers history: ${g.pf}–${g.pa} over the ${g.opponent} on ${formatDate(g.date)}.`,
 			};
 		}
 		case 'worst-losses': {
 			const g = data.lopsidedLosses[0];
 			return {
-				title: `Worst Packers Losses — ${g.pf}–${g.pa} to the ${g.opponent}`,
-				desc: `The most lopsided loss in Green Bay Packers history: ${g.pa}–${g.pf} to the ${g.opponent} on ${formatDate(g.date)}. We don't talk about it.`,
+				title: `Worst Brewers Losses — ${g.pf}–${g.pa} to the ${g.opponent}`,
+				desc: `The most lopsided loss in Milwaukee Brewers history: ${g.pa}–${g.pf} to the ${g.opponent} on ${formatDate(g.date)}. We don't talk about it.`,
 			};
 		}
 		case 'ties': {
 			const t = data.ties[0];
-			if (!t) return { title: 'Packers Ties', desc: 'The Packers have never tied a game.' };
+			if (!t) return { title: 'Brewers Ties', desc: 'The Brewers have never tied a game.' };
 			return {
-				title: `Packers Ties — ${data.ties.length} all-time`,
-				desc: `The Packers have played ${data.ties.length} ties. Most recent: ${t.pf}–${t.pa} vs the ${t.opponent} on ${formatDate(t.date)}.`,
+				title: `Brewers Ties — ${data.ties.length} all-time`,
+				desc: `The Brewers have played ${data.ties.length} ties. Most recent: ${t.pf}–${t.pa} vs the ${t.opponent} on ${formatDate(t.date)}.`,
 			};
 		}
 		default:
 			return {
-				title: 'Packers Records & Superlatives',
-				desc: `Best starts, perfect seasons, longest win streaks, worst starts, lopsided wins, worst losses, and every tie — Green Bay Packers, ${range}.`,
+				title: 'Brewers Records & Superlatives',
+				desc: `Best starts, perfect seasons, longest win streaks, worst starts, lopsided wins, worst losses, and every tie — Milwaukee Brewers, ${range}.`,
 			};
 	}
 }

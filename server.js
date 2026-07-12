@@ -1,4 +1,4 @@
-// Minimal web service for arethepackersundefeated.com
+// Minimal web service for arethebrewersundefeated.com
 // - serves the static site
 // - injects per-URL Open Graph / Twitter meta so shared links preview correctly
 // - renders per-season social cards at /og/:season.png
@@ -19,17 +19,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = __dirname;
 const PORT = process.env.PORT || 3000;
 
-// Stamp a short content hash onto local asset refs so a new deploy busts the
-// browser cache automatically (main.js?v=<hash>). Change the file -> new hash.
 function assetVersion(file) {
   try { return createHash('sha1').update(readFileSync(join(ROOT, file))).digest('hex').slice(0, 8); }
   catch { return null; }
 }
 
-// Load an HTML shell: strip any hardcoded <title>/description/OG/Twitter/
-// canonical tags so the server is the single source of truth and pages never
-// ship duplicate, conflicting meta (a static og:url will otherwise override
-// per-URL tags), then version the given local assets (relative or /-rooted).
 function loadShell(file, assets) {
   const raw = readFileSync(join(ROOT, file), 'utf8');
   const stripped = [
@@ -68,20 +62,20 @@ function copy(state) {
   const are = past ? 'finished' : 'are';
   switch (state.kind) {
     case 'undefeated':
-      return { title: `Are the Packers Undefeated? YES — ${state.record} (${s})`,
-        desc: `The ${s} Green Bay Packers ${past ? 'finished' : 'are'} UNDEFEATED at ${state.record}.` };
+      return { title: `Are the Brewers Undefeated? YES — ${state.record} (${s})`,
+        desc: `The ${s} Milwaukee Brewers ${past ? 'finished' : 'are'} UNDEFEATED at ${state.record}.` };
     case 'champions':
-      return { title: `${s} Green Bay Packers — Super Bowl Champions`,
-        desc: `The ${s} Green Bay Packers won ${state.superBowlName || 'the Super Bowl'}.` };
+      return { title: `${s} Milwaukee Brewers — World Series Champions`,
+        desc: `The ${s} Milwaukee Brewers won ${state.worldSeriesName || 'the World Series'}.` };
     case 'offseason':
-      return { title: `Are the Packers Undefeated? — ${s} offseason`,
+      return { title: `Are the Brewers Undefeated? — ${s} offseason`,
         desc: `The ${s} season hasn't started yet. Undefeated for now!` };
     case 'no':
-      return { title: `Are the Packers Undefeated? NO — ${state.record} (${s})`,
-        desc: `The ${s} Green Bay Packers ${are} ${state.record}.` };
+      return { title: `Are the Brewers Undefeated? NO — ${state.record} (${s})`,
+        desc: `The ${s} Milwaukee Brewers ${are} ${state.record}.` };
     default:
-      return { title: 'Are the Packers Undefeated?',
-        desc: 'The only question that matters: are the Green Bay Packers undefeated this season?' };
+      return { title: 'Are the Brewers Undefeated?',
+        desc: 'The only question that matters: are the Milwaukee Brewers undefeated this season?' };
   }
 }
 
@@ -97,7 +91,7 @@ function metaBlock({ title, desc, img, canonical }) {
     <meta property="og:image:height" content="630">
     <meta property="og:url" content="${esc(canonical)}">
     <meta property="og:type" content="website">
-    <meta property="og:site_name" content="Are the Packers Undefeated?">
+    <meta property="og:site_name" content="Are the Brewers Undefeated?">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="${esc(title)}">
     <meta name="twitter:description" content="${esc(desc)}">
@@ -124,15 +118,11 @@ function sendPage(res, shell, meta) {
 async function serveHtml(req, res, season) {
   const origin = originOf(req);
   const state = await getSeasonState(season);
-  // Canonical/og:url must be the CLEAN per-season URL — never echo the query
-  // string (Facebook/X append ?fbclid=, ?utm_*), and never fall back to root
-  // for a season page, or crawlers will canonicalize the whole thing away.
   const canonical = season ? `${origin}/${state.season}` : `${origin}/`;
   const { title, desc } = copy(state);
   sendPage(res, INDEX_VERSIONED, { title, desc, img: `${origin}/og/${state.season}.png`, canonical });
 }
 
-// /records and /records/<slug>: same shell, per-slug meta + social card.
 function serveRecordsHtml(req, res, slug) {
   const origin = originOf(req);
   const { title, desc } = recordsMeta(slug);
@@ -141,7 +131,6 @@ function serveRecordsHtml(req, res, slug) {
   sendPage(res, RECORDS_VERSIONED, { title, desc, img, canonical });
 }
 
-// /vs and /vs/<opponent>: same shell, per-opponent meta + social card.
 function serveVsHtml(req, res, slug) {
   const origin = originOf(req);
   const { title, desc } = h2hMeta(slug);
@@ -150,9 +139,7 @@ function serveVsHtml(req, res, slug) {
   sendPage(res, VS_VERSIONED, { title, desc, img, canonical });
 }
 
-// Records/h2h data is fixed for the lifetime of the process (CSV is read at
-// startup; updates arrive via redeploy), so render each card at most once.
-const staticImgCache = new Map(); // cache key -> buf
+const staticImgCache = new Map();
 function serveCachedPng(res, key, render) {
   let buf = staticImgCache.get(key);
   if (!buf) {
@@ -163,7 +150,7 @@ function serveCachedPng(res, key, render) {
   res.end(buf);
 }
 
-const imgCache = new Map(); // season -> { buf, at }
+const imgCache = new Map();
 async function serveImage(req, res, season) {
   const cur = defaultSeason();
   const isPast = season < cur;
@@ -194,9 +181,6 @@ async function serveStatic(req, res, pathname) {
     const body = await readFile(file);
     const versioned = /[?&]v=/.test(req.url);
     const ext = extname(file).toLowerCase();
-    // Unversioned JS (module imports like records-core.js can't carry ?v=)
-    // must revalidate on every load, or a deploy can pair a fresh versioned
-    // entry module with an hour-stale dependency.
     const cache = versioned ? 'public, max-age=31536000, immutable'
       : ext === '.js' ? 'no-cache'
       : 'public, max-age=3600';
@@ -206,10 +190,7 @@ async function serveStatic(req, res, pathname) {
     });
     res.end(body);
   } catch {
-    // Real assets (paths with a file extension) that don't exist must 404 —
-    // returning HTML for a missing .png/.ico/.txt confuses crawlers (esp. Twitterbot).
     if (extname(pathname)) return notFound(res);
-    // Extension-less route: serve the app shell with default meta (SPA fallback).
     await serveHtml(req, res, undefined);
   }
 }
@@ -251,8 +232,6 @@ const server = http.createServer(async (req, res) => {
     if (pathname === '/records' || pathname === '/records/' || pathname === '/records.html')
       return serveRecordsHtml(req, res, undefined);
     if (pathname.startsWith('/records/')) {
-      // Only exact known slugs get the page; anything else (bad case, extra
-      // segments) must 404, not fall through to the homepage SPA fallback.
       const slug = pathname.slice('/records/'.length).replace(/\/$/, '');
       if (!isRecordSlug(slug)) return notFound(res);
       return serveRecordsHtml(req, res, slug);
