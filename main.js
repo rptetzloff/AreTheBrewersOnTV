@@ -1097,18 +1097,28 @@ class PackersTracker {
             }, 2000);
         };
 
+        let copied = false;
         try {
             await navigator.clipboard.writeText(shareText);
-            flash();
-        } catch (err) {
-            const textArea = document.createElement('textarea');
-            textArea.value = shareText;
-            document.body.appendChild(textArea);
-            textArea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textArea);
-            flash();
+            copied = true;
+        } catch (_) {}
+
+        if (!copied) {
+            try {
+                const textArea = document.createElement('textarea');
+                textArea.value = shareText;
+                textArea.style.position = 'fixed';
+                textArea.style.opacity = '0';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                copied = true;
+            } catch (_) {}
         }
+
+        flash();
     }
 
     buildOnThisDay() {
