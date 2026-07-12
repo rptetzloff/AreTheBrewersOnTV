@@ -70,6 +70,22 @@ async function init() {
 		};
 		const countEl = document.getElementById('h2h-count');
 
+		// Filter settings persist across sessions (like the emoji toggle and
+		// section states); the typed name query is transient.
+		try {
+			const stored = JSON.parse(localStorage.getItem('h2hFilters') || '{}');
+			if ([...controls.venue.options].some((o) => o.value === stored.venue)) controls.venue.value = stored.venue;
+			if ([...controls.type.options].some((o) => o.value === stored.type)) controls.type.value = stored.type;
+			controls.current.checked = stored.current === true;
+		} catch { /* corrupt storage — keep defaults */ }
+		const saveFilters = () => {
+			localStorage.setItem('h2hFilters', JSON.stringify({
+				venue: controls.venue.value,
+				type: controls.type.value,
+				current: controls.current.checked,
+			}));
+		};
+
 		const renderTable = () => {
 			const venue = controls.venue.value;
 			const type = controls.type.value;
@@ -88,9 +104,9 @@ async function init() {
 			countEl.textContent = filtered ? `${opponents.length} of ${allTime.opponents.length} opponents` : '';
 		};
 		controls.q.addEventListener('input', renderTable);
-		controls.venue.addEventListener('change', renderTable);
-		controls.type.addEventListener('change', renderTable);
-		controls.current.addEventListener('change', renderTable);
+		for (const el of [controls.venue, controls.type, controls.current]) {
+			el.addEventListener('change', () => { saveFilters(); renderTable(); });
+		}
 		renderTable();
 
 		const slug = requestedSlug(allTime);
