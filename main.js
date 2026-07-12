@@ -332,7 +332,7 @@ class PackersTracker {
         const csvCompletedGames = games
             .filter(g => g.regular_season === '1' && g['Packers Win'])
             .map(g => ({ result: g['Packers Win'], date: new Date(g.date) }));
-        this.updateStreakBanner(csvCompletedGames, season === this.latestSeason);
+        this.updateStreakBanner(csvCompletedGames, season !== this.latestSeason);
     }
 
     displayCsvSchedule(games, season) {
@@ -585,7 +585,7 @@ class PackersTracker {
             const result = packersScore > opponentScore ? 'WIN' : packersScore < opponentScore ? 'LOSS' : 'TIE';
             return { result, date: new Date(event.date) };
         });
-        this.updateStreakBanner(espnCompletedGames, !isPastSeason);
+        this.updateStreakBanner(espnCompletedGames, isPastSeason);
     }
 
     updateScheduleTitle(year, seasonType) {
@@ -1097,24 +1097,50 @@ class PackersTracker {
         return { winStreak, lastLoss, daysSince };
     }
 
-    updateStreakBanner(completedGames, isCurrentSeason) {
+    updateStreakBanner(completedGames, isPastSeason) {
         const el = document.getElementById('streak-banner');
         if (!el) return;
-        if (!isCurrentSeason || completedGames.length === 0) {
+        if (completedGames.length === 0) {
             el.hidden = true;
             return;
         }
-        const { winStreak, daysSince } = this.computeStreak(completedGames);
-        let html;
-        if (daysSince === null) {
-            html = `Undefeated all season &mdash; <strong>${winStreak}</strong>-game win streak`;
+        const sorted = [...completedGames].sort((a, b) => a.date - b.date);
+
+        if (isPastSeason) {
+            // Opening win streak: wins before the first loss
+            let openingStreak = 0;
+            let firstLoss = null;
+            for (const g of sorted) {
+                if (g.result === 'WIN') openingStreak++;
+                else { firstLoss = g; break; }
+            }
+            let html;
+            if (!firstLoss) {
+                html = `Finished the regular season undefeated &mdash; <strong>${openingStreak}-0</strong>`;
+            } else if (openingStreak === 0) {
+                html = `Lost the opener &mdash; undefeated for <strong>0 games</strong> to start the season`;
+            } else {
+                const firstGame = sorted[0];
+                const daysToLoss = Math.round((firstLoss.date - firstGame.date) / (1000 * 60 * 60 * 24));
+                const gamesText = openingStreak === 1 ? '1 game' : `${openingStreak} games`;
+                html = `Undefeated for <strong>${gamesText}</strong> (${daysToLoss} days) to start the season before first loss`;
+            }
+            el.innerHTML = html;
+            el.hidden = false;
         } else {
-            const daysText = daysSince === 1 ? '1 day' : `${daysSince} days`;
-            const streakPart = winStreak > 0 ? ` &bull; <strong>${winStreak}</strong>-game win streak` : '';
-            html = `The Packers have been undefeated for <strong>${daysText}</strong>${streakPart}`;
+            // Current season: days since last loss + active win streak
+            const { winStreak, daysSince } = this.computeStreak(sorted);
+            let html;
+            if (daysSince === null) {
+                html = `Undefeated all season &mdash; <strong>${winStreak}</strong>-game win streak`;
+            } else {
+                const daysText = daysSince === 1 ? '1 day' : `${daysSince} days`;
+                const streakPart = winStreak > 0 ? ` &bull; <strong>${winStreak}</strong>-game win streak` : '';
+                html = `The Packers have been undefeated for <strong>${daysText}</strong>${streakPart}`;
+            }
+            el.innerHTML = html;
+            el.hidden = false;
         }
-        el.innerHTML = html;
-        el.hidden = false;
     }
 
     updateLastUndefeated(currentSeasonWins, currentSeasonLosses) {
