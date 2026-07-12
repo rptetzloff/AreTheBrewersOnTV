@@ -19,11 +19,20 @@ example.com/?season=1924
 
 Both formats are supported. The path form (`/1924`) requires your host to be configured with a rewrite rule that serves `index.html` for all routes.
 
+## Streak Box
+
+Below the main answer, a collapsible streak box shows a short summary derived from the currently viewed season's game results:
+
+- **Current season** — reports whether the Packers are still undefeated to open the season, and shows both the opening win streak (games before the first loss) and the current active win streak.
+- **Past seasons** — reports how long the opening undefeated run lasted (number of games and number of days until the first loss), or notes a perfect regular season if they never lost.
+
+The box is hidden automatically when there are no completed games to analyze (e.g. a future season or an empty schedule).
+
 ## On This Day
 
 Near the top of the page, below the streak box, the app surfaces a random Packers game played on (or within a few days of) today's calendar date, pulled from the full historical record.
 
-Both the streak box and the On This Day card are independently collapsible using the toggle labels above each one.
+Both the streak box and the On This Day card are independently collapsible — click the small toggle label above each one to hide or show it.
 
 ### Testing with a specific date
 
