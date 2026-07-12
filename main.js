@@ -1125,10 +1125,18 @@ class PackersTracker {
         const photos = this.photosBySeason[season] || [];
         const photo = photos.length ? photos[Math.floor(Math.random() * photos.length)] : null;
 
+        const otdParam = new URLSearchParams(window.location.search).get('otd');
+        const resetLink = otdParam
+            ? `<a class="otd-reset" href="${window.location.pathname}" aria-label="Reset date override">Using ${otdParam} &times;</a>`
+            : '';
+
         el.innerHTML = `
             <div class="otd-header">
                 <span class="otd-label"><i class="mdi mdi-calendar-today"></i> On This Day in Packers History</span>
-                <button class="otd-refresh" id="otd-refresh" aria-label="Show another"><i class="mdi mdi-refresh"></i></button>
+                <span class="otd-actions">
+                    ${resetLink}
+                    <button class="otd-refresh" id="otd-refresh" aria-label="Show another"><i class="mdi mdi-refresh"></i></button>
+                </span>
             </div>
             <div class="otd-body">
                 ${photo ? `<a href="${photo.url}" target="_blank" rel="noopener noreferrer" class="otd-photo-link"><img class="otd-photo" src="${photo.url}" alt="${photo.caption || ''}" loading="lazy"></a>` : ''}

@@ -10,7 +10,15 @@
     <div class="container">
         <div id="answer" class="answer loading">Loading...</div>
         <div id="record" class="record"></div>
-        <div id="streak-banner" class="streak-banner" hidden></div>
+        <details id="streak-details" class="collapsible-section" open>
+            <summary class="collapsible-summary">Streak</summary>
+            <div id="streak-banner" class="streak-banner" hidden></div>
+        </details>
+
+        <details id="otd-details" class="collapsible-section" open>
+            <summary class="collapsible-summary">On This Day</summary>
+            <div id="on-this-day" class="on-this-day" hidden></div>
+        </details>
 
         <div id="season-selector" class="season-selector">
             <button id="season-first" class="season-nav season-nav-jump" aria-label="Earliest season"><i class="mdi mdi-chevron-triple-left"></i></button>
@@ -33,8 +41,6 @@
         <div id="data-credit" class="data-credit" style="display:none">Historical data provided by <a href="https://github.com/nflverse/nflverse-data" target="_blank" rel="noopener noreferrer">nflverse</a> and <a href="https://github.com/fivethirtyeight/nfl-elo-game" target="_blank" rel="noopener noreferrer">FiveThirtyEight</a></div>
 
         <div id="last-undefeated" class="last-undefeated"></div>
-
-        <div id="on-this-day" class="on-this-day" hidden></div>
 
         <div class="share-section">
             <h3>Share</h3>
