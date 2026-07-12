@@ -359,9 +359,13 @@ details:not([open]) > .collapsible-summary::before {
 }
 
 .share-section {
-    margin-top: 2rem;
-    padding-top: 1.5rem;
-    border-top: 1px solid rgba(255, 182, 18, 0.3);
+    margin: 1.25rem auto 0;
+    width: 572px;
+    max-width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.5rem;
 }
 
 /* On This Day */
@@ -526,42 +530,37 @@ details:not([open]) > .collapsible-summary::before {
 }
 
 
-
-.share-section h3 {
-    color: #ffb612;
-    margin-bottom: 1rem;
-    font-size: 1.2rem;
-}
-
 .share-btn {
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.8rem 1.5rem;
-    border: none;
-    border-radius: 8px;
-    font-size: 1rem;
-    font-weight: bold;
+    gap: 0.4rem;
+    padding: 0.4rem 1rem;
+    background: rgba(255, 182, 18, 0.12);
+    border: 1.5px solid rgba(255, 182, 18, 0.5);
+    border-radius: 20px;
+    color: #ffb612;
+    font-size: 0.85rem;
+    font-weight: 600;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: background 0.2s, border-color 0.2s, transform 0.15s;
+    letter-spacing: 0.03em;
     text-decoration: none;
-    color: white;
-    background: #28a745;
-    justify-content: center;
 }
 
 .share-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    background: #218838;
+    background: rgba(255, 182, 18, 0.25);
+    border-color: #ffb612;
+    transform: translateY(-1px);
 }
 
 .share-icon {
-    font-size: 1.2rem;
+    font-size: 1rem;
 }
 
 .copy-success {
-    background: #20c997 !important;
+    background: rgba(32, 201, 151, 0.2) !important;
+    border-color: #20c997 !important;
+    color: #20c997 !important;
 }
 
 .schedule-section {
@@ -763,6 +762,10 @@ details:not([open]) > .collapsible-summary::before {
         margin: 1rem 0;
         box-sizing: border-box;
         border-radius: 10px;
+    }
+
+    .share-section {
+        width: 100%;
     }
 
     .schedule-grid {
