@@ -19,6 +19,22 @@ example.com/?season=1924
 
 Both formats are supported. The path form (`/1924`) requires your host to be configured with a rewrite rule that serves `index.html` for all routes.
 
+## On This Day
+
+Near the top of the page, below the streak box, the app surfaces a random Packers game played on (or within a few days of) today's calendar date, pulled from the full historical record.
+
+Both the streak box and the On This Day card are independently collapsible using the toggle labels above each one.
+
+### Testing with a specific date
+
+Append `?otd=MM-DD` to the URL to override the calendar date used for the On This Day lookup:
+
+```
+example.com/?otd=11-28
+```
+
+When the override is active, a small reset link appears in the card header to clear it.
+
 ## Data Files
 
 `data/packers_games.csv` — game-by-game results for every Packers game from 1921 to the present, including opponent, score, location, and playoff/Super Bowl flags. Pre-1999 rows come from the FiveThirtyEight source; 1999–present rows are sourced from nflverse-data.
@@ -34,6 +50,14 @@ npm run update-data
 ```
 
 This fetches `games.csv` from the nflverse-data releases, extracts all completed Packers games from 1999 onward, merges them with the pre-1999 FiveThirtyEight base data, and rewrites both CSV files in place.
+
+### Automatic updates via GitHub Actions
+
+A workflow at `.github/workflows/update-data.yml` runs `npm run update-data` automatically every Tuesday at 10:00 UTC (covers Monday night games). If either CSV changes, the workflow commits and pushes the updated files.
+
+To trigger a manual run at any time, go to **Actions → Update Packers Data → Run workflow**.
+
+The workflow uses the built-in `GITHUB_TOKEN`. Make sure your repository's Actions settings allow write access: **Settings → Actions → General → Workflow permissions → Read and write permissions**.
 
 ## Photos
 
