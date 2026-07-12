@@ -138,7 +138,15 @@
          });
       }
 
+      updateSiteTitle() {
+          const el = document.getElementById('site-title');
+          if (!el) return;
+          const past = this.currentSeason && this.latestSeason && this.currentSeason < this.latestSeason;
+          el.textContent = `${past ? 'Were' : 'Are'} the Packers Undefeated?`;
+      }
+
       updateSeasonSelector() {
+          this.updateSiteTitle();
           const label = document.getElementById('season-label');
           const prevBtn = document.getElementById('season-prev');
           const nextBtn = document.getElementById('season-next');
