@@ -1,4 +1,4 @@
-        import { parseGamesCsv, computeSeasonHistory } from './records-core.js';
+        import { parseGamesCsv, parseGameinfoCsv, computeSeasonHistory } from './records-core.js';
         import { computeHeadToHead, canonicalOpponent } from './h2h-core.js';
         import { buildChartSvg } from './history-chart.js';
         import { intentUrls, copyText, flashCopied } from './share-core.js';
@@ -83,10 +83,10 @@
         				});
         			});
 
-        			const [gamesRes, recordsRes, photosRes, channelsRes] = await Promise.all([
-        				fetch('./data/brewers_games.csv'),
-        				fetch('./data/brewers_season_records.csv'),
-        				fetch('./data/photos.csv'),
+        			const [gamesRes, namesRes, photosRes, channelsRes] = await Promise.all([
+        				fetch('./data/gameinfo.csv'),
+        				fetch('./data/CurrentNames.csv'),
+        				fetch('./data/photos.csv').catch(() => null),
         				fetch('./data/broadcast_channels.csv'),
         			]);
         			if (channelsRes.ok) {
@@ -99,9 +99,8 @@
         					};
         				});
         			}
-        			if (gamesRes.ok) {
-        				const raw = await gamesRes.text();
-        				const games = parseGamesCsv(raw);
+        			if (gamesRes.ok && namesRes.ok) {
+        				const games = parseGameinfoCsv(await gamesRes.text(), await namesRes.text());
         				this.csvBySeason = buildSeasonMap(games);
         				// name -> all-time head-to-head entry, for schedule annotations
         				this.h2hByName = new Map(computeHeadToHead(games).opponents.map(o => [o.name, o]));
@@ -112,14 +111,20 @@
         					this.earliestSeason = seasons[0];
         					this.csvMaxSeason = seasons[seasons.length - 1];
         				}
-        			}
-        			if (recordsRes.ok) {
-        				const raw = await recordsRes.text();
-        				parseGamesCsv(raw).forEach(r => {
-        					this.seasonRecords[parseInt(r.season)] = r;
+        				// Build season records from games for undefeated-season lookups
+        				games.forEach(g => {
+        					const yr = parseInt(g.season);
+        					if (!this.seasonRecords[yr]) this.seasonRecords[yr] = { season: yr, reg_w: 0, reg_l: 0, reg_t: 0, post_w: 0, post_l: 0, post_t: 0 };
+        					const sr = this.seasonRecords[yr];
+        					const res = g['Brewers Win'];
+        					if (g.regular_season === '1') {
+        						if (res === 'WIN') sr.reg_w++; else if (res === 'LOSS') sr.reg_l++; else if (res === 'TIE') sr.reg_t++;
+        					} else if (g.playoff === '1') {
+        						if (res === 'WIN') sr.post_w++; else if (res === 'LOSS') sr.post_l++; else if (res === 'TIE') sr.post_t++;
+        					}
         				});
         			}
-        			if (photosRes.ok) {
+        			if (photosRes?.ok) {
         				const raw = await photosRes.text();
         				parseGamesCsv(raw).forEach(p => {
         					const yr = parseInt(p.season);

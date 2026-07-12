@@ -1,7 +1,7 @@
 // Head-to-Head page: all-time record vs every opponent (h2h-core.js, shared
 // with the server), with a filterable table and a shareable focus card per
 // opponent at /vs/<slug>.
-import { parseGamesCsv, formatDate, esc } from './records-core.js';
+import { parseGameinfoCsv, formatDate, esc } from './records-core.js';
 import { computeHeadToHead, h2hCopy, streakSentence } from './h2h-core.js';
 import { shareButtonsHtml, wireShareRow } from './share-core.js';
 
@@ -51,9 +51,12 @@ function requestedSlug(data) {
 async function init() {
 	const wrap = document.getElementById('h2h-table-wrap');
 	try {
-		const res = await fetch('/data/brewers_games.csv');
-		if (!res.ok) throw new Error(`CSV fetch failed: ${res.status}`);
-		const rows = parseGamesCsv(await res.text());
+		const [gamesRes, namesRes] = await Promise.all([
+			fetch('/data/gameinfo.csv'),
+			fetch('/data/CurrentNames.csv'),
+		]);
+		if (!gamesRes.ok || !namesRes.ok) throw new Error(`CSV fetch failed: ${gamesRes.status}`);
+		const rows = parseGameinfoCsv(await gamesRes.text(), await namesRes.text());
 		const allTime = computeHeadToHead(rows);
 		document.getElementById('h2h-subtitle').textContent =
 			`Milwaukee Brewers · all-time vs ${allTime.opponents.length} opponents`;
