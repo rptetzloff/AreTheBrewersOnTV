@@ -109,6 +109,7 @@ class PackersTracker {
                 });
             }
             this.initGallery();
+            this.buildOnThisDay();
             const params = new URLSearchParams(window.location.search);
             const seasonParam = params.get('season');
             const pathMatch = window.location.pathname.match(/\/(\d{4})\/?$/);
@@ -1077,6 +1078,81 @@ class PackersTracker {
                 copyBtn.classList.remove('copy-success');
             }, 2000);
         }
+    }
+
+    buildOnThisDay() {
+        const el = document.getElementById('on-this-day');
+        if (!el) return;
+
+        const today = new Date();
+        const todayMonth = today.getMonth();
+        const todayDay = today.getDate();
+
+        const candidates = [];
+        for (const [yr, games] of Object.entries(this.csvBySeason)) {
+            for (const g of games) {
+                if (!g.date) continue;
+                const d = new Date(g.date);
+                if (isNaN(d)) continue;
+                const diff = Math.abs((d.getMonth() * 31 + d.getDate()) - (todayMonth * 31 + todayDay));
+                if (diff <= 3) candidates.push({ game: g, season: parseInt(yr), date: d });
+            }
+        }
+
+        if (candidates.length === 0) { el.hidden = true; return; }
+
+        const withPhotos = candidates.filter(c => this.photosBySeason[c.season]);
+        const pool = withPhotos.length > 0 ? withPhotos : candidates;
+        this._renderOnThisDay(el, pool[Math.floor(Math.random() * pool.length)], pool);
+    }
+
+    _renderOnThisDay(el, pick, pool) {
+        const { game, season, date } = pick;
+        const result = game['Packers Win'];
+        const opponent = game['Opponent'] || game['opponent'] || 'Unknown';
+        const packersScore = game['packers_score'];
+        const oppScore = game['opponent_score'];
+        const isPlayoff = game['playoff'] === '1' || game['playoff'] === 'true';
+        const isSuperbowl = game['superbowl'] && game['superbowl'] !== '';
+
+        const resultClass = result === 'WIN' ? 'win' : result === 'LOSS' ? 'loss' : 'tie';
+        const resultLabel = result === 'WIN' ? 'W' : result === 'LOSS' ? 'L' : 'T';
+        const scoreText = packersScore && oppScore ? `${packersScore}–${oppScore}` : '';
+        const gameTypeLabel = isSuperbowl ? 'Super Bowl' : isPlayoff ? 'Playoff' : 'Regular Season';
+        const dateStr = date.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+
+        const photos = this.photosBySeason[season] || [];
+        const photo = photos.length ? photos[Math.floor(Math.random() * photos.length)] : null;
+
+        el.innerHTML = `
+            <div class="otd-header">
+                <span class="otd-label"><i class="mdi mdi-calendar-today"></i> On This Day in Packers History</span>
+                <button class="otd-refresh" id="otd-refresh" aria-label="Show another"><i class="mdi mdi-refresh"></i></button>
+            </div>
+            <div class="otd-body">
+                ${photo ? `<a href="${photo.url}" target="_blank" rel="noopener noreferrer" class="otd-photo-link"><img class="otd-photo" src="${photo.url}" alt="${photo.caption || ''}" loading="lazy"></a>` : ''}
+                <div class="otd-info">
+                    <div class="otd-season-link">
+                        <a href="/${season}" class="otd-year">${season} Season</a>
+                        <span class="otd-game-type">${gameTypeLabel}</span>
+                    </div>
+                    <div class="otd-game-row">
+                        <span class="otd-result-badge ${resultClass}">${resultLabel}</span>
+                        <span class="otd-matchup">vs. ${opponent}</span>
+                        ${scoreText ? `<span class="otd-score">${scoreText}</span>` : ''}
+                    </div>
+                    <div class="otd-date">${dateStr}, ${season}</div>
+                </div>
+            </div>
+        `;
+        el.hidden = false;
+
+        document.getElementById('otd-refresh')?.addEventListener('click', () => {
+            if (pool.length > 1) {
+                const next = pool.filter(c => c !== pick)[Math.floor(Math.random() * (pool.length - 1))];
+                this._renderOnThisDay(el, next, pool);
+            }
+        });
     }
 
     computeStreak(completedGames) {
