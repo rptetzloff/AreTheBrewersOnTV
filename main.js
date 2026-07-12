@@ -1084,9 +1084,10 @@ class PackersTracker {
         const el = document.getElementById('on-this-day');
         if (!el) return;
 
-        const today = new Date();
-        const todayMonth = today.getMonth();
-        const todayDay = today.getDate();
+        const dateParam = new URLSearchParams(window.location.search).get('otd');
+        const today = dateParam ? new Date(`2000-${dateParam}`) : new Date();
+        const todayMonth = isNaN(today) ? new Date().getMonth() : today.getMonth();
+        const todayDay = isNaN(today) ? new Date().getDate() : today.getDate();
 
         const candidates = [];
         for (const [yr, games] of Object.entries(this.csvBySeason)) {
