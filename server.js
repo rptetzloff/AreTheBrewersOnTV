@@ -1,4 +1,4 @@
-// Minimal web service for arethebrewersundefeated.com
+// Minimal web service for arethebrewersontv.com
 // - serves the static site
 // - injects per-URL Open Graph / Twitter meta so shared links preview correctly
 // - renders per-season social cards at /og/:season.png
