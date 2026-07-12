@@ -1128,15 +1128,32 @@ class PackersTracker {
             el.innerHTML = html;
             el.hidden = false;
         } else {
-            // Current season: days since last loss + active win streak
-            const { winStreak, daysSince } = this.computeStreak(sorted);
+            // Current season: opening streak + active win streak
+            let openingStreak = 0;
+            let firstLoss = null;
+            for (const g of sorted) {
+                if (g.result === 'WIN') openingStreak++;
+                else { firstLoss = g; break; }
+            }
+            let winStreak = 0;
+            for (let i = sorted.length - 1; i >= 0; i--) {
+                if (sorted[i].result === 'WIN') winStreak++;
+                else break;
+            }
+
             let html;
-            if (daysSince === null) {
-                html = `Undefeated all season &mdash; <strong>${winStreak}</strong>-game win streak`;
+            if (!firstLoss) {
+                html = `Undefeated to start the season &mdash; <strong>${openingStreak}</strong>-game win streak`;
+            } else if (openingStreak === 0) {
+                const streakText = winStreak === 1 ? '1-game' : `${winStreak}-game`;
+                html = `Lost the opener. Currently on a <strong>${streakText}</strong> win streak.`;
             } else {
-                const daysText = daysSince === 1 ? '1 day' : `${daysSince} days`;
-                const streakPart = winStreak > 0 ? ` &bull; <strong>${winStreak}</strong>-game win streak` : '';
-                html = `The Packers have been undefeated for <strong>${daysText}</strong>${streakPart}`;
+                const firstGame = sorted[0];
+                const daysToLoss = Math.round((firstLoss.date - firstGame.date) / (1000 * 60 * 60 * 24));
+                const gamesText = openingStreak === 1 ? '1 game' : `${openingStreak} games`;
+                const daysText = daysToLoss === 1 ? '1 day' : `${daysToLoss} days`;
+                const streakText = winStreak === 1 ? '1-game' : `${winStreak}-game`;
+                html = `The Packers started the season undefeated for <strong>${gamesText}</strong> (${daysText}). Currently on a <strong>${streakText}</strong> win streak.`;
             }
             el.innerHTML = html;
             el.hidden = false;
