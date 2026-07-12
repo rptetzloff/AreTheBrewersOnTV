@@ -23,3 +23,16 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE DATA OR THE USE OR OTHER DEALINGS IN THE
 DATA.
+
+---
+
+Retrosheet Notice
+
+The historical game data in `data/brewers_games.csv\` and related files was
+obtained free of charge from Retrosheet and is copyrighted by Retrosheet.
+
+"The information used here was obtained free of charge from and is copyrighted
+by Retrosheet. Interested parties may contact Retrosheet at 20 Sunset Rd.,
+Newark, DE 19711."
+
+See https://www.retrosheet.org for more information.

@@ -2,6 +2,12 @@
         import { computeHeadToHead, canonicalOpponent } from './h2h-core.js';
         import { buildChartSvg } from './history-chart.js';
         import { intentUrls, copyText, flashCopied } from './share-core.js';
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+        const supabase = createClient(
+          import.meta.env.VITE_SUPABASE_URL,
+          import.meta.env.VITE_SUPABASE_ANON_KEY
+        );
 
         function buildSeasonMap(games) {
         	const map = {};
@@ -16,6 +22,7 @@
         class BrewersTracker {
         	constructor() {
         		this.apiUrl = 'https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/teams/mil/schedule';
+        		this.mlbStatsUrl = 'https://statsapi.mlb.com/api/v1/schedule';
         		this.countdownInterval = null;
         		this.liveUpdateInterval = null;
         		this.currentSeason = null;
@@ -25,6 +32,7 @@
         		this.csvMaxSeason = 2020;
         		this.seasonRecords = {};
         		this.photosBySeason = {};
+        		this.channelMeta = {};
         		this.init();
         	}
 
@@ -86,6 +94,12 @@
         				fetch('./data/brewers_season_records.csv'),
         				fetch('./data/photos.csv'),
         			]);
+        			// Load channel metadata from Supabase in parallel
+        			supabase.from('broadcast_channels').select('key,display_name,type,providers,description,website_url,sort_order')
+        				.order('sort_order')
+        				.then(({ data }) => {
+        					if (data) data.forEach(ch => { this.channelMeta[ch.key] = ch; });
+        				});
         			if (gamesRes.ok) {
         				const raw = await gamesRes.text();
         				const games = parseGamesCsv(raw);
@@ -115,6 +129,7 @@
         				});
         			}
         			this.initGallery();
+        			this.initWatchModal();
         			this.buildOnThisDay();
         			const params = new URLSearchParams(window.location.search);
         			const seasonParam = params.get('season');
@@ -1021,6 +1036,18 @@ if (isNext) {
 gameDetails.appendChild(countdownDiv);
 }
 
+// Watch button for next or live games
+if ((isNext || isLive) && this.currentSeason === this.latestSeason) {
+  const watchBtn = document.createElement('button');
+  watchBtn.className = 'watch-btn';
+  watchBtn.innerHTML = '<i class="mdi mdi-television-play"></i> Where to watch';
+  watchBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    this.openWatchModal(event);
+  });
+  gameDetails.appendChild(watchBtn);
+}
+
 gameInfo.appendChild(gameDetails);
 gameItem.appendChild(gameInfo);
 
@@ -1385,6 +1412,161 @@ if (currentIsUndefeated && this.currentSeason === this.latestSeason) {
 } else {
  el.innerHTML = suffix;
 }
+}
+
+async fetchMlbBroadcasts(gameDate) {
+  // gameDate: Date object. Fetch Brewers (teamId=158) games on that date.
+  const pad = n => String(n).padStart(2, '0');
+  const d = gameDate;
+  const ds = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  try {
+    const res = await fetch(
+      `${this.mlbStatsUrl}?sportId=1&teamId=158&hydrate=broadcasts(all)&startDate=${ds}&endDate=${ds}`
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    const games = (data.dates || []).flatMap(d => d.games || []);
+    return games.flatMap(g => g.broadcasts || []);
+  } catch {
+    return [];
+  }
+}
+
+resolveChannel(networkName) {
+  if (!networkName) return null;
+  const key = networkName.trim();
+  // exact match first
+  if (this.channelMeta[key]) return this.channelMeta[key];
+  // case-insensitive
+  const lower = key.toLowerCase();
+  for (const [k, ch] of Object.entries(this.channelMeta)) {
+    if (k.toLowerCase() === lower) return ch;
+  }
+  return null;
+}
+
+initWatchModal() {
+  const modal = document.getElementById('watch-modal');
+  const backdrop = modal.querySelector('.watch-backdrop');
+  const closeBtn = document.getElementById('watch-close');
+  backdrop.addEventListener('click', () => this.closeWatchModal());
+  closeBtn.addEventListener('click', () => this.closeWatchModal());
+  document.addEventListener('keydown', (e) => {
+    if (!modal.hidden && e.key === 'Escape') this.closeWatchModal();
+  });
+}
+
+async openWatchModal(game) {
+  const modal = document.getElementById('watch-modal');
+  const gameInfoEl = document.getElementById('watch-game-info');
+  const channelsEl = document.getElementById('watch-channels');
+
+  channelsEl.innerHTML = '<p class="watch-no-data">Loading channels…</p>';
+  modal.hidden = false;
+  document.body.style.overflow = 'hidden';
+
+  // Game info line
+  const competition = game.competitions?.[0];
+  const date = new Date(game.date);
+  const dateStr = date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  const competitors = competition?.competitors || [];
+  let opponent = '';
+  let isHome = false;
+  competitors.forEach(c => {
+    if (c.team.abbreviation === 'MIL') isHome = c.homeAway === 'home';
+    else opponent = c.team.displayName;
+  });
+  gameInfoEl.textContent = `${isHome ? 'vs' : '@'} ${opponent} · ${dateStr}`;
+
+  // Fetch MLB Stats API broadcast data for this game's date
+  const mlbBroadcasts = await this.fetchMlbBroadcasts(date);
+
+  // Merge: prefer MLB Stats API; fall back to ESPN broadcasts
+  const espnNetworks = (competition?.broadcasts || [])
+    .map(b => b.media?.shortName || '').filter(Boolean);
+
+  const allNetworkNames = mlbBroadcasts.length > 0
+    ? mlbBroadcasts.map(b => b.name).filter(Boolean)
+    : espnNetworks;
+
+  if (allNetworkNames.length === 0) {
+    channelsEl.innerHTML = '<p class="watch-no-data">No broadcast information available for this game.</p>';
+    return;
+  }
+
+  // Deduplicate + resolve
+  const seen = new Set();
+  const resolved = [];
+  for (const name of allNetworkNames) {
+    const ch = this.resolveChannel(name) || { key: name, display_name: name, type: 'cable', providers: [], description: null, website_url: null };
+    if (!seen.has(ch.display_name + ch.type)) {
+      seen.add(ch.display_name + ch.type);
+      resolved.push(ch);
+    }
+  }
+
+  // Group by type
+  const typeOrder = ['broadcast', 'cable', 'regional', 'streaming'];
+  const typeLabels = { broadcast: 'On TV — Broadcast', cable: 'On TV — Cable', regional: 'Regional TV', streaming: 'Streaming' };
+  const groups = {};
+  resolved.forEach(ch => {
+    const t = typeOrder.includes(ch.type) ? ch.type : 'cable';
+    if (!groups[t]) groups[t] = [];
+    groups[t].push(ch);
+  });
+
+  channelsEl.innerHTML = '';
+  typeOrder.forEach(type => {
+    if (!groups[type]) return;
+    const section = document.createElement('div');
+
+    const label = document.createElement('div');
+    label.className = 'watch-group-label';
+    label.textContent = typeLabels[type];
+    section.appendChild(label);
+
+    const list = document.createElement('div');
+    list.className = 'watch-channel-list';
+
+    groups[type].forEach(ch => {
+      const item = document.createElement('div');
+      item.className = 'watch-channel-item';
+
+      const nameDiv = document.createElement('div');
+      nameDiv.className = 'watch-channel-name';
+      if (ch.website_url) {
+        nameDiv.innerHTML = `<a href="${ch.website_url}" target="_blank" rel="noopener noreferrer">${ch.display_name}</a>`;
+      } else {
+        nameDiv.textContent = ch.display_name;
+      }
+      item.appendChild(nameDiv);
+
+      if (ch.description) {
+        const desc = document.createElement('div');
+        desc.className = 'watch-channel-desc';
+        desc.textContent = ch.description;
+        item.appendChild(desc);
+      }
+
+      const providers = Array.isArray(ch.providers) ? ch.providers : (ch.providers ? JSON.parse(ch.providers) : []);
+      if (providers.length > 0) {
+        const pDiv = document.createElement('div');
+        pDiv.className = 'watch-providers';
+        pDiv.textContent = 'Available on: ' + providers.join(', ');
+        item.appendChild(pDiv);
+      }
+
+      list.appendChild(item);
+    });
+
+    section.appendChild(list);
+    channelsEl.appendChild(section);
+  });
+}
+
+closeWatchModal() {
+  document.getElementById('watch-modal').hidden = true;
+  document.body.style.overflow = '';
 }
 
 initGallery() {

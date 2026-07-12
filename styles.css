@@ -1685,3 +1685,124 @@ details:not([open]) > .collapsible-summary::before {
         display: none;
     }
 }
+
+/* ── Watch modal ──────────────────────────────────────────────── */
+.watch-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    cursor: pointer;
+}
+
+.watch-dialog {
+    position: relative;
+    background: #1a3660;
+    border: 1px solid rgba(255, 197, 47, 0.3);
+    border-radius: 12px;
+    padding: 1.5rem;
+    width: 90%;
+    max-width: 480px;
+    max-height: 80vh;
+    overflow-y: auto;
+    z-index: 1;
+    color: white;
+}
+
+.watch-game-info {
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.65);
+    margin: 0 0 1.25rem;
+    text-align: center;
+}
+
+.watch-channels {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.watch-group-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #FFC52F;
+    margin: 0 0 0.6rem;
+}
+
+.watch-channel-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.watch-channel-item {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 0.65rem 0.9rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    transition: border-color 0.15s;
+}
+
+.watch-channel-item:hover {
+    border-color: rgba(255, 197, 47, 0.4);
+}
+
+.watch-channel-name {
+    font-size: 1rem;
+    font-weight: 600;
+    color: white;
+}
+
+.watch-channel-name a {
+    color: inherit;
+    text-decoration: none;
+}
+
+.watch-channel-name a:hover {
+    color: #FFC52F;
+}
+
+.watch-channel-desc {
+    font-size: 0.78rem;
+    color: rgba(255, 255, 255, 0.55);
+}
+
+.watch-providers {
+    font-size: 0.75rem;
+    color: rgba(255, 197, 47, 0.8);
+    margin-top: 0.15rem;
+}
+
+.watch-no-data {
+    text-align: center;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.9rem;
+    padding: 1rem 0;
+}
+
+.watch-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.75rem;
+    color: #FFC52F;
+    background: rgba(255, 197, 47, 0.1);
+    border: 1px solid rgba(255, 197, 47, 0.35);
+    border-radius: 4px;
+    padding: 0.2rem 0.5rem;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background 0.15s, border-color 0.15s;
+    margin-top: 0.3rem;
+    align-self: flex-start;
+}
+
+.watch-btn:hover {
+    background: rgba(255, 197, 47, 0.2);
+    border-color: rgba(255, 197, 47, 0.6);
+}
+
