@@ -68,6 +68,18 @@ To trigger a manual run at any time, go to **Actions → Update Packers Data →
 
 The workflow uses the built-in `GITHUB_TOKEN`. Make sure your repository's Actions settings allow write access: **Settings → Actions → General → Workflow permissions → Read and write permissions**.
 
+## Sharing
+
+Below the schedule, a row of share buttons lets visitors spread the current season's status:
+
+- **Share** — uses the native OS share sheet on mobile browsers that support `navigator.share`
+- **Post on X / Post on Bluesky** — open the respective compose window pre-filled with the share message and URL
+- **Share on Facebook** — opens the Facebook sharer with the URL and message
+- **Post on Reddit** — opens Reddit's submit page with the URL and message pre-filled as the post title
+- **Copy** — copies the message and URL to the clipboard; the button briefly turns green to confirm
+
+On mobile browsers with native share support only the system Share button is shown. On desktop (or browsers without `navigator.share`) the individual platform buttons and Copy button are shown instead.
+
 ## Photos
 
 `data/photos.csv` — historical photos displayed alongside certain seasons. Each row contains a season year, image URL, caption, license, and license URL. Images are sourced from Wikimedia Commons and must be freely licensed (Public Domain or Creative Commons).
