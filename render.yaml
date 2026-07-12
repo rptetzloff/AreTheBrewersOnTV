@@ -2,7 +2,7 @@
 # per-season Open Graph tags and social cards can be rendered server-side.
 services:
   - type: web
-    name: are-the-packers-undefeated
+    name: are-the-brewers-on-tv
     runtime: node
     plan: free            # bump to "starter" to avoid cold-start spin-down
     buildCommand: npm install
