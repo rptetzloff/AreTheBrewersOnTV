@@ -2,12 +2,6 @@
         import { computeHeadToHead, canonicalOpponent } from './h2h-core.js';
         import { buildChartSvg } from './history-chart.js';
         import { intentUrls, copyText, flashCopied } from './share-core.js';
-        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
-
-        const supabase = createClient(
-          import.meta.env.VITE_SUPABASE_URL,
-          import.meta.env.VITE_SUPABASE_ANON_KEY
-        );
 
         function buildSeasonMap(games) {
         	const map = {};
@@ -89,17 +83,22 @@
         				});
         			});
 
-        			const [gamesRes, recordsRes, photosRes] = await Promise.all([
+        			const [gamesRes, recordsRes, photosRes, channelsRes] = await Promise.all([
         				fetch('./data/brewers_games.csv'),
         				fetch('./data/brewers_season_records.csv'),
         				fetch('./data/photos.csv'),
+        				fetch('./data/broadcast_channels.csv'),
         			]);
-        			// Load channel metadata from Supabase in parallel
-        			supabase.from('broadcast_channels').select('key,display_name,type,providers,description,website_url,sort_order')
-        				.order('sort_order')
-        				.then(({ data }) => {
-        					if (data) data.forEach(ch => { this.channelMeta[ch.key] = ch; });
+        			if (channelsRes.ok) {
+        				const raw = await channelsRes.text();
+        				parseGamesCsv(raw).forEach(ch => {
+        					this.channelMeta[ch.key] = {
+        						...ch,
+        						providers: ch.providers ? ch.providers.split('|') : [],
+        						sort_order: parseInt(ch.sort_order) || 99,
+        					};
         				});
+        			}
         			if (gamesRes.ok) {
         				const raw = await gamesRes.text();
         				const games = parseGamesCsv(raw);
@@ -1548,7 +1547,7 @@ async openWatchModal(game) {
         item.appendChild(desc);
       }
 
-      const providers = Array.isArray(ch.providers) ? ch.providers : (ch.providers ? JSON.parse(ch.providers) : []);
+      const providers = Array.isArray(ch.providers) ? ch.providers : [];
       if (providers.length > 0) {
         const pDiv = document.createElement('div');
         pDiv.className = 'watch-providers';
