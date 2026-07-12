@@ -1376,11 +1376,16 @@ details:not([open]) > .collapsible-summary::before {
 
 .h2h-controls {
     margin-bottom: 0.35rem;
-    text-align: left;
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
     align-items: center;
+    justify-content: center;
+    /* The centered page layout sizes the container to its widest child (the
+       table); span it so the controls center as one row instead of
+       shrink-wrapping into a ragged stack. */
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .h2h-select {
@@ -1416,7 +1421,7 @@ details:not([open]) > .collapsible-summary::before {
 }
 
 .h2h-count {
-    text-align: left;
+    text-align: center;
     color: rgba(255, 255, 255, 0.6);
     font-size: 0.85rem;
     margin: 0 0 0.75rem;
@@ -1425,7 +1430,7 @@ details:not([open]) > .collapsible-summary::before {
 
 .h2h-filter {
     width: 100%;
-    max-width: 14rem;
+    max-width: 12rem;
     box-sizing: border-box;
     padding: 0.5rem 0.9rem;
     background: rgba(32, 55, 49, 0.8);
