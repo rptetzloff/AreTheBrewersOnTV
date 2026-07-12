@@ -1264,6 +1264,18 @@ details:not([open]) > .collapsible-summary::before {
     font-weight: 600;
 }
 
+.record-entry a {
+    color: inherit;
+    text-decoration: underline;
+    text-decoration-color: rgba(255, 182, 18, 0.45);
+    text-underline-offset: 2px;
+}
+
+.record-entry a:hover {
+    color: #ffb612;
+    text-decoration-color: #ffb612;
+}
+
 .record-empty {
     color: rgba(255, 255, 255, 0.7);
     flex: 1;

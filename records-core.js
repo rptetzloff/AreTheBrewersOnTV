@@ -117,8 +117,9 @@ export function computeSuperlatives(rows, { top = 5, now = new Date() } = {}) {
 		.slice(0, top)
 		.map(streakEntry);
 
-	const lopsidedWins = games
-		.filter((g) => g['Packers Win'] === 'WIN')
+	// Biggest margins, either direction; sort by margin, then winner's score, then date.
+	const lopsided = (result) => games
+		.filter((g) => g['Packers Win'] === result)
 		.map((g) => {
 			const pf = parseInt(g.packers_score, 10) || 0;
 			const pa = parseInt(g.opponent_score, 10) || 0;
@@ -129,10 +130,15 @@ export function computeSuperlatives(rows, { top = 5, now = new Date() } = {}) {
 				superbowl: !!(g.superbowl && g.superbowl.trim()),
 			};
 		})
-		.sort((a, b) => (b.pf - b.pa) - (a.pf - a.pa) || b.pf - a.pf || (a.date < b.date ? -1 : 1))
+		.sort((a, b) => Math.abs(b.pf - b.pa) - Math.abs(a.pf - a.pa)
+			|| Math.max(b.pf, b.pa) - Math.max(a.pf, a.pa)
+			|| (a.date < b.date ? -1 : 1))
 		.slice(0, top);
 
-	return { seasonRange, bestStarts, perfectSeasons, winStreaks: topStreaks, worstStarts, lopsidedWins };
+	return {
+		seasonRange, bestStarts, perfectSeasons, winStreaks: topStreaks, worstStarts,
+		lopsidedWins: lopsided('WIN'), lopsidedLosses: lopsided('LOSS'),
+	};
 }
 
 export const streakSpan = (s) =>
@@ -180,12 +186,19 @@ export function recordsCopy(slug, data) {
 				desc: `The biggest blowout in Green Bay Packers history: ${g.pf}–${g.pa} over the ${g.opponent} on ${formatDate(g.date)}.`,
 			};
 		}
+		case 'worst-losses': {
+			const g = data.lopsidedLosses[0];
+			return {
+				title: `Worst Packers Losses — ${g.pf}–${g.pa} to the ${g.opponent}`,
+				desc: `The most lopsided loss in Green Bay Packers history: ${g.pa}–${g.pf} to the ${g.opponent} on ${formatDate(g.date)}. We don't talk about it.`,
+			};
+		}
 		default:
 			return {
 				title: 'Packers Records & Superlatives',
-				desc: `Best starts, perfect seasons, longest win streaks, worst starts, and most lopsided wins — Green Bay Packers, ${range}.`,
+				desc: `Best starts, perfect seasons, longest win streaks, worst starts, lopsided wins, and worst losses — Green Bay Packers, ${range}.`,
 			};
 	}
 }
 
-export const RECORD_SLUGS = ['best-starts', 'perfect-seasons', 'win-streaks', 'worst-starts', 'lopsided-wins'];
+export const RECORD_SLUGS = ['best-starts', 'perfect-seasons', 'win-streaks', 'worst-starts', 'lopsided-wins', 'worst-losses'];

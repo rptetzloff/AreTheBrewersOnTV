@@ -46,7 +46,7 @@ When the override is active, a small reset link appears in the card header to cl
 
 ## Records & Superlatives
 
-`/records` is a standalone page of franchise superlatives computed from `data/packers_games.csv`: best season starts, perfect seasons, longest regular-season win streaks (ties end a streak), worst season starts, and most lopsided wins (playoffs included, flagged). Each superlative is its own shareable card with a deep link (`/records/best-starts`, `/records/perfect-seasons`, `/records/win-streaks`, `/records/worst-starts`, `/records/lopsided-wins`) and its own server-rendered social card at `/og/records/<slug>.png`, following the same pattern as the per-season cards.
+`/records` is a standalone page of franchise superlatives computed from `data/packers_games.csv`: best season starts, perfect seasons, longest regular-season win streaks (ties end a streak), worst season starts, most lopsided wins, and worst losses (blowouts include playoffs, flagged). Each superlative is its own shareable card with a deep link (`/records/best-starts`, `/records/perfect-seasons`, `/records/win-streaks`, `/records/worst-starts`, `/records/lopsided-wins`, `/records/worst-losses`) and its own server-rendered social card at `/og/records/<slug>.png`, following the same pattern as the per-season cards. Season years in the tables link to their season pages.
 
 The computation lives in `records-core.js`, a dependency-free module shared verbatim by the browser page (`records.html` + `records.js`) and the web service (`lib/records.js`), so the page and the link previews can never disagree.
 

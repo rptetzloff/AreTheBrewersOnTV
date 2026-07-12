@@ -1,47 +1,64 @@
 // Records & Superlatives page: computes superlatives from the games CSV
 // (records-core.js, shared with the server) and renders one shareable card each.
-import { parseGamesCsv, computeSuperlatives, recordsCopy, formatDate, streakSpan, RECORD_SLUGS, esc } from './records-core.js';
+import { parseGamesCsv, computeSuperlatives, recordsCopy, formatDate, RECORD_SLUGS, esc } from './records-core.js';
+import { intentUrls, copyText, flashCopied } from './share-core.js';
+
+const yearLink = (yr) => `<a href="/${yr}">${yr}</a>`;
+const gameFlag = (g) => (g.superbowl ? ' · Super Bowl' : g.playoff ? ' · Playoffs' : '');
+// Blowout entries link the date to the game's season page (a January playoff
+// game belongs to the prior year's season, so the season, not the date's year).
+const blowoutEntry = (g) => ({
+	main: `${g.pf}–${g.pa}`, sub: `vs ${g.opponent}`,
+	detailHtml: `<a href="/${g.season}">${esc(formatDate(g.date))}</a>${esc(gameFlag(g))}`,
+});
 
 const CARDS = [
 	{
 		slug: 'best-starts', icon: 'mdi-rocket-launch-outline', title: 'Best Season Starts',
 		note: 'Wins to open a season',
-		entries: (d) => d.bestStarts.map((b) => ({ main: `${b.games}–0`, sub: String(b.season) })),
+		entries: (d) => d.bestStarts.map((b) => ({ main: `${b.games}–0`, subHtml: yearLink(b.season) })),
 	},
 	{
 		slug: 'perfect-seasons', icon: 'mdi-trophy-outline', title: 'Perfect Seasons',
 		note: 'Finished the regular season without a loss',
-		entries: (d) => d.perfectSeasons.map((p) => ({ main: p.record, sub: String(p.season) })),
+		entries: (d) => d.perfectSeasons.map((p) => ({ main: p.record, subHtml: yearLink(p.season) })),
 		empty: 'No perfect seasons. Yet.',
 	},
 	{
 		slug: 'win-streaks', icon: 'mdi-fire', title: 'Longest Win Streaks',
 		note: 'Consecutive regular-season wins (ties end a streak)',
 		entries: (d) => d.winStreaks.map((s) => ({
-			main: `${s.games} straight`, sub: streakSpan(s),
+			main: `${s.games} straight`,
+			subHtml: s.startSeason === s.endSeason
+				? yearLink(s.startSeason)
+				: `${yearLink(s.startSeason)}–${yearLink(s.endSeason)}`,
 			detail: `${formatDate(s.startDate)} – ${formatDate(s.endDate)}`,
 		})),
 	},
 	{
 		slug: 'worst-starts', icon: 'mdi-trending-down', title: 'Worst Season Starts',
 		note: 'Losses to open a season',
-		entries: (d) => d.worstStarts.map((w) => ({ main: `0–${w.games}`, sub: String(w.season) })),
+		entries: (d) => d.worstStarts.map((w) => ({ main: `0–${w.games}`, subHtml: yearLink(w.season) })),
 	},
 	{
 		slug: 'lopsided-wins', icon: 'mdi-scoreboard-outline', title: 'Most Lopsided Wins',
 		note: 'Biggest margins of victory, playoffs included',
-		entries: (d) => d.lopsidedWins.map((g) => ({
-			main: `${g.pf}–${g.pa}`, sub: `vs ${g.opponent}`,
-			detail: formatDate(g.date) + (g.superbowl ? ' · Super Bowl' : g.playoff ? ' · Playoffs' : ''),
-		})),
+		entries: (d) => d.lopsidedWins.map(blowoutEntry),
+	},
+	{
+		slug: 'worst-losses', icon: 'mdi-thumb-down-outline', title: 'Worst Losses',
+		note: 'Biggest margins of defeat, playoffs included',
+		entries: (d) => d.lopsidedLosses.map(blowoutEntry),
 	},
 ];
 
 function entryHtml(e, i) {
+	const sub = e.subHtml ?? esc(e.sub);
+	const detail = e.detailHtml ?? (e.detail ? esc(e.detail) : '');
 	return `<li class="record-entry${i === 0 ? ' record-entry-top' : ''}">
 		<span class="record-entry-main">${esc(e.main)}</span>
-		<span class="record-entry-sub">${esc(e.sub)}</span>
-		${e.detail ? `<span class="record-entry-detail">${esc(e.detail)}</span>` : ''}
+		<span class="record-entry-sub">${sub}</span>
+		${detail ? `<span class="record-entry-detail">${detail}</span>` : ''}
 	</li>`;
 }
 
@@ -72,43 +89,27 @@ function cardHtml(card, data) {
 	</section>`;
 }
 
-function shareUrl(slug) {
-	return `${window.location.origin}/records/${slug}`;
-}
-
 function wireShares(grid, data) {
 	grid.querySelectorAll('.record-share').forEach((row) => {
 		const slug = row.dataset.slug;
-		const url = shareUrl(slug);
+		const url = `${window.location.origin}/records/${slug}`;
 		const message = recordsCopy(slug, data).desc;
-		const text = `${message}\n\n${url}`;
+		const links = intentUrls(message, url);
 		row.querySelectorAll('[data-share]').forEach((btn) => {
 			switch (btn.dataset.share) {
-				case 'x': btn.href = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`; break;
-				case 'bsky': btn.href = `https://bsky.app/intent/compose?text=${encodeURIComponent(text)}`; break;
-				case 'fb': btn.href = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(message)}`; break;
-				case 'reddit': btn.href = `https://www.reddit.com/submit?url=${encodeURIComponent(url)}&title=${encodeURIComponent(message)}`; break;
+				case 'x': btn.href = links.x; break;
+				case 'bsky': btn.href = links.bsky; break;
+				case 'fb': btn.href = links.fb; break;
+				case 'reddit': btn.href = links.reddit; break;
 				case 'native':
 					btn.addEventListener('click', async () => {
 						try { await navigator.share({ text: message, url }); } catch { /* user cancelled */ }
 					});
 					break;
 				case 'copy':
-					btn.addEventListener('click', async () => {
-						try { await navigator.clipboard.writeText(text); }
-						catch {
-							const ta = document.createElement('textarea');
-							ta.value = text;
-							ta.style.cssText = 'position:fixed;opacity:0';
-							document.body.appendChild(ta);
-							ta.select();
-							document.execCommand('copy');
-							ta.remove();
-						}
-						const original = btn.innerHTML;
-						btn.innerHTML = '<i class="mdi mdi-check"></i>';
-						btn.classList.add('copy-success');
-						setTimeout(() => { btn.innerHTML = original; btn.classList.remove('copy-success'); }, 2000);
+					btn.addEventListener('click', () => {
+						flashCopied(btn, '<i class="mdi mdi-check"></i>');
+						copyText(`${message}\n\n${url}`);
 					});
 					break;
 			}
