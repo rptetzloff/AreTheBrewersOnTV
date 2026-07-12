@@ -44,6 +44,12 @@ example.com/?otd=11-28
 
 When the override is active, a small reset link appears in the card header to clear it.
 
+## Records & Superlatives
+
+`/records` is a standalone page of franchise superlatives computed from `data/packers_games.csv`: best season starts, perfect seasons, longest regular-season win streaks (ties end a streak), worst season starts, most lopsided wins, worst losses (blowouts include playoffs, flagged), and a listing of every tie. Each superlative is its own shareable card with a deep link (`/records/best-starts`, `/records/perfect-seasons`, `/records/win-streaks`, `/records/worst-starts`, `/records/lopsided-wins`, `/records/worst-losses`, `/records/ties`) and its own server-rendered social card at `/og/records/<slug>.png`, following the same pattern as the per-season cards. Season years in the tables link to their season pages.
+
+The computation lives in `records-core.js`, a dependency-free module shared verbatim by the browser page (`records.html` + `records.js`) and the web service (`lib/records.js`), so the page and the link previews can never disagree.
+
 ## Data Files
 
 `data/packers_games.csv` — game-by-game results for every Packers game from 1921 to the present, including opponent, score, location, and playoff/Super Bowl flags. Pre-1999 rows come from the FiveThirtyEight source; 1999–present rows are sourced from nflverse-data.
@@ -103,8 +109,10 @@ The site is served by `server.js`, a small Node web service that:
 
 ```
 server.js            # web service (static serving + meta injection + card route)
-lib/cards.js         # SVG -> PNG card generator
+lib/cards.js         # SVG -> PNG card generator (seasons + records)
 lib/seasons.js       # per-season record from CSV + live ESPN feed
+lib/records.js       # records/superlatives data + meta for /records routes
+records-core.js      # shared superlative computation (browser + node)
 fonts/               # Liberation Sans (SIL OFL 1.1), bundled for deterministic rendering
 render.yaml          # Render Blueprint
 ```

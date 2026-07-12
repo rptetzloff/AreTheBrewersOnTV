@@ -1,44 +1,5 @@
-        function parseCsv(raw) {
-        	const lines = raw.trim().split('\n');
-        	const headers = lines[0].split(',');
-        	return lines.slice(1).map(line => {
-        		const vals = line.split(',');
-        		const obj = {};
-        		headers.forEach((h, i) => { obj[h.trim()] = (vals[i] || '').trim(); });
-        		return obj;
-        	});
-        }
-
-        function parseCsvQuoted(raw) {
-        	const lines = raw.trim().split('\n');
-        	const headers = splitCsvLine(lines[0]);
-        	return lines.slice(1).map(line => {
-        		const vals = splitCsvLine(line);
-        		const obj = {};
-        		headers.forEach((h, i) => { obj[h] = (vals[i] || ''); });
-        		return obj;
-        	});
-        }
-
-        function splitCsvLine(line) {
-        	const result = [];
-        	let cur = '';
-        	let inQuotes = false;
-        	for (let i = 0; i < line.length; i++) {
-        		const ch = line[i];
-        		if (ch === '"') {
-        			if (inQuotes && line[i + 1] === '"') { cur += '"'; i++; }
-        			else inQuotes = !inQuotes;
-        		} else if (ch === ',' && !inQuotes) {
-        			result.push(cur.trim());
-        			cur = '';
-        		} else {
-        			cur += ch;
-        		}
-        	}
-        	result.push(cur.trim());
-        	return result;
-        }
+        import { parseGamesCsv } from './records-core.js';
+        import { intentUrls, copyText, flashCopied } from './share-core.js';
 
         function buildSeasonMap(games) {
         	const map = {};
@@ -96,7 +57,7 @@
         			]);
         			if (gamesRes.ok) {
         				const raw = await gamesRes.text();
-        				const games = parseCsv(raw);
+        				const games = parseGamesCsv(raw);
         				this.csvBySeason = buildSeasonMap(games);
         				const seasons = Object.keys(this.csvBySeason).map(Number).sort((a, b) => a - b);
         				if (seasons.length) {
@@ -106,13 +67,13 @@
         			}
         			if (recordsRes.ok) {
         				const raw = await recordsRes.text();
-        				parseCsv(raw).forEach(r => {
+        				parseGamesCsv(raw).forEach(r => {
         					this.seasonRecords[parseInt(r.season)] = r;
         				});
         			}
         			if (photosRes.ok) {
         				const raw = await photosRes.text();
-        				parseCsvQuoted(raw).forEach(p => {
+        				parseGamesCsv(raw).forEach(p => {
         					const yr = parseInt(p.season);
         					if (!this.photosBySeason[yr]) this.photosBySeason[yr] = [];
         					this.photosBySeason[yr].push(p);
@@ -1076,18 +1037,11 @@ getShareMessage() {
 }
 
 updateIntentLinks() {
-  const message = this.getShareMessage();
-  const url = window.location.href;
-  const shareText = `${message}\n\n${url}`;
-
-  const xBtn = document.getElementById('share-x');
-  const bskyBtn = document.getElementById('share-bsky');
-  const fbBtn = document.getElementById('share-fb');
-  const redditBtn = document.getElementById('share-reddit');
-  if (xBtn) xBtn.href = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`;
-  if (bskyBtn) bskyBtn.href = `https://bsky.app/intent/compose?text=${encodeURIComponent(shareText)}`;
-  if (fbBtn) fbBtn.href = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(message)}`;
-  if (redditBtn) redditBtn.href = `https://www.reddit.com/submit?url=${encodeURIComponent(url)}&title=${encodeURIComponent(message)}`;
+  const links = intentUrls(this.getShareMessage(), window.location.href);
+  for (const [key, id] of [['x', 'share-x'], ['bsky', 'share-bsky'], ['fb', 'share-fb'], ['reddit', 'share-reddit']]) {
+    const btn = document.getElementById(id);
+    if (btn) btn.href = links[key];
+  }
 }
 
 async nativeShare() {
@@ -1102,38 +1056,11 @@ async nativeShare() {
 
 async copyLink() {
     const copyBtn = document.getElementById('share-copy');
-    const message = this.getShareMessage();
-    const url = window.location.href;
-    const shareText = `${message}\n\nCheck it out: ${url}`;
-    
+    const shareText = `${this.getShareMessage()}\n\nCheck it out: ${window.location.href}`;
         // Flash FIRST, synchronously on click, so feedback never depends on the
         // clipboard call succeeding or on a permission prompt.
-    if (this._copyOriginalHTML == null) this._copyOriginalHTML = copyBtn.innerHTML;
-    if (this._copyFlashTimer) clearTimeout(this._copyFlashTimer);
-    copyBtn.innerHTML = '<i class="mdi mdi-check share-icon"></i>Copied!';
-    copyBtn.classList.add('copy-success');
-    this._copyFlashTimer = setTimeout(() => {
-        copyBtn.innerHTML = this._copyOriginalHTML;
-        copyBtn.classList.remove('copy-success');
-        this._copyFlashTimer = null;
-    }, 2000);
-    
-        // Then actually copy (with a legacy fallback for older/insecure contexts).
-    try {
-        await navigator.clipboard.writeText(shareText);
-    } catch (_) {
-        try {
-            const ta = document.createElement('textarea');
-            ta.value = shareText;
-            ta.style.position = 'fixed';
-            ta.style.opacity = '0';
-            document.body.appendChild(ta);
-            ta.focus();
-            ta.select();
-            document.execCommand('copy');
-            document.body.removeChild(ta);
-        } catch (_) {}
-    }
+    flashCopied(copyBtn, '<i class="mdi mdi-check share-icon"></i>Copied!');
+    await copyText(shareText);
 }
 
 buildOnThisDay() {
