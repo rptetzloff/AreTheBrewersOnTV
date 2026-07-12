@@ -154,9 +154,11 @@ export const streakSpan = (s) =>
 // final playoff game".
 const STANDINGS_TITLES = new Set([1929, 1930, 1931]);
 
-// One entry per season, chronological: regular-season record and win% (ties
-// count half), plus championship/undefeated flags for chart markers.
-export function computeSeasonHistory(rows, { now = new Date() } = {}) {
+// One entry per season, chronological: record, win% (ties count half), and
+// points for/against, plus championship/undefeated flags for chart markers.
+// `playoffs: true` folds postseason games into the record/points; the
+// champion and undefeated flags always use their own rules regardless.
+export function computeSeasonHistory(rows, { now = new Date(), playoffs = false } = {}) {
 	const games = rows
 		.filter((r) => ['WIN', 'LOSS', 'TIE'].includes(r['Packers Win']))
 		.slice()
@@ -168,18 +170,25 @@ export function computeSeasonHistory(rows, { now = new Date() } = {}) {
 		bySeason.get(yr).push(g);
 	}
 	return [...bySeason.keys()].sort((a, b) => a - b).map((yr) => {
-		let w = 0, l = 0, t = 0;
+		let w = 0, l = 0, t = 0, pf = 0, pa = 0, regLosses = 0, regWins = 0;
 		let lastPlayoff = null;
 		let superbowl = false;
 		for (const g of bySeason.get(yr)) {
-			if (g.regular_season === '1') {
-				if (g['Packers Win'] === 'WIN') w++;
-				else if (g['Packers Win'] === 'LOSS') l++;
-				else t++;
-			} else {
+			const isReg = g.regular_season === '1';
+			if (!isReg) {
 				lastPlayoff = g;
 				if (g.superbowl && g.superbowl.trim() && g['Packers Win'] === 'WIN') superbowl = true;
 			}
+			if (isReg) {
+				if (g['Packers Win'] === 'WIN') regWins++;
+				else if (g['Packers Win'] === 'LOSS') regLosses++;
+			}
+			if (!isReg && !playoffs) continue;
+			if (g['Packers Win'] === 'WIN') w++;
+			else if (g['Packers Win'] === 'LOSS') l++;
+			else t++;
+			pf += parseInt(g.packers_score, 10) || 0;
+			pa += parseInt(g.opponent_score, 10) || 0;
 		}
 		const gamesPlayed = w + l + t;
 		return {
@@ -187,9 +196,10 @@ export function computeSeasonHistory(rows, { now = new Date() } = {}) {
 			wins: w, losses: l, ties: t,
 			record: rec(w, l, t),
 			winPct: gamesPlayed ? (w + t / 2) / gamesPlayed : 0,
+			pf, pa,
 			champion: STANDINGS_TITLES.has(yr) || (lastPlayoff !== null && lastPlayoff['Packers Win'] === 'WIN'),
 			superbowl,
-			undefeated: l === 0 && w > 0 && seasonSettled(yr, now),
+			undefeated: regLosses === 0 && regWins > 0 && seasonSettled(yr, now),
 		};
 	});
 }

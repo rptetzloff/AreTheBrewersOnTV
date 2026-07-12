@@ -8,9 +8,10 @@ import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, normalize, extname } from 'node:path';
-import { renderPng, renderRecordsPng, renderH2hPng, renderHistoryPng } from './lib/cards.js';
+import { renderPng, renderRecordsPng, renderH2hPng, renderHistoryPng, renderCoachesPng } from './lib/cards.js';
 import { getSeasonState, defaultSeason } from './lib/seasons.js';
 import { records, recordsMeta, isRecordSlug, seasonHistory, historyMeta } from './lib/records.js';
+import { coaches, coachesMeta } from './lib/coaches.js';
 import { h2h, h2hMeta, isOpponentSlug } from './lib/h2h.js';
 import { esc } from './records-core.js';
 
@@ -51,6 +52,7 @@ const INDEX_VERSIONED = loadShell('index.html', ['main.js', 'styles.css']);
 const RECORDS_VERSIONED = loadShell('records.html', ['records.js', 'styles.css']);
 const VS_VERSIONED = loadShell('vs.html', ['vs.js', 'styles.css']);
 const HISTORY_VERSIONED = loadShell('history.html', ['history.js', 'styles.css']);
+const COACHES_VERSIONED = loadShell('coaches.html', ['coaches.js', 'styles.css']);
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
@@ -265,6 +267,16 @@ const server = http.createServer(async (req, res) => {
     }
     if (pathname === '/og/history.png')
       return serveCachedPng(res, 'history', () => renderHistoryPng(seasonHistory));
+
+    if (pathname === '/coaches' || pathname === '/coaches/' || pathname === '/coaches.html') {
+      const origin = originOf(req);
+      const { title, desc } = coachesMeta();
+      return sendPage(res, COACHES_VERSIONED, {
+        title, desc, img: `${origin}/og/coaches.png`, canonical: `${origin}/coaches`,
+      });
+    }
+    if (pathname === '/og/coaches.png')
+      return serveCachedPng(res, 'coaches', () => renderCoachesPng(coaches));
 
     if (pathname === '/vs' || pathname === '/vs/' || pathname === '/vs.html')
       return serveVsHtml(req, res, undefined);

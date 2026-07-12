@@ -145,7 +145,9 @@
           const el = document.getElementById('site-title');
           if (!el) return;
           const past = this.currentSeason && this.latestSeason && this.currentSeason < this.latestSeason;
-          el.textContent = `${past ? 'Were' : 'Are'} the Packers Undefeated?`;
+          el.textContent = past
+              ? `Were the Packers Undefeated in ${this.currentSeason}?`
+              : 'Are the Packers Undefeated?';
       }
 
       // Compact franchise-history sparkline under the answer; the currently

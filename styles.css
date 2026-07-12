@@ -1549,6 +1549,9 @@ details:not([open]) > .collapsible-summary::before {
 .history-controls {
     display: flex;
     justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
     margin-bottom: 0.75rem;
 }
 

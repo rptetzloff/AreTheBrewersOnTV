@@ -60,9 +60,15 @@ The current season's schedule on the main page annotates each game with the all-
 
 ## Franchise History Chart
 
-`/history` charts every season since 1921 as one line — win percentage by default (ties count half; early seasons were ~10 games and modern ones 17, so win% reads honestly across eras), with a persisted toggle to raw wins. Championship seasons get gold dots (the 1929–31 standings titles are hardcoded; every later title is "won the season's final playoff game"), perfect seasons get a white ring, coaching-era bands (Lambeau, Lombardi, Holmgren, McCarthy, LaFleur) sit behind the line, hovering shows the record, and clicking a season opens its page. A compact sparkline of the same chart sits under the answer on the main page (the viewed season marked in white) and links to `/history`.
+`/history` charts every season since 1921 as one line — win percentage by default (ties count half; early seasons were ~10 games and modern ones 17, so win% reads honestly across eras). Any combination of metrics can be plotted at once (win %, wins, points for, points against): metrics sharing a scale get a real labeled axis, mixed scales normalize each series to its own range (tooltips carry exact numbers). An "include playoffs" toggle folds postseason games into every metric. Championship seasons get gold dots (the 1929–31 standings titles are hardcoded; every later title is "won the season's final playoff game"), perfect seasons get a white ring, hovering a season shows its record and points, and clicking a season opens its page. Metric selection and playoff inclusion persist like the site's other settings. A compact sparkline of the same chart sits under the answer on the main page (the viewed season marked in white) and links to `/history`.
+
+Coaching-era bands cover the full timeline — every head-coach tenure, alternating shading — and hovering a band's top strip shows that coach's record; clicking it opens `/coaches`.
 
 The chart is built by `history-chart.js`, a pure SVG-string module shared by the page (`history.js`), the homepage sparkline (`main.js`), and the server-rendered social card at `/og/history.png` — all three render identical geometry from `computeSeasonHistory()` in `records-core.js`.
+
+## Head Coaches
+
+`/coaches` lists every Packers head coach in tenure order with regular-season record, win %, playoff record, and championships. Tenures live in `data/packers_coaches.csv` as from/to **dates**, not seasons, so mid-season changes split correctly (Ronzani → Devore/McLean with two games left in 1953; McCarthy → Philbin after week 13 of 2018) — every game is assigned to a coach by date. Championships count for the coach who coached that champion season's final game. Computation lives in `coaches-core.js`, shared by the browser page (`coaches.html` + `coaches.js`) and the web service (`lib/coaches.js`); the social card is at `/og/coaches.png`.
 
 ## Data Files
 

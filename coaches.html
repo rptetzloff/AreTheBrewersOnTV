@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Packers Head Coaches</title>
+    <meta name="description" content="Every Green Bay Packers head coach and their record, from Curly Lambeau to today.">
+    <meta property="og:title" content="Packers Head Coaches">
+    <meta property="og:description" content="Every Green Bay Packers head coach and their record, from Curly Lambeau to today.">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+    <!-- Absolute asset paths: this shell is also reachable at /coaches/, where relative paths would break. -->
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <div class="container records-container">
+        <a href="/" class="records-back"><i class="mdi mdi-arrow-left"></i> Are the Packers Undefeated?</a>
+        <h1 class="records-title">Head Coaches</h1>
+        <p id="coaches-subtitle" class="records-subtitle"></p>
+        <div id="coaches-table-wrap" class="h2h-table-wrap">
+            <div class="loading">Loading coaches...</div>
+        </div>
+        <p class="history-legend">
+            <span class="history-legend-item">Records are regular season; interim and partial-season stints are tracked by exact dates</span>
+        </p>
+        <div class="record-share" id="coaches-share"></div>
+    </div>
+
+    <footer class="site-footer">
+        <a href="https://github.com/rptetzloff/AreThePackersUndefeated" target="_blank" rel="noopener noreferrer" class="github-link">
+            <i class="mdi mdi-github"></i>
+            View on GitHub
+        </a>
+    </footer>
+
+    <script src="/coaches.js" type="module"></script>
+</body>
+</html>

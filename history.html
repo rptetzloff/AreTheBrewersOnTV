@@ -19,10 +19,13 @@
         <h1 class="records-title">Franchise History</h1>
         <p id="history-subtitle" class="records-subtitle"></p>
         <div class="history-controls">
-            <div class="history-toggle" role="group" aria-label="Chart metric">
-                <button id="metric-winpct" class="history-toggle-btn" aria-pressed="true">Win %</button>
-                <button id="metric-wins" class="history-toggle-btn" aria-pressed="false">Wins</button>
+            <div id="history-metrics" class="history-toggle" role="group" aria-label="Chart metrics (choose any)">
+                <button data-metric="winPct" class="history-toggle-btn">Win %</button>
+                <button data-metric="wins" class="history-toggle-btn">Wins</button>
+                <button data-metric="pf" class="history-toggle-btn">Points For</button>
+                <button data-metric="pa" class="history-toggle-btn">Points Against</button>
             </div>
+            <label class="h2h-check"><input type="checkbox" id="history-playoffs"> Include playoffs</label>
         </div>
         <div id="history-chart" class="history-chart">
             <div class="loading">Loading history...</div>
