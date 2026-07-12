@@ -1524,3 +1524,117 @@ details:not([open]) > .collapsible-summary::before {
         max-width: 100%;
     }
 }
+
+
+/* --- Franchise history --- */
+
+.history-spark {
+    display: block;
+    max-width: 600px;
+    margin: 0.25rem auto 0.5rem;
+    opacity: 0.9;
+    transition: opacity 0.2s;
+}
+
+.history-spark:hover {
+    opacity: 1;
+}
+
+.history-spark svg {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.history-controls {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 0.75rem;
+}
+
+.history-toggle {
+    display: inline-flex;
+    border: 1.5px solid rgba(255, 182, 18, 0.5);
+    border-radius: 20px;
+    overflow: hidden;
+}
+
+.history-toggle-btn {
+    padding: 0.4rem 1.1rem;
+    background: transparent;
+    border: none;
+    color: #ffb612;
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    cursor: pointer;
+}
+
+.history-toggle-btn.history-toggle-active {
+    background: rgba(255, 182, 18, 0.25);
+    color: white;
+}
+
+.history-chart {
+    position: relative;
+    background: rgba(32, 55, 49, 0.8);
+    border: 2px solid #ffb612;
+    border-radius: 10px;
+    padding: 0.75rem;
+}
+
+.history-chart svg {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.history-tooltip {
+    position: absolute;
+    pointer-events: none;
+    background: #152A1E;
+    border: 1px solid #ffb612;
+    border-radius: 6px;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.85rem;
+    color: white;
+    white-space: nowrap;
+    z-index: 5;
+}
+
+.history-legend {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.85rem;
+    margin: 0.75rem 0 1rem;
+}
+
+.history-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.legend-champ {
+    background: #ffb612;
+    border: 1.5px solid #152A1E;
+}
+
+.legend-perfect {
+    background: transparent;
+    border: 1.5px solid white;
+}
+
+#history-share {
+    justify-content: center;
+}

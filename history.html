@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Packers Season-by-Season History</title>
+    <meta name="description" content="Every Green Bay Packers season since 1921 in one chart.">
+    <meta property="og:title" content="Packers Season-by-Season History">
+    <meta property="og:description" content="Every Green Bay Packers season since 1921 in one chart.">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+    <!-- Absolute asset paths: this shell is also reachable at /history/, where relative paths would break. -->
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <div class="container records-container">
+        <a href="/" class="records-back"><i class="mdi mdi-arrow-left"></i> Are the Packers Undefeated?</a>
+        <h1 class="records-title">Franchise History</h1>
+        <p id="history-subtitle" class="records-subtitle"></p>
+        <div class="history-controls">
+            <div class="history-toggle" role="group" aria-label="Chart metric">
+                <button id="metric-winpct" class="history-toggle-btn" aria-pressed="true">Win %</button>
+                <button id="metric-wins" class="history-toggle-btn" aria-pressed="false">Wins</button>
+            </div>
+        </div>
+        <div id="history-chart" class="history-chart">
+            <div class="loading">Loading history...</div>
+        </div>
+        <div id="history-tooltip" class="history-tooltip" hidden></div>
+        <p class="history-legend">
+            <span class="history-legend-item"><span class="legend-dot legend-champ"></span> Championship season</span>
+            <span class="history-legend-item"><span class="legend-dot legend-perfect"></span> Perfect season</span>
+            <span class="history-legend-item">Click any season to open it</span>
+        </p>
+        <div class="record-share" id="history-share"></div>
+    </div>
+
+    <footer class="site-footer">
+        <a href="https://github.com/rptetzloff/AreThePackersUndefeated" target="_blank" rel="noopener noreferrer" class="github-link">
+            <i class="mdi mdi-github"></i>
+            View on GitHub
+        </a>
+    </footer>
+
+    <script src="/history.js" type="module"></script>
+</body>
+</html>

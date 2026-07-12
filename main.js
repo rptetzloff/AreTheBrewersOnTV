@@ -1,5 +1,6 @@
-        import { parseGamesCsv } from './records-core.js';
+        import { parseGamesCsv, computeSeasonHistory } from './records-core.js';
         import { computeHeadToHead, canonicalOpponent } from './h2h-core.js';
+        import { buildChartSvg } from './history-chart.js';
         import { intentUrls, copyText, flashCopied } from './share-core.js';
 
         function buildSeasonMap(games) {
@@ -62,6 +63,8 @@
         				this.csvBySeason = buildSeasonMap(games);
         				// name -> all-time head-to-head entry, for schedule annotations
         				this.h2hByName = new Map(computeHeadToHead(games).opponents.map(o => [o.name, o]));
+        				this.seasonHistory = computeSeasonHistory(games);
+        				this.renderHistorySpark();
         				const seasons = Object.keys(this.csvBySeason).map(Number).sort((a, b) => a - b);
         				if (seasons.length) {
         					this.earliestSeason = seasons[0];
@@ -145,8 +148,21 @@
           el.textContent = `${past ? 'Were' : 'Are'} the Packers Undefeated?`;
       }
 
+      // Compact franchise-history sparkline under the answer; the currently
+      // viewed season gets a white marker. Links through to /history.
+      renderHistorySpark() {
+          const el = document.getElementById('history-spark');
+          if (!el || !this.seasonHistory?.length) return;
+          el.innerHTML = buildChartSvg(this.seasonHistory, {
+              width: 600, height: 80,
+              axes: false,
+              highlight: this.currentSeason,
+          });
+      }
+
       updateSeasonSelector() {
           this.updateSiteTitle();
+          this.renderHistorySpark();
           const label = document.getElementById('season-label');
           const prevBtn = document.getElementById('season-prev');
           const nextBtn = document.getElementById('season-next');

@@ -8,9 +8,9 @@ import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, normalize, extname } from 'node:path';
-import { renderPng, renderRecordsPng, renderH2hPng } from './lib/cards.js';
+import { renderPng, renderRecordsPng, renderH2hPng, renderHistoryPng } from './lib/cards.js';
 import { getSeasonState, defaultSeason } from './lib/seasons.js';
-import { records, recordsMeta, isRecordSlug } from './lib/records.js';
+import { records, recordsMeta, isRecordSlug, seasonHistory, historyMeta } from './lib/records.js';
 import { h2h, h2hMeta, isOpponentSlug } from './lib/h2h.js';
 import { esc } from './records-core.js';
 
@@ -50,6 +50,7 @@ function loadShell(file, assets) {
 const INDEX_VERSIONED = loadShell('index.html', ['main.js', 'styles.css']);
 const RECORDS_VERSIONED = loadShell('records.html', ['records.js', 'styles.css']);
 const VS_VERSIONED = loadShell('vs.html', ['vs.js', 'styles.css']);
+const HISTORY_VERSIONED = loadShell('history.html', ['history.js', 'styles.css']);
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
@@ -254,6 +255,16 @@ const server = http.createServer(async (req, res) => {
       if (!isRecordSlug(slug)) return notFound(res);
       return serveRecordsHtml(req, res, slug);
     }
+
+    if (pathname === '/history' || pathname === '/history/' || pathname === '/history.html') {
+      const origin = originOf(req);
+      const { title, desc } = historyMeta();
+      return sendPage(res, HISTORY_VERSIONED, {
+        title, desc, img: `${origin}/og/history.png`, canonical: `${origin}/history`,
+      });
+    }
+    if (pathname === '/og/history.png')
+      return serveCachedPng(res, 'history', () => renderHistoryPng(seasonHistory));
 
     if (pathname === '/vs' || pathname === '/vs/' || pathname === '/vs.html')
       return serveVsHtml(req, res, undefined);

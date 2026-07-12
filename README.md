@@ -58,6 +58,12 @@ The CSV's pre-1999 rows map franchises to modern names but the 1999+ rows use as
 
 The current season's schedule on the main page annotates each game with the all-time head-to-head record against that opponent, linking to the rivalry page.
 
+## Franchise History Chart
+
+`/history` charts every season since 1921 as one line — win percentage by default (ties count half; early seasons were ~10 games and modern ones 17, so win% reads honestly across eras), with a persisted toggle to raw wins. Championship seasons get gold dots (the 1929–31 standings titles are hardcoded; every later title is "won the season's final playoff game"), perfect seasons get a white ring, coaching-era bands (Lambeau, Lombardi, Holmgren, McCarthy, LaFleur) sit behind the line, hovering shows the record, and clicking a season opens its page. A compact sparkline of the same chart sits under the answer on the main page (the viewed season marked in white) and links to `/history`.
+
+The chart is built by `history-chart.js`, a pure SVG-string module shared by the page (`history.js`), the homepage sparkline (`main.js`), and the server-rendered social card at `/og/history.png` — all three render identical geometry from `computeSeasonHistory()` in `records-core.js`.
+
 ## Data Files
 
 `data/packers_games.csv` — game-by-game results for every Packers game from 1921 to the present, including opponent, score, location, and playoff/Super Bowl flags. Pre-1999 rows come from the FiveThirtyEight source; 1999–present rows are sourced from nflverse-data.
