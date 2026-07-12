@@ -1017,10 +1017,10 @@ class PackersTracker {
         if (navigator.share) {
             nativeBtn.hidden = false;
             nativeBtn.addEventListener('click', () => this.nativeShare());
-            document.getElementById('share-x').hidden = true;
-            document.getElementById('share-bsky').hidden = true;
-            copyBtn.hidden = true;
         } else {
+            document.getElementById('share-x').hidden = false;
+            document.getElementById('share-bsky').hidden = false;
+            copyBtn.hidden = false;
             copyBtn.addEventListener('click', () => this.copyLink());
         }
 
