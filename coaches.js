@@ -1,7 +1,7 @@
 // Managers page: every Brewers manager in tenure order with their
 // record, derived from gameinfo.csv + teamstats.csv + biofile0.csv.
-import { parseGameinfoCsv, parseGamesCsv, computeSeasonHistory, esc } from './records-core.js';
-import { parseBiofile, parseTeamstatsMgr, parseGameinfoMgr, computeCoachesFromData, coachesCopy } from './coaches-core.js';
+import { parseGameinfoCsv, computeSeasonHistory, esc } from './records-core.js';
+import { parseBiofile, parseTeamstatsMgr, computeCoachesFromData, coachesCopy } from './coaches-core.js';
 import { shareButtonsHtml, wireShareRow } from './share-core.js';
 
 const pct = (p) => (p >= 1 ? '1.000' : p.toFixed(3).replace(/^0/, ''));
@@ -41,14 +41,8 @@ async function init() {
 		]);
 		if (!gamesRes.ok || !namesRes.ok || !teamstatsRes.ok || !biofileRes.ok) throw new Error('CSV fetch failed');
 		const teamstatsText = await teamstatsRes.text();
-		const gamesText = await gamesRes.text();
-		const rows = parseGameinfoCsv(gamesText, await namesRes.text(), teamstatsText);
+		const rows = parseGameinfoCsv(await gamesRes.text(), await namesRes.text(), teamstatsText);
 		const gidToMgr = parseTeamstatsMgr(teamstatsText);
-		// Fill in seasons absent from teamstats (e.g. 1969 SE1) using gameinfo hmgr/vmgr columns
-		const rawRows = parseGamesCsv(gamesText);
-		for (const [gid, mgr] of parseGameinfoMgr(rawRows)) {
-			if (!gidToMgr.has(gid)) gidToMgr.set(gid, mgr);
-		}
 		const mgrNames = parseBiofile(await biofileRes.text());
 		const champions = computeSeasonHistory(rows).filter((s) => s.champion).map((s) => s.season);
 		const data = computeCoachesFromData(rows, gidToMgr, mgrNames, champions);
