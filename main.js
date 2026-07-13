@@ -417,8 +417,28 @@ displayCsvSchedule(games, season) {
   sorted.forEach(g => {
      const isPlayoff = g.playoff === '1';
      const isRegular = g.regular_season === '1';
-     const section = isPlayoff ? 'post' : (isRegular ? 'regular' : 'other');
-     const sectionLabels = { post: 'Playoffs', regular: 'Regular Season', other: 'Other' };
+     let section;
+     if (isRegular) {
+        section = 'regular';
+     } else if (isPlayoff) {
+        const gt = (g.gametype || '').toUpperCase();
+        if (gt === 'W') section = 'ws';
+        else if (gt === 'L' || gt === 'C') section = 'lcs';
+        else if (gt === 'D') section = 'ds';
+        else if (gt === 'F') section = 'wc';
+        else section = 'post';
+     } else {
+        section = 'other';
+     }
+     const sectionLabels = {
+        regular: 'Regular Season',
+        wc: 'Wild Card',
+        ds: 'Division Series',
+        lcs: 'League Championship Series',
+        ws: 'World Series',
+        post: 'Playoffs',
+        other: 'Preseason / Exhibition',
+     };
 
      if (section !== currentSection) {
         currentSection = section;

@@ -167,6 +167,7 @@ export function parseGameinfoCsv(gamesRaw, namesRaw, teamstatsRaw = null) {
 				regular_season: regularSeason,
 				playoff,
 				worldseries,
+				gametype: gt,
 				Opponent: opponentName,
 				'Brewers Win': result,
 				brewers_score: isNaN(brewersScore) ? '' : String(brewersScore),
@@ -243,13 +244,17 @@ export function computeSuperlatives(rows, { top = 5, now = new Date() } = {}) {
 	}
 	perfectSeasons.sort((a, b) => b.wins - a.wins || a.season - b.season);
 
-	// Regular-season win streaks, allowed to span seasons; a loss or tie ends one.
+	// Regular-season win streaks, contained within a single season; a loss or tie ends one.
 	const winStreaks = [];
 	let run = null;
-	const endRun = () => { if (run) { winStreaks.push(run); run = null; } };
+	let runSeason = null;
+	const endRun = () => { if (run) { winStreaks.push(run); run = null; runSeason = null; } };
 	for (const g of regular) {
+		const gSeason = parseInt(g.season, 10);
+		if (runSeason !== null && gSeason !== runSeason) endRun();
 		if (g['Brewers Win'] === 'WIN') {
 			if (!run) run = { games: 0, start: null, end: null };
+			runSeason = gSeason;
 			run.games++;
 			if (!run.start) run.start = g;
 			run.end = g;
