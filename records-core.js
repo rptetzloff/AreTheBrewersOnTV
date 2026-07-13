@@ -91,6 +91,21 @@ const RETROSHEET_TEAM_NAMES = {
 	CLE1: 'Cleveland Spiders',
 };
 
+// Maps any gametype string to a canonical single-letter code:
+//   R = regular season, F = wild card, D = division series,
+//   L = league championship, W = world series
+function normalizeGametype(gt) {
+	if (!gt) return '';
+	const u = gt.toUpperCase().replace(/[\s_-]/g, '');
+	if (u === 'R' || u === 'RS' || u === '0' || u === 'REGULAR') return 'R';
+	if (u === 'W' || u === 'WS' || u === 'WORLDSERIES') return 'W';
+	if (u === 'L' || u === 'LCS' || u === 'ALCS' || u === 'NLCS' || u === 'C') return 'L';
+	if (u === 'D' || u === 'DS' || u === 'DIVISIONSERIES' || u === 'DIVISION') return 'D';
+	if (u === 'F' || u === 'WILDCARD' || u === 'WILDCARDGAME') return 'F';
+	if (u === 'PLAYOFF' || u === 'PLAYOFFS' || u === 'P') return 'D';
+	return '';
+}
+
 // Convert gameinfo.csv rows + CurrentNames.csv into the internal game-row format
 // used throughout records-core, h2h-core, etc.
 // teamstatsRaw is optional: its gametype column is used ONLY when it identifies
@@ -116,13 +131,10 @@ export function parseGameinfoCsv(gamesRaw, namesRaw, teamstatsRaw = null) {
 				const gt = (v[gtI]?.trim() || '').toUpperCase();
 				if (!gid) continue;
 				// Regular-season identifiers (letter 'R', word 'REGULAR', numeric '0')
-				const isRegular = !gt || gt === 'R' || gt === 'REGULAR' || gt === '0' || gt === 'RS';
-				if (!isRegular) {
-					tsPlayoff.add(gid);
-					if (gt === 'W' || gt === 'WS' || gt === 'WORLDSERIES' || gt === 'WORLD SERIES' || gt.includes('WORLD')) {
-						tsWorldSeries.add(gid);
-					}
-				}
+				const norm = normalizeGametype(gt);
+				if (!norm || norm === 'R') continue;
+				tsPlayoff.add(gid);
+				if (norm === 'W') tsWorldSeries.add(gid);
 			}
 		}
 	}
@@ -151,13 +163,14 @@ export function parseGameinfoCsv(gamesRaw, namesRaw, teamstatsRaw = null) {
 				? `${rawDate.slice(0, 4)}-${rawDate.slice(4, 6)}-${rawDate.slice(6, 8)}`
 				: rawDate;
 
-			// gameinfo.csv often lacks gametype; teamstats confirms known playoff gids.
-			// Normalize full-word values (e.g. 'regular' → 'R', 'worldseries' → 'W').
+			// Normalize gametype to single-letter codes used throughout.
+			// teamstats uses full words: regular, wildcard, divisionseries, lcs, worldseries, playoff.
+			// gameinfo.csv may use R/D/L/W/F or be empty.
 			const rawGt = (r.gametype || '').toUpperCase().trim();
-			const normGt = rawGt === 'REGULAR' || rawGt === 'RS' || rawGt === '0' ? 'R' : rawGt;
+			const normGt = normalizeGametype(rawGt);
 			const gt = normGt || (tsPlayoff.has(r.gid) ? (tsWorldSeries.has(r.gid) ? 'W' : 'D') : 'R');
 			const regularSeason = gt === 'R' ? '1' : '0';
-			const playoff = ['D', 'L', 'W', 'F', 'C'].includes(gt) ? '1' : '0';
+			const playoff = gt !== 'R' ? '1' : '0';
 			const worldseries = gt === 'W' ? r.season : '';
 
 			return {
