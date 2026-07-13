@@ -99,12 +99,13 @@ function requestedSlug() {
 async function init() {
 	const grid = document.getElementById('records-grid');
 	try {
-		const [gamesRes, namesRes] = await Promise.all([
+		const [gamesRes, namesRes, teamstatsRes] = await Promise.all([
 			fetch('/data/gameinfo.csv'),
 			fetch('/data/CurrentNames.csv'),
+			fetch('/data/teamstats.csv'),
 		]);
-		if (!gamesRes.ok || !namesRes.ok) throw new Error(`CSV fetch failed`);
-		const data = computeSuperlatives(parseGameinfoCsv(await gamesRes.text(), await namesRes.text()));
+		if (!gamesRes.ok || !namesRes.ok || !teamstatsRes.ok) throw new Error(`CSV fetch failed`);
+		const data = computeSuperlatives(parseGameinfoCsv(await gamesRes.text(), await namesRes.text(), await teamstatsRes.text()));
 		document.getElementById('records-subtitle').textContent =
 			`Milwaukee Brewers · ${data.seasonRange.first}–${data.seasonRange.last}`;
 		grid.innerHTML = CARDS.map((c) => cardHtml(c, data)).join('');

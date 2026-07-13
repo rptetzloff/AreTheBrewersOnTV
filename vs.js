@@ -51,12 +51,13 @@ function requestedSlug(data) {
 async function init() {
 	const wrap = document.getElementById('h2h-table-wrap');
 	try {
-		const [gamesRes, namesRes] = await Promise.all([
+		const [gamesRes, namesRes, teamstatsRes] = await Promise.all([
 			fetch('/data/gameinfo.csv'),
 			fetch('/data/CurrentNames.csv'),
+			fetch('/data/teamstats.csv'),
 		]);
-		if (!gamesRes.ok || !namesRes.ok) throw new Error(`CSV fetch failed: ${gamesRes.status}`);
-		const rows = parseGameinfoCsv(await gamesRes.text(), await namesRes.text());
+		if (!gamesRes.ok || !namesRes.ok || !teamstatsRes.ok) throw new Error(`CSV fetch failed: ${gamesRes.status}`);
+		const rows = parseGameinfoCsv(await gamesRes.text(), await namesRes.text(), await teamstatsRes.text());
 		const allTime = computeHeadToHead(rows);
 		document.getElementById('h2h-subtitle').textContent =
 			`Milwaukee Brewers · all-time vs ${allTime.opponents.length} opponents`;

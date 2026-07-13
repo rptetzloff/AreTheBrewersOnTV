@@ -83,11 +83,12 @@
         				});
         			});
 
-        			const [gamesRes, namesRes, photosRes, channelsRes] = await Promise.all([
+        			const [gamesRes, namesRes, photosRes, channelsRes, teamstatsRes] = await Promise.all([
         				fetch('./data/gameinfo.csv'),
         				fetch('./data/CurrentNames.csv'),
         				fetch('./data/photos.csv').catch(() => null),
         				fetch('./data/broadcast_channels.csv'),
+        				fetch('./data/teamstats.csv'),
         			]);
         			if (channelsRes.ok) {
         				const raw = await channelsRes.text();
@@ -100,7 +101,7 @@
         				});
         			}
         			if (gamesRes.ok && namesRes.ok) {
-        				const games = parseGameinfoCsv(await gamesRes.text(), await namesRes.text());
+        				const games = parseGameinfoCsv(await gamesRes.text(), await namesRes.text(), teamstatsRes?.ok ? await teamstatsRes.text() : null);
         				this.csvBySeason = buildSeasonMap(games);
         				// name -> all-time head-to-head entry, for schedule annotations
         				this.h2hByName = new Map(computeHeadToHead(games).opponents.map(o => [o.name, o]));

@@ -40,8 +40,9 @@ async function init() {
 			fetch('/data/biofile0.csv'),
 		]);
 		if (!gamesRes.ok || !namesRes.ok || !teamstatsRes.ok || !biofileRes.ok) throw new Error('CSV fetch failed');
-		const rows = parseGameinfoCsv(await gamesRes.text(), await namesRes.text());
-		const gidToMgr = parseTeamstatsMgr(await teamstatsRes.text());
+		const teamstatsText = await teamstatsRes.text();
+		const rows = parseGameinfoCsv(await gamesRes.text(), await namesRes.text(), teamstatsText);
+		const gidToMgr = parseTeamstatsMgr(teamstatsText);
 		const mgrNames = parseBiofile(await biofileRes.text());
 		const champions = computeSeasonHistory(rows).filter((s) => s.champion).map((s) => s.season);
 		const data = computeCoachesFromData(rows, gidToMgr, mgrNames, champions);
