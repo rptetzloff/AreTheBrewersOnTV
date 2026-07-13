@@ -24,12 +24,14 @@ export function parseGamesCsv(raw) {
 }
 
 // CurrentNames.csv columns: franchiseName,teamName,league,division,city,team,alternate,startDate,endDate,...
-// teamName = Retrosheet abbreviation (lookup key); city + team = display name
-// alternate is indexed too so historical Retrosheet IDs (e.g. NYA) also resolve
+// teamName = period-specific abbreviation used as the primary lookup key.
+// franchiseName and alternate are indexed too so Retrosheet franchise codes
+// (e.g. CHN, NYN, NYA) resolve even when the period teamName differs.
 export function parseCurrentNamesCsv(raw) {
 	const names = {};
 	const lines = raw.trim().split('\n');
 	const headers = splitCsvLine(lines[0]);
+	const franIdx = headers.indexOf('franchiseName');
 	const keyIdx = headers.indexOf('teamName');
 	const cityIdx = headers.indexOf('city');
 	const nickIdx = headers.indexOf('team');
@@ -42,6 +44,10 @@ export function parseCurrentNamesCsv(raw) {
 		if (id && city && nick) {
 			const display = `${city} ${nick}`;
 			names[id] = display;
+			// Also index by franchiseName (Retrosheet franchise code, e.g. CHN for Cubs)
+			const fran = franIdx >= 0 ? p[franIdx]?.trim() : '';
+			if (fran && fran !== id) names[fran] = display;
+			// Also index by alternate abbreviation
 			const alt = altIdx >= 0 ? p[altIdx]?.trim() : '';
 			if (alt && alt !== id) names[alt] = display;
 		}
@@ -70,8 +76,9 @@ export function parseGameinfoCsv(gamesRaw, namesRaw, teamstatsRaw = null) {
 	const teamNames = parseCurrentNamesCsv(namesRaw);
 
 	// Build gid→gametype from teamstats, but only retain known playoff codes.
-	// teamstats may encode regular season as '0' or other non-'R' values; we
-	// ignore those and let regular games fall through to the 'R' default.
+	// teamstats uses full-word values: 'regular' for regular season, and words
+	// like 'division', 'lcs', 'worldseries', 'wildcard' for postseason games.
+	// We treat anything that is NOT a regular-season indicator as a playoff game.
 	const tsPlayoff = new Set(); // gids confirmed as playoff by teamstats
 	const tsWorldSeries = new Set();
 	if (teamstatsRaw) {
@@ -84,8 +91,14 @@ export function parseGameinfoCsv(gamesRaw, namesRaw, teamstatsRaw = null) {
 				const gid = v[gidI]?.trim();
 				const gt = (v[gtI]?.trim() || '').toUpperCase();
 				if (!gid) continue;
-				if (['D', 'L', 'W', 'F', 'C'].includes(gt)) tsPlayoff.add(gid);
-				if (gt === 'W') tsWorldSeries.add(gid);
+				// Regular-season identifiers (letter 'R', word 'REGULAR', numeric '0')
+				const isRegular = !gt || gt === 'R' || gt === 'REGULAR' || gt === '0' || gt === 'RS';
+				if (!isRegular) {
+					tsPlayoff.add(gid);
+					if (gt === 'W' || gt === 'WS' || gt === 'WORLDSERIES' || gt === 'WORLD SERIES' || gt.includes('WORLD')) {
+						tsWorldSeries.add(gid);
+					}
+				}
 			}
 		}
 	}
@@ -115,9 +128,10 @@ export function parseGameinfoCsv(gamesRaw, namesRaw, teamstatsRaw = null) {
 				: rawDate;
 
 			// gameinfo.csv often lacks gametype; teamstats confirms known playoff gids.
-			const gt = r.gametype ? r.gametype.toUpperCase()
-				: tsPlayoff.has(r.gid) ? (tsWorldSeries.has(r.gid) ? 'W' : 'D')
-				: 'R';
+			// Normalize full-word values (e.g. 'regular' → 'R', 'worldseries' → 'W').
+			const rawGt = (r.gametype || '').toUpperCase().trim();
+			const normGt = rawGt === 'REGULAR' || rawGt === 'RS' || rawGt === '0' ? 'R' : rawGt;
+			const gt = normGt || (tsPlayoff.has(r.gid) ? (tsWorldSeries.has(r.gid) ? 'W' : 'D') : 'R');
 			const regularSeason = gt === 'R' ? '1' : '0';
 			const playoff = ['D', 'L', 'W', 'F', 'C'].includes(gt) ? '1' : '0';
 			const worldseries = gt === 'W' ? r.season : '';
