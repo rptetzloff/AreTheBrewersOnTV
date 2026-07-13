@@ -142,75 +142,85 @@ export function parseTeamstatsMgr(raw) {
 	return result;
 }
 
+const INTERIM_THRESHOLD = 10;
+
 // Computes manager records directly from game rows (which include gid),
 // a gid→mgrId map from teamstats.csv, and an id→name map from biofile0.csv.
 // Mid-season changes are handled exactly because each game has its own gid.
+// Interim: a manager who never opened a season AND managed fewer than INTERIM_THRESHOLD games.
 export function computeCoachesFromData(rows, gidToMgr, mgrNames, championSeasons) {
 	const games = rows
-		.filter((g) => RESULTS.has(g['Brewers Win']))
+		.filter((g) => RESULTS.has(g['Brewers Win']) && g.gid && gidToMgr.has(g.gid))
 		.slice()
 		.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 
-	const byManager = new Map();
-	const managerOrder = [];
-	for (const g of games) {
-		const mgrId = gidToMgr.get(g.gid);
-		if (!mgrId) continue;
-		const name = mgrNames.get(mgrId);
-		if (!name) continue;
-		if (!byManager.has(name)) {
-			byManager.set(name, []);
-			managerOrder.push(name);
-		}
-		byManager.get(name).push(g);
-	}
-
-	const titleCount = new Map();
-	const bySeason = new Map();
+	// Which managers started at least one season (first game of each year).
+	const seasonStarters = new Set();
+	const seenSeason = new Set();
 	for (const g of games) {
 		const yr = parseInt(g.season, 10);
-		if (!bySeason.has(yr) || g.date > bySeason.get(yr).date) bySeason.set(yr, g);
-	}
-	for (const yr of championSeasons) {
-		const finale = bySeason.get(yr);
-		if (!finale?.gid) continue;
-		const mgrId = gidToMgr.get(finale.gid);
-		const name = mgrId && mgrNames.get(mgrId);
-		if (name) titleCount.set(name, (titleCount.get(name) || 0) + 1);
+		if (!seenSeason.has(yr)) {
+			seenSeason.add(yr);
+			seasonStarters.add(gidToMgr.get(g.gid));
+		}
 	}
 
-	const coaches = managerOrder
-		.filter((name) => byManager.get(name).length > 0)
-		.map((name) => {
-			const list = byManager.get(name);
-			const reg = { WIN: 0, LOSS: 0, TIE: 0 };
-			const playoff = { WIN: 0, LOSS: 0, TIE: 0 };
-			let pf = 0, pa = 0;
-			for (const g of list) {
-				(g.regular_season === '1' ? reg : playoff)[g['Brewers Win']]++;
-				pf += parseInt(g.brewers_score, 10) || 0;
-				pa += parseInt(g.opponent_score, 10) || 0;
-			}
-			const regGames = reg.WIN + reg.LOSS + reg.TIE;
-			const playoffGames = playoff.WIN + playoff.LOSS + playoff.TIE;
-			const firstSeason = parseInt(list[0].season, 10);
-			const lastSeason = parseInt(list[list.length - 1].season, 10);
-			return {
-				name, slug: slugifyCoach(name),
-				interim: false,
-				image: null, imagePage: null,
-				firstSeason, lastSeason,
-				tenure: firstSeason === lastSeason ? String(firstSeason) : `${firstSeason}–${lastSeason}`,
-				games: list.length,
-				wins: reg.WIN, losses: reg.LOSS, ties: reg.TIE,
-				record: rec(reg.WIN, reg.LOSS, reg.TIE),
-				winPct: regGames ? (reg.WIN + reg.TIE / 2) / regGames : 0,
-				playoffGames,
-				playoffRecord: playoffGames ? rec(playoff.WIN, playoff.LOSS, playoff.TIE) : null,
-				pf, pa,
-				titles: titleCount.get(name) || 0,
-			};
-		});
+	// Group games by mgrId in order of first appearance.
+	const byMgrId = new Map();
+	const mgrOrder = [];
+	for (const g of games) {
+		const mgrId = gidToMgr.get(g.gid);
+		if (!byMgrId.has(mgrId)) { byMgrId.set(mgrId, []); mgrOrder.push(mgrId); }
+		byMgrId.get(mgrId).push(g);
+	}
+
+	// Champion season → mgrId of that season's final game.
+	const titleCount = new Map();
+	const lastGameBySeason = new Map();
+	for (const g of games) {
+		const yr = parseInt(g.season, 10);
+		if (!lastGameBySeason.has(yr) || g.date > lastGameBySeason.get(yr).date)
+			lastGameBySeason.set(yr, g);
+	}
+	for (const yr of championSeasons) {
+		const finale = lastGameBySeason.get(yr);
+		if (!finale) continue;
+		const mgrId = gidToMgr.get(finale.gid);
+		if (mgrId) titleCount.set(mgrId, (titleCount.get(mgrId) || 0) + 1);
+	}
+
+	const coaches = mgrOrder.map((mgrId) => {
+		const list = byMgrId.get(mgrId);
+		const name = mgrNames.get(mgrId) || mgrId;
+		const isInterim = list.length < INTERIM_THRESHOLD && !seasonStarters.has(mgrId);
+		const reg = { WIN: 0, LOSS: 0, TIE: 0 };
+		const playoff = { WIN: 0, LOSS: 0, TIE: 0 };
+		let pf = 0, pa = 0;
+		for (const g of list) {
+			(g.regular_season === '1' ? reg : playoff)[g['Brewers Win']]++;
+			pf += parseInt(g.brewers_score, 10) || 0;
+			pa += parseInt(g.opponent_score, 10) || 0;
+		}
+		const regGames = reg.WIN + reg.LOSS + reg.TIE;
+		const playoffGames = playoff.WIN + playoff.LOSS + playoff.TIE;
+		const firstSeason = parseInt(list[0].season, 10);
+		const lastSeason = parseInt(list[list.length - 1].season, 10);
+		return {
+			name, slug: slugifyCoach(name),
+			interim: isInterim,
+			image: null, imagePage: null,
+			firstSeason, lastSeason,
+			tenure: firstSeason === lastSeason ? String(firstSeason) : `${firstSeason}–${lastSeason}`,
+			games: list.length,
+			wins: reg.WIN, losses: reg.LOSS, ties: reg.TIE,
+			record: rec(reg.WIN, reg.LOSS, reg.TIE),
+			winPct: regGames ? (reg.WIN + reg.TIE / 2) / regGames : 0,
+			playoffGames,
+			playoffRecord: playoffGames ? rec(playoff.WIN, playoff.LOSS, playoff.TIE) : null,
+			pf, pa,
+			titles: titleCount.get(mgrId) || 0,
+		};
+	});
 
 	return { coaches, bySlug: new Map(coaches.map((c) => [c.slug, c])) };
 }

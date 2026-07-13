@@ -23,13 +23,21 @@ export function parseGamesCsv(raw) {
 	});
 }
 
-// CurrentNames.csv has no header row; columns: team_id,league,division,city,nickname,first,last
+// CurrentNames.csv columns: franchiseName,teamName,league,division,city,team,alternate,startDate,endDate,...
 export function parseCurrentNamesCsv(raw) {
 	const names = {};
-	raw.trim().split('\n').forEach((line) => {
+	const lines = raw.trim().split('\n');
+	const headers = splitCsvLine(lines[0]);
+	const teamIdx = headers.indexOf('team');
+	const cityIdx = headers.indexOf('city');
+	const nameIdx = headers.indexOf('teamName');
+	for (const line of lines.slice(1)) {
 		const p = splitCsvLine(line);
-		if (p[0] && p[3] && p[4]) names[p[0]] = `${p[3]} ${p[4]}`;
-	});
+		const id = p[teamIdx]?.trim();
+		const city = p[cityIdx]?.trim();
+		const teamName = p[nameIdx]?.trim();
+		if (id && city && teamName) names[id] = `${city} ${teamName}`;
+	}
 	return names;
 }
 
