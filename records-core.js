@@ -52,16 +52,28 @@ export function parseCurrentNamesCsv(raw) {
 // Brewers Retrosheet team IDs across all seasons.
 export const BREWERS_IDS = new Set(['MIL', 'SEA']); // SEA = Seattle Pilots, 1969
 
+// Retrosheet uses league-suffix codes that may not appear in CurrentNames.csv.
+const RETROSHEET_TEAM_NAMES = {
+	CHN: 'Chicago Cubs', NYN: 'New York Mets', SFN: 'San Francisco Giants',
+	SDN: 'San Diego Padres', SLN: 'St. Louis Cardinals', LAN: 'Los Angeles Dodgers',
+	MON: 'Montreal Expos', FLO: 'Florida Marlins', WAS: 'Washington Nationals',
+	NYA: 'New York Yankees', CHA: 'Chicago White Sox', KCA: 'Kansas City Royals',
+	ANA: 'Anaheim Angels', CAL: 'California Angels', OAK: 'Oakland Athletics',
+};
+
 // Convert gameinfo.csv rows + CurrentNames.csv into the internal game-row format
 // used throughout records-core, h2h-core, etc.
-// teamstatsRaw is optional: when provided, its gametype column fills in the
-// gametype that gameinfo.csv may not include for playoff games.
+// teamstatsRaw is optional: its gametype column is used ONLY when it identifies
+// a known playoff type (D/L/W/F/C), so that regular season games (however
+// teamstats encodes them) always default to 'R'.
 export function parseGameinfoCsv(gamesRaw, namesRaw, teamstatsRaw = null) {
 	const teamNames = parseCurrentNamesCsv(namesRaw);
 
-	// Build gid→gametype from teamstats as a fallback for gameinfo rows that
-	// lack the gametype column (common in cwgame output).
-	const tsGametype = new Map();
+	// Build gid→gametype from teamstats, but only retain known playoff codes.
+	// teamstats may encode regular season as '0' or other non-'R' values; we
+	// ignore those and let regular games fall through to the 'R' default.
+	const tsPlayoff = new Set(); // gids confirmed as playoff by teamstats
+	const tsWorldSeries = new Set();
 	if (teamstatsRaw) {
 		const tsLines = teamstatsRaw.trim().split('\n');
 		const tsH = splitCsvLine(tsLines[0]);
@@ -69,8 +81,11 @@ export function parseGameinfoCsv(gamesRaw, namesRaw, teamstatsRaw = null) {
 		if (gidI >= 0 && gtI >= 0) {
 			for (const line of tsLines.slice(1)) {
 				const v = splitCsvLine(line);
-				const gid = v[gidI]?.trim(), gt = v[gtI]?.trim();
-				if (gid && gt && !tsGametype.has(gid)) tsGametype.set(gid, gt);
+				const gid = v[gidI]?.trim();
+				const gt = (v[gtI]?.trim() || '').toUpperCase();
+				if (!gid) continue;
+				if (['D', 'L', 'W', 'F', 'C'].includes(gt)) tsPlayoff.add(gid);
+				if (gt === 'W') tsWorldSeries.add(gid);
 			}
 		}
 	}
@@ -81,7 +96,7 @@ export function parseGameinfoCsv(gamesRaw, namesRaw, teamstatsRaw = null) {
 		.map((r) => {
 			const isHome = BREWERS_IDS.has(r.hometeam);
 			const opponentId = isHome ? r.visteam : r.hometeam;
-			const opponentName = teamNames[opponentId] || opponentId;
+			const opponentName = teamNames[opponentId] || RETROSHEET_TEAM_NAMES[opponentId] || opponentId;
 
 			const vr = r.vruns !== '' ? parseInt(r.vruns, 10) : NaN;
 			const hr = r.hruns !== '' ? parseInt(r.hruns, 10) : NaN;
@@ -99,7 +114,10 @@ export function parseGameinfoCsv(gamesRaw, namesRaw, teamstatsRaw = null) {
 				? `${rawDate.slice(0, 4)}-${rawDate.slice(4, 6)}-${rawDate.slice(6, 8)}`
 				: rawDate;
 
-			const gt = (r.gametype || tsGametype.get(r.gid) || 'R').toUpperCase();
+			// gameinfo.csv often lacks gametype; teamstats confirms known playoff gids.
+			const gt = r.gametype ? r.gametype.toUpperCase()
+				: tsPlayoff.has(r.gid) ? (tsWorldSeries.has(r.gid) ? 'W' : 'D')
+				: 'R';
 			const regularSeason = gt === 'R' ? '1' : '0';
 			const playoff = ['D', 'L', 'W', 'F', 'C'].includes(gt) ? '1' : '0';
 			const worldseries = gt === 'W' ? r.season : '';
