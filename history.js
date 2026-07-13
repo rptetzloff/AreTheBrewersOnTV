@@ -4,7 +4,7 @@
 // folded in, manager-era strips carry each manager's record, hover shows a
 // season's numbers, and clicking a season opens its page.
 import { parseGameinfoCsv, computeSeasonHistory, historyCopy } from './records-core.js';
-import { parseCoachesCsv, computeCoaches } from './coaches-core.js';
+import { parseBiofile, parseTeamstatsMgr, computeCoachesFromData } from './coaches-core.js';
 import { buildChartSvg, METRICS } from './history-chart.js';
 import { shareButtonsHtml, wireShareRow } from './share-core.js';
 
@@ -72,20 +72,23 @@ function render(history, coaches, metrics) {
 
 async function init() {
 	try {
-		const [gamesRes, namesRes, coachesRes] = await Promise.all([
+		const [gamesRes, namesRes, teamstatsRes, biofileRes] = await Promise.all([
 			fetch('/data/gameinfo.csv'),
 			fetch('/data/CurrentNames.csv'),
-			fetch('/data/brewers_coaches.csv').catch(() => null),
+			fetch('/data/teamstats.csv'),
+			fetch('/data/biofile0.csv'),
 		]);
-		if (!gamesRes.ok || !namesRes.ok) throw new Error('CSV fetch failed');
-		const rows = parseGameinfoCsv(await gamesRes.text(), await namesRes.text());
-		const coachesText = coachesRes?.ok ? await coachesRes.text() : '';
+		if (!gamesRes.ok || !namesRes.ok || !teamstatsRes.ok || !biofileRes.ok) throw new Error('CSV fetch failed');
+		const teamstatsText = await teamstatsRes.text();
+		const rows = parseGameinfoCsv(await gamesRes.text(), await namesRes.text(), teamstatsText);
+		const gidToMgr = parseTeamstatsMgr(teamstatsText);
+		const mgrNames = parseBiofile(await biofileRes.text());
 		const histories = {
 			regular: computeSeasonHistory(rows),
 			playoffs: computeSeasonHistory(rows, { playoffs: true }),
 		};
 		const champions = histories.regular.filter((s) => s.champion).map((s) => s.season);
-		const { coaches } = computeCoaches(rows, parseCoachesCsv(coachesText), champions);
+		const { coaches } = computeCoachesFromData(rows, gidToMgr, mgrNames, champions);
 
 		const titles = histories.regular.filter((s) => s.champion).length;
 		const range = `${histories.regular[0].season}–${histories.regular[histories.regular.length - 1].season}`;

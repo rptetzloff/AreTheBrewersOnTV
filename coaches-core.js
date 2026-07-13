@@ -2,7 +2,7 @@
 // game to a managing tenure by date. Tenures come from
 // data/brewers_coaches.csv (from/to dates, so mid-season changes split
 // correctly). Pure functions only.
-import { rec, splitCsvLine } from './records-core.js';
+import { rec, splitCsvLine, BREWERS_IDS } from './records-core.js';
 
 export const slugifyCoach = (name) =>
 	name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
@@ -100,4 +100,127 @@ export function coachesCopy(data) {
 		title: `Brewers Managers, ${coaches[0].firstSeason}–present`,
 		desc: `Every Milwaukee Brewers manager and their record — ${coaches.length} of them, ${titles} championships. Most wins: ${wins.name} (${wins.record}).`,
 	};
+}
+
+// Parses biofile0.csv (biographical register). Returns Map<id, displayName>.
+export function parseBiofile(raw) {
+	const lines = raw.trim().split('\n');
+	const headers = splitCsvLine(lines[0]);
+	const idIdx = headers.indexOf('id');
+	const lastIdx = headers.indexOf('lastname');
+	const useIdx = headers.indexOf('usename');
+	const fullIdx = headers.indexOf('fullname');
+	const result = new Map();
+	for (const line of lines.slice(1)) {
+		const v = splitCsvLine(line);
+		const id = v[idIdx]?.trim();
+		if (!id) continue;
+		const last = v[lastIdx]?.trim() || '';
+		const use = v[useIdx]?.trim() || '';
+		const full = v[fullIdx]?.trim() || '';
+		result.set(id, use ? `${use} ${last}` : (full || last));
+	}
+	return result;
+}
+
+// Parses teamstats.csv, returning Map<gid, mgrId> for Brewers games only.
+export function parseTeamstatsMgr(raw) {
+	const lines = raw.trim().split('\n');
+	const headers = splitCsvLine(lines[0]);
+	const gidIdx = headers.indexOf('gid');
+	const teamIdx = headers.indexOf('team');
+	const mgrIdx = headers.indexOf('mgr');
+	const result = new Map();
+	for (const line of lines.slice(1)) {
+		const v = splitCsvLine(line);
+		const team = v[teamIdx]?.trim();
+		if (!BREWERS_IDS.has(team)) continue;
+		const gid = v[gidIdx]?.trim();
+		const mgr = v[mgrIdx]?.trim();
+		if (gid && mgr) result.set(gid, mgr);
+	}
+	return result;
+}
+
+const INTERIM_THRESHOLD = 10;
+
+// Computes manager records directly from game rows (which include gid),
+// a gid→mgrId map from teamstats.csv, and an id→name map from biofile0.csv.
+// Mid-season changes are handled exactly because each game has its own gid.
+// Interim: a manager who never opened a season AND managed fewer than INTERIM_THRESHOLD games.
+export function computeCoachesFromData(rows, gidToMgr, mgrNames, championSeasons) {
+	const games = rows
+		.filter((g) => RESULTS.has(g['Brewers Win']) && g.gid && gidToMgr.has(g.gid))
+		.slice()
+		.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+
+	// Which managers started at least one season (first game of each year).
+	const seasonStarters = new Set();
+	const seenSeason = new Set();
+	for (const g of games) {
+		const yr = parseInt(g.season, 10);
+		if (!seenSeason.has(yr)) {
+			seenSeason.add(yr);
+			seasonStarters.add(gidToMgr.get(g.gid));
+		}
+	}
+
+	// Group games by mgrId in order of first appearance.
+	const byMgrId = new Map();
+	const mgrOrder = [];
+	for (const g of games) {
+		const mgrId = gidToMgr.get(g.gid);
+		if (!byMgrId.has(mgrId)) { byMgrId.set(mgrId, []); mgrOrder.push(mgrId); }
+		byMgrId.get(mgrId).push(g);
+	}
+
+	// Champion season → mgrId of that season's final game.
+	const titleCount = new Map();
+	const lastGameBySeason = new Map();
+	for (const g of games) {
+		const yr = parseInt(g.season, 10);
+		if (!lastGameBySeason.has(yr) || g.date > lastGameBySeason.get(yr).date)
+			lastGameBySeason.set(yr, g);
+	}
+	for (const yr of championSeasons) {
+		const finale = lastGameBySeason.get(yr);
+		if (!finale) continue;
+		const mgrId = gidToMgr.get(finale.gid);
+		if (mgrId) titleCount.set(mgrId, (titleCount.get(mgrId) || 0) + 1);
+	}
+
+	const coaches = mgrOrder.map((mgrId) => {
+		const list = byMgrId.get(mgrId);
+		const name = mgrNames.get(mgrId) || mgrId;
+		const isInterim = list.length < INTERIM_THRESHOLD && !seasonStarters.has(mgrId);
+		const reg = { WIN: 0, LOSS: 0, TIE: 0 };
+		const playoff = { WIN: 0, LOSS: 0, TIE: 0 };
+		let pf = 0, pa = 0;
+		for (const g of list) {
+			(g.regular_season === '1' ? reg : playoff)[g['Brewers Win']]++;
+			pf += parseInt(g.brewers_score, 10) || 0;
+			pa += parseInt(g.opponent_score, 10) || 0;
+		}
+		const regGames = reg.WIN + reg.LOSS + reg.TIE;
+		const playoffGames = playoff.WIN + playoff.LOSS + playoff.TIE;
+		const firstSeason = parseInt(list[0].season, 10);
+		const lastSeason = parseInt(list[list.length - 1].season, 10);
+		return {
+			name, slug: slugifyCoach(name),
+			interim: isInterim,
+			image: null, imagePage: null,
+			firstSeason, lastSeason,
+			tenure: firstSeason === lastSeason ? String(firstSeason) : `${firstSeason}–${lastSeason}`,
+			games: list.length,
+			wins: reg.WIN, losses: reg.LOSS, ties: reg.TIE,
+			record: rec(reg.WIN, reg.LOSS, reg.TIE),
+			winPct: regGames ? (reg.WIN + reg.TIE / 2) / regGames : 0,
+			playoffGames,
+			playoffRecord: playoffGames ? rec(playoff.WIN, playoff.LOSS, playoff.TIE) : null,
+			pf, pa,
+			titles: titleCount.get(mgrId) || 0,
+		};
+	});
+
+	return { coaches, bySlug: new Map(coaches.map((c) => [c.slug, c])) };
 }

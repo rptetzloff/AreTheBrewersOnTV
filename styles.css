@@ -1806,3 +1806,109 @@ details:not([open]) > .collapsible-summary::before {
     border-color: rgba(255, 197, 47, 0.6);
 }
 
+/* ── Line score modal ── */
+.linescore-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 0;
+}
+
+.linescore-dialog {
+    position: relative;
+    z-index: 1;
+    background: #1a3a6b;
+    border: 1px solid rgba(255, 197, 47, 0.3);
+    border-radius: 12px;
+    padding: 1.5rem;
+    width: min(96vw, 720px);
+    max-height: 80vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.linescore-body {
+    overflow-x: auto;
+}
+
+.linescore-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.linescore-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.linescore-table thead th {
+    background: rgba(255, 197, 47, 0.12);
+    color: rgba(255, 255, 255, 0.7);
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.45rem 0.6rem;
+    text-align: center;
+    border-bottom: 1px solid rgba(255, 197, 47, 0.25);
+}
+
+.linescore-table td {
+    padding: 0.5rem 0.6rem;
+    text-align: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.linescore-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.linescore-team-col {
+    text-align: left !important;
+    font-weight: 700;
+    min-width: 90px;
+    color: rgba(255, 255, 255, 0.95) !important;
+}
+
+.linescore-rhe {
+    border-left: 1px solid rgba(255, 197, 47, 0.2) !important;
+    font-weight: 600;
+}
+
+.linescore-total {
+    color: #FFC52F !important;
+    font-weight: 800 !important;
+}
+
+.linescore-brewers td {
+    background: rgba(255, 197, 47, 0.05);
+}
+
+/* Score cell clickable indicator */
+.linescore-trigger {
+    cursor: pointer;
+    position: relative;
+}
+
+.linescore-trigger::after {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    background: rgba(255, 197, 47, 0.6);
+    border-radius: 50%;
+    margin-left: 5px;
+    vertical-align: middle;
+}
+
+.linescore-trigger:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+

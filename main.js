@@ -1,4 +1,4 @@
-        import { parseGamesCsv, parseGameinfoCsv, computeSeasonHistory } from './records-core.js';
+        import { parseGamesCsv, parseGameinfoCsv, computeSeasonHistory, parseTeamstatsLineScores } from './records-core.js';
         import { computeHeadToHead, canonicalOpponent } from './h2h-core.js';
         import { buildChartSvg } from './history-chart.js';
         import { intentUrls, copyText, flashCopied } from './share-core.js';
@@ -27,6 +27,7 @@
         		this.seasonRecords = {};
         		this.photosBySeason = {};
         		this.channelMeta = {};
+        		this.lineScores = null;
         		this.init();
         	}
 
@@ -83,11 +84,12 @@
         				});
         			});
 
-        			const [gamesRes, namesRes, photosRes, channelsRes] = await Promise.all([
+        			const [gamesRes, namesRes, photosRes, channelsRes, teamstatsRes] = await Promise.all([
         				fetch('./data/gameinfo.csv'),
         				fetch('./data/CurrentNames.csv'),
         				fetch('./data/photos.csv').catch(() => null),
         				fetch('./data/broadcast_channels.csv'),
+        				fetch('./data/teamstats.csv'),
         			]);
         			if (channelsRes.ok) {
         				const raw = await channelsRes.text();
@@ -100,8 +102,10 @@
         				});
         			}
         			if (gamesRes.ok && namesRes.ok) {
-        				const games = parseGameinfoCsv(await gamesRes.text(), await namesRes.text());
+        				const teamstatsText = teamstatsRes?.ok ? await teamstatsRes.text() : null;
+        				const games = parseGameinfoCsv(await gamesRes.text(), await namesRes.text(), teamstatsText);
         				this.csvBySeason = buildSeasonMap(games);
+        				if (teamstatsText) this.lineScores = parseTeamstatsLineScores(teamstatsText);
         				// name -> all-time head-to-head entry, for schedule annotations
         				this.h2hByName = new Map(computeHeadToHead(games).opponents.map(o => [o.name, o]));
         				this.seasonHistory = computeSeasonHistory(games);
@@ -134,6 +138,7 @@
         			}
         			this.initGallery();
         			this.initWatchModal();
+        			this.initLinescoreModal();
         			this.buildOnThisDay();
         			const params = new URLSearchParams(window.location.search);
         			const seasonParam = params.get('season');
@@ -416,8 +421,28 @@ displayCsvSchedule(games, season) {
   sorted.forEach(g => {
      const isPlayoff = g.playoff === '1';
      const isRegular = g.regular_season === '1';
-     const section = isPlayoff ? 'post' : (isRegular ? 'regular' : 'other');
-     const sectionLabels = { post: 'Playoffs', regular: 'Regular Season', other: 'Other' };
+     let section;
+     if (isRegular) {
+        section = 'regular';
+     } else if (isPlayoff) {
+        const gt = (g.gametype || '').toUpperCase();
+        if (gt === 'W') section = 'ws';
+        else if (gt === 'L' || gt === 'C') section = 'lcs';
+        else if (gt === 'D') section = 'ds';
+        else if (gt === 'F') section = 'wc';
+        else section = 'post';
+     } else {
+        section = 'other';
+     }
+     const sectionLabels = {
+        regular: 'Regular Season',
+        wc: 'Wild Card',
+        ds: 'Division Series',
+        lcs: 'League Championship Series',
+        ws: 'World Series',
+        post: 'Playoffs',
+        other: 'Preseason / Exhibition',
+     };
 
      if (section !== currentSection) {
         currentSection = section;
@@ -491,6 +516,15 @@ createCsvGameItem(g, showH2h = false) {
         		scoreDiv.style.textAlign = 'center';
         		scoreDiv.style.marginTop = '0.5rem';
         		scoreDiv.style.width = '100%';
+
+        		if (this.lineScores?.has(g.gid)) {
+        			scoreDiv.classList.add('linescore-trigger');
+        			scoreDiv.title = 'Click for line score';
+        			scoreDiv.addEventListener('click', (e) => {
+        				e.stopPropagation();
+        				this.openLinescoreModal(g);
+        			});
+        		}
 
         		gameItem.appendChild(scoreDiv);
         		return gameItem;
@@ -1575,6 +1609,93 @@ async openWatchModal(game) {
 
 closeWatchModal() {
   document.getElementById('watch-modal').hidden = true;
+  document.body.style.overflow = '';
+}
+
+initLinescoreModal() {
+  const modal = document.getElementById('linescore-modal');
+  modal.querySelector('.linescore-backdrop').addEventListener('click', () => this.closeLinescoreModal());
+  document.getElementById('linescore-close').addEventListener('click', () => this.closeLinescoreModal());
+  document.addEventListener('keydown', (e) => {
+    if (!modal.hidden && e.key === 'Escape') this.closeLinescoreModal();
+  });
+}
+
+openLinescoreModal(g) {
+  const ls = this.lineScores?.get(g.gid);
+  if (!ls) return;
+
+  const { visitor, home } = ls;
+  if (!visitor || !home) return;
+
+  // Determine how many innings were actually played (trim trailing empty entries)
+  const maxInns = Math.max(
+    ...visitor.inns.map((v, i) => (v !== '' ? i + 1 : 0)),
+    ...home.inns.map((v, i) => (v !== '' ? i + 1 : 0)),
+    9
+  );
+
+  // Which side is the Brewers?
+  const BREWERS_ABBRS = new Set(['MIL', 'SE1']);
+  const brewersIsHome = BREWERS_ABBRS.has(home.team);
+  const brewersLabel = 'MIL';
+  const oppLabel = g.Opponent;
+
+  const visLabel = brewersIsHome ? oppLabel : brewersLabel;
+  const homLabel = brewersIsHome ? brewersLabel : oppLabel;
+
+  const formatCell = (val) => val === '' ? 'x' : val === 'x' ? 'x' : val;
+
+  const modal = document.getElementById('linescore-modal');
+  const date = new Date(g.date);
+  const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  document.getElementById('linescore-title').textContent = `${visLabel} @ ${homLabel} — ${dateStr}`;
+
+  const body = document.getElementById('linescore-body');
+
+  // Build inning header cells
+  const innHeaders = Array.from({ length: maxInns }, (_, i) => `<th>${i + 1}</th>`).join('');
+  const visInns = Array.from({ length: maxInns }, (_, i) => `<td>${formatCell(visitor.inns[i] ?? '')}</td>`).join('');
+  const homInns = Array.from({ length: maxInns }, (_, i) => `<td>${formatCell(home.inns[i] ?? '')}</td>`).join('');
+
+  body.innerHTML = `
+    <div class="linescore-wrap">
+      <table class="linescore-table">
+        <thead>
+          <tr>
+            <th class="linescore-team-col">Team</th>
+            ${innHeaders}
+            <th class="linescore-rhe">R</th>
+            <th class="linescore-rhe">H</th>
+            <th class="linescore-rhe">E</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="${brewersIsHome ? '' : 'linescore-brewers'}">
+            <td class="linescore-team-col">${visLabel}</td>
+            ${visInns}
+            <td class="linescore-rhe linescore-total">${visitor.r}</td>
+            <td class="linescore-rhe">${visitor.h}</td>
+            <td class="linescore-rhe">${visitor.e}</td>
+          </tr>
+          <tr class="${brewersIsHome ? 'linescore-brewers' : ''}">
+            <td class="linescore-team-col">${homLabel}</td>
+            ${homInns}
+            <td class="linescore-rhe linescore-total">${home.r}</td>
+            <td class="linescore-rhe">${home.h}</td>
+            <td class="linescore-rhe">${home.e}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  modal.hidden = false;
+  document.body.style.overflow = 'hidden';
+}
+
+closeLinescoreModal() {
+  document.getElementById('linescore-modal').hidden = true;
   document.body.style.overflow = '';
 }
 

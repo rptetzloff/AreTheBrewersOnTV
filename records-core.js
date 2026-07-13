@@ -23,23 +23,121 @@ export function parseGamesCsv(raw) {
 	});
 }
 
-// CurrentNames.csv has no header row; columns: team_id,league,division,city,nickname,first,last
+// CurrentNames.csv columns: franchiseName,teamName,league,division,city,team,alternate,startDate,endDate,...
+// teamName = period-specific abbreviation used as the primary lookup key.
+// franchiseName and alternate are indexed too so Retrosheet franchise codes
+// (e.g. CHN, NYN, NYA) resolve even when the period teamName differs.
 export function parseCurrentNamesCsv(raw) {
 	const names = {};
-	raw.trim().split('\n').forEach((line) => {
+	const lines = raw.trim().split('\n');
+	const headers = splitCsvLine(lines[0]);
+	const franIdx = headers.indexOf('franchiseName');
+	const keyIdx = headers.indexOf('teamName');
+	const cityIdx = headers.indexOf('city');
+	const nickIdx = headers.indexOf('team');
+	const altIdx = headers.indexOf('alternate');
+	for (const line of lines.slice(1)) {
 		const p = splitCsvLine(line);
-		if (p[0] && p[3] && p[4]) names[p[0]] = `${p[3]} ${p[4]}`;
-	});
+		const id = p[keyIdx]?.trim();
+		const city = p[cityIdx]?.trim();
+		const nick = p[nickIdx]?.trim();
+		if (id && city && nick) {
+			const display = `${city} ${nick}`;
+			names[id] = display;
+			// Also index by franchiseName (first occurrence wins — later rows of the same
+			// franchise would overwrite the historical display name with a modern one).
+			const fran = franIdx >= 0 ? p[franIdx]?.trim() : '';
+			if (fran && fran !== id && !names[fran]) names[fran] = display;
+			// Also index by alternate abbreviation (first occurrence wins).
+			const alt = altIdx >= 0 ? p[altIdx]?.trim() : '';
+			if (alt && alt !== id && !names[alt]) names[alt] = display;
+		}
+	}
 	return names;
 }
 
 // Brewers Retrosheet team IDs across all seasons.
-const BREWERS_IDS = new Set(['MIL', 'SEA']); // SEA = Seattle Pilots, 1969
+// SE1 = Seattle Pilots (1969); MIL = Milwaukee Brewers (1970–present).
+export const BREWERS_IDS = new Set(['MIL', 'SE1']);
+
+// Retrosheet teamName codes that may not appear in CurrentNames.csv or whose
+// franchiseName lookup could resolve to the wrong era. Covers all opponents
+// the Brewers have faced since 1969 (AL 1969–1997, NL 1998+, interleague).
+const RETROSHEET_TEAM_NAMES = {
+	// NL teams
+	CHN: 'Chicago Cubs', NYN: 'New York Mets', SFN: 'San Francisco Giants',
+	SDN: 'San Diego Padres', SLN: 'St. Louis Cardinals', LAN: 'Los Angeles Dodgers',
+	MON: 'Montreal Expos', FLO: 'Florida Marlins', MIA: 'Miami Marlins',
+	WAS: 'Washington Nationals',
+	ARI: 'Arizona Diamondbacks', COL: 'Colorado Rockies',
+	ATL: 'Atlanta Braves', HOU: 'Houston Astros', PHI: 'Philadelphia Phillies',
+	PIT: 'Pittsburgh Pirates', CIN: 'Cincinnati Reds',
+	// AL teams
+	NYA: 'New York Yankees', CHA: 'Chicago White Sox', KCA: 'Kansas City Royals',
+	BOS: 'Boston Red Sox', BAL: 'Baltimore Orioles', CLE: 'Cleveland Guardians',
+	DET: 'Detroit Tigers', MIN: 'Minnesota Twins', OAK: 'Oakland Athletics',
+	SEA: 'Seattle Mariners', TEX: 'Texas Rangers', TOR: 'Toronto Blue Jays',
+	TBA: 'Tampa Bay Rays', TBD: 'Tampa Bay Devil Rays',
+	LAA: 'Los Angeles Angels',
+	// Historical / franchise-era codes
+	ANA: 'Anaheim Angels', CAL: 'California Angels',
+	SE1: 'Seattle Pilots',
+	WS1: 'Washington Senators', WS2: 'Washington Senators',
+	KC1: 'Kansas City Athletics',
+	PHA: 'Philadelphia Athletics', ATH: 'Oakland Athletics',
+	MLN: 'Milwaukee Braves',
+	BSN: 'Boston Braves', BRO: 'Brooklyn Dodgers', NY1: 'New York Giants',
+	SLA: 'St. Louis Browns', BLA: 'Baltimore Orioles',
+	CLE1: 'Cleveland Spiders',
+};
+
+// Maps any gametype string to a canonical single-letter code:
+//   R = regular season, F = wild card, D = division series,
+//   L = league championship, W = world series
+function normalizeGametype(gt) {
+	if (!gt) return '';
+	const u = gt.toUpperCase().replace(/[\s_-]/g, '');
+	if (u === 'R' || u === 'RS' || u === '0' || u === 'REGULAR') return 'R';
+	if (u === 'W' || u === 'WS' || u === 'WORLDSERIES') return 'W';
+	if (u === 'L' || u === 'LCS' || u === 'ALCS' || u === 'NLCS' || u === 'C') return 'L';
+	if (u === 'D' || u === 'DS' || u === 'DIVISIONSERIES' || u === 'DIVISION') return 'D';
+	if (u === 'F' || u === 'WILDCARD' || u === 'WILDCARDGAME') return 'F';
+	if (u === 'PLAYOFF' || u === 'PLAYOFFS' || u === 'P') return 'D';
+	return '';
+}
 
 // Convert gameinfo.csv rows + CurrentNames.csv into the internal game-row format
 // used throughout records-core, h2h-core, etc.
-export function parseGameinfoCsv(gamesRaw, namesRaw) {
+// teamstatsRaw is optional: its gametype column is used ONLY when it identifies
+// a known playoff type (D/L/W/F/C), so that regular season games (however
+// teamstats encodes them) always default to 'R'.
+export function parseGameinfoCsv(gamesRaw, namesRaw, teamstatsRaw = null) {
 	const teamNames = parseCurrentNamesCsv(namesRaw);
+
+	// Build gid→gametype from teamstats, but only retain known playoff codes.
+	// teamstats uses full-word values: 'regular' for regular season, and words
+	// like 'division', 'lcs', 'worldseries', 'wildcard' for postseason games.
+	// We treat anything that is NOT a regular-season indicator as a playoff game.
+	const tsPlayoff = new Set(); // gids confirmed as playoff by teamstats
+	const tsWorldSeries = new Set();
+	if (teamstatsRaw) {
+		const tsLines = teamstatsRaw.trim().split('\n');
+		const tsH = splitCsvLine(tsLines[0]);
+		const gidI = tsH.indexOf('gid'), gtI = tsH.indexOf('gametype');
+		if (gidI >= 0 && gtI >= 0) {
+			for (const line of tsLines.slice(1)) {
+				const v = splitCsvLine(line);
+				const gid = v[gidI]?.trim();
+				const gt = (v[gtI]?.trim() || '').toUpperCase();
+				if (!gid) continue;
+				// Regular-season identifiers (letter 'R', word 'REGULAR', numeric '0')
+				const norm = normalizeGametype(gt);
+				if (!norm || norm === 'R') continue;
+				tsPlayoff.add(gid);
+				if (norm === 'W') tsWorldSeries.add(gid);
+			}
+		}
+	}
 	const rows = parseGamesCsv(gamesRaw);
 
 	return rows
@@ -47,7 +145,7 @@ export function parseGameinfoCsv(gamesRaw, namesRaw) {
 		.map((r) => {
 			const isHome = BREWERS_IDS.has(r.hometeam);
 			const opponentId = isHome ? r.visteam : r.hometeam;
-			const opponentName = teamNames[opponentId] || opponentId;
+			const opponentName = teamNames[opponentId] || RETROSHEET_TEAM_NAMES[opponentId] || opponentId;
 
 			const vr = r.vruns !== '' ? parseInt(r.vruns, 10) : NaN;
 			const hr = r.hruns !== '' ? parseInt(r.hruns, 10) : NaN;
@@ -65,17 +163,24 @@ export function parseGameinfoCsv(gamesRaw, namesRaw) {
 				? `${rawDate.slice(0, 4)}-${rawDate.slice(4, 6)}-${rawDate.slice(6, 8)}`
 				: rawDate;
 
-			const gt = (r.gametype || 'R').toUpperCase();
+			// Normalize gametype to single-letter codes used throughout.
+			// teamstats uses full words: regular, wildcard, divisionseries, lcs, worldseries, playoff.
+			// gameinfo.csv may use R/D/L/W/F or be empty.
+			const rawGt = (r.gametype || '').toUpperCase().trim();
+			const normGt = normalizeGametype(rawGt);
+			const gt = normGt || (tsPlayoff.has(r.gid) ? (tsWorldSeries.has(r.gid) ? 'W' : 'D') : 'R');
 			const regularSeason = gt === 'R' ? '1' : '0';
-			const playoff = ['D', 'L', 'W', 'F', 'C'].includes(gt) ? '1' : '0';
+			const playoff = gt !== 'R' ? '1' : '0';
 			const worldseries = gt === 'W' ? r.season : '';
 
 			return {
+				gid: r.gid || '',
 				date: isoDate,
 				season: r.season,
 				regular_season: regularSeason,
 				playoff,
 				worldseries,
+				gametype: gt,
 				Opponent: opponentName,
 				'Brewers Win': result,
 				brewers_score: isNaN(brewersScore) ? '' : String(brewersScore),
@@ -152,13 +257,17 @@ export function computeSuperlatives(rows, { top = 5, now = new Date() } = {}) {
 	}
 	perfectSeasons.sort((a, b) => b.wins - a.wins || a.season - b.season);
 
-	// Regular-season win streaks, allowed to span seasons; a loss or tie ends one.
+	// Regular-season win streaks, contained within a single season; a loss or tie ends one.
 	const winStreaks = [];
 	let run = null;
-	const endRun = () => { if (run) { winStreaks.push(run); run = null; } };
+	let runSeason = null;
+	const endRun = () => { if (run) { winStreaks.push(run); run = null; runSeason = null; } };
 	for (const g of regular) {
+		const gSeason = parseInt(g.season, 10);
+		if (runSeason !== null && gSeason !== runSeason) endRun();
 		if (g['Brewers Win'] === 'WIN') {
 			if (!run) run = { games: 0, start: null, end: null };
+			runSeason = gSeason;
 			run.games++;
 			if (!run.start) run.start = g;
 			run.end = g;
@@ -333,6 +442,42 @@ export function recordsCopy(slug, data) {
 				desc: `Best starts, perfect seasons, longest win streaks, worst starts, lopsided wins, worst losses, and every tie — Milwaukee Brewers, ${range}.`,
 			};
 	}
+}
+
+// Parse teamstats.csv and return a Map of gid → { visitor, home } where each side has:
+//   team, inns (array of run strings per inning, '' for not played), r, h, e
+export function parseTeamstatsLineScores(raw) {
+	const lines = raw.trim().split('\n');
+	const headers = splitCsvLine(lines[0]);
+	const gidI = headers.indexOf('gid');
+	const teamI = headers.indexOf('team');
+	const vhI = headers.indexOf('vishome');
+	const runI = headers.indexOf('b_r');
+	const hitI = headers.indexOf('b_h');
+	const errI = headers.indexOf('d_e');
+	const innIdxs = [];
+	for (let i = 1; i <= 28; i++) {
+		innIdxs.push(headers.indexOf(`inn${i}`));
+	}
+	const map = new Map();
+	for (const line of lines.slice(1)) {
+		const v = splitCsvLine(line);
+		const gid = v[gidI]?.trim();
+		if (!gid) continue;
+		if (!map.has(gid)) map.set(gid, {});
+		const entry = map.get(gid);
+		const vh = v[vhI]?.trim();
+		const side = {
+			team: v[teamI]?.trim() || '',
+			inns: innIdxs.map(idx => (idx >= 0 ? v[idx]?.trim() ?? '' : '')),
+			r: parseInt(v[runI], 10) || 0,
+			h: parseInt(v[hitI], 10) || 0,
+			e: parseInt(v[errI], 10) || 0,
+		};
+		if (vh === 'v') entry.visitor = side;
+		else if (vh === 'h') entry.home = side;
+	}
+	return map;
 }
 
 export const RECORD_SLUGS = ['best-starts', 'perfect-seasons', 'win-streaks', 'worst-starts', 'lopsided-wins', 'worst-losses', 'ties'];
