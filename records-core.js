@@ -24,19 +24,20 @@ export function parseGamesCsv(raw) {
 }
 
 // CurrentNames.csv columns: franchiseName,teamName,league,division,city,team,alternate,startDate,endDate,...
+// teamName = Retrosheet abbreviation (lookup key); city + team = display name
 export function parseCurrentNamesCsv(raw) {
 	const names = {};
 	const lines = raw.trim().split('\n');
 	const headers = splitCsvLine(lines[0]);
-	const teamIdx = headers.indexOf('team');
+	const keyIdx = headers.indexOf('teamName');
 	const cityIdx = headers.indexOf('city');
-	const nameIdx = headers.indexOf('teamName');
+	const nickIdx = headers.indexOf('team');
 	for (const line of lines.slice(1)) {
 		const p = splitCsvLine(line);
-		const id = p[teamIdx]?.trim();
+		const id = p[keyIdx]?.trim();
 		const city = p[cityIdx]?.trim();
-		const teamName = p[nameIdx]?.trim();
-		if (id && city && teamName) names[id] = `${city} ${teamName}`;
+		const nick = p[nickIdx]?.trim();
+		if (id && city && nick) names[id] = `${city} ${nick}`;
 	}
 	return names;
 }
