@@ -444,4 +444,40 @@ export function recordsCopy(slug, data) {
 	}
 }
 
+// Parse teamstats.csv and return a Map of gid → { visitor, home } where each side has:
+//   team, inns (array of run strings per inning, '' for not played), r, h, e
+export function parseTeamstatsLineScores(raw) {
+	const lines = raw.trim().split('\n');
+	const headers = splitCsvLine(lines[0]);
+	const gidI = headers.indexOf('gid');
+	const teamI = headers.indexOf('team');
+	const vhI = headers.indexOf('vishome');
+	const runI = headers.indexOf('b_r');
+	const hitI = headers.indexOf('b_h');
+	const errI = headers.indexOf('d_e');
+	const innIdxs = [];
+	for (let i = 1; i <= 28; i++) {
+		innIdxs.push(headers.indexOf(`inn${i}`));
+	}
+	const map = new Map();
+	for (const line of lines.slice(1)) {
+		const v = splitCsvLine(line);
+		const gid = v[gidI]?.trim();
+		if (!gid) continue;
+		if (!map.has(gid)) map.set(gid, {});
+		const entry = map.get(gid);
+		const vh = v[vhI]?.trim();
+		const side = {
+			team: v[teamI]?.trim() || '',
+			inns: innIdxs.map(idx => (idx >= 0 ? v[idx]?.trim() ?? '' : '')),
+			r: parseInt(v[runI], 10) || 0,
+			h: parseInt(v[hitI], 10) || 0,
+			e: parseInt(v[errI], 10) || 0,
+		};
+		if (vh === 'v') entry.visitor = side;
+		else if (vh === 'h') entry.home = side;
+	}
+	return map;
+}
+
 export const RECORD_SLUGS = ['best-starts', 'perfect-seasons', 'win-streaks', 'worst-starts', 'lopsided-wins', 'worst-losses', 'ties'];
