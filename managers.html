@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brewers Managers</title>
+    <meta name="description" content="Every Milwaukee Brewers manager and their record, from Dave Bristol to today.">
+    <meta property="og:title" content="Brewers Managers">
+    <meta property="og:description" content="Every Milwaukee Brewers manager and their record, from Dave Bristol to today.">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+    <!-- Absolute asset paths: this shell is also reachable at /managers/, where relative paths would break. -->
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <div class="container records-container">
+        <a href="/" class="records-back"><i class="mdi mdi-arrow-left"></i> Are the Brewers On TV?</a>
+        <h1 class="records-title">Managers</h1>
+        <p id="coaches-subtitle" class="records-subtitle"></p>
+        <div class="h2h-controls">
+            <label class="h2h-check"><input type="checkbox" id="coaches-interim" checked> Include interim managers</label>
+        </div>
+        <div id="coaches-table-wrap" class="h2h-table-wrap">
+            <div class="loading">Loading managers...</div>
+        </div>
+        <p class="history-legend">
+            <span class="history-legend-item">* interim · records are regular season; partial-season stints are tracked by exact dates</span>
+            <span class="history-legend-item">Photos: Wikimedia Commons (public domain / CC) — click a photo for source &amp; license</span>
+        </p>
+        <div class="record-share" id="coaches-share"></div>
+    </div>
+
+    <footer class="site-footer">
+        <a href="https://github.com/rptetzloff/AreTheBrewersUndefeated" target="_blank" rel="noopener noreferrer" class="github-link">
+            <i class="mdi mdi-github"></i>
+            View on GitHub
+        </a>
+    </footer>
+
+    <script src="/coaches.js" type="module"></script>
+</body>
+</html>

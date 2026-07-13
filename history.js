@@ -66,7 +66,7 @@ function render(history, coaches, metrics) {
 		strip.addEventListener('mouseenter', () => showTooltip(coachLabel(c)));
 		strip.addEventListener('mousemove', placeTooltip);
 		strip.addEventListener('mouseleave', () => { tooltip.hidden = true; });
-		strip.addEventListener('click', () => { window.location.href = '/coaches.html'; });
+		strip.addEventListener('click', () => { window.location.href = '/managers.html'; });
 	});
 }
 

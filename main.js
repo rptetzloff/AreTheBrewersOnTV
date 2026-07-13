@@ -1109,15 +1109,27 @@ if (isCompleted) {
     resultIndicator = 'T ';
 }
 
-const scoreLink = document.createElement('a');
-scoreLink.href = `https://www.espn.com/mlb/game/_/gameId/${event.id}`;
-scoreLink.target = '_blank';
-scoreLink.rel = 'noopener noreferrer';
-scoreLink.textContent = `${resultIndicator}${brewersScore}-${opponentScore}`;
-scoreLink.style.color = 'inherit';
-scoreLink.style.textDecoration = 'none';
+const hasLinescore = (competition.linescores && competition.linescores.length > 0) ||
+  competitors.some(c => c.linescores && c.linescores.length > 0);
 
-scoreDiv.appendChild(scoreLink);
+if (hasLinescore) {
+  scoreDiv.classList.add('linescore-trigger');
+  scoreDiv.title = 'Click for line score';
+  scoreDiv.textContent = `${resultIndicator}${brewersScore}-${opponentScore}`;
+  scoreDiv.addEventListener('click', (e) => {
+    e.stopPropagation();
+    this.openLinescoreFromEvent(event);
+  });
+} else {
+  const scoreLink = document.createElement('a');
+  scoreLink.href = `https://www.espn.com/mlb/game/_/gameId/${event.id}`;
+  scoreLink.target = '_blank';
+  scoreLink.rel = 'noopener noreferrer';
+  scoreLink.textContent = `${resultIndicator}${brewersScore}-${opponentScore}`;
+  scoreLink.style.color = 'inherit';
+  scoreLink.style.textDecoration = 'none';
+  scoreDiv.appendChild(scoreLink);
+}
 scoreDiv.style.textAlign = 'center';
 scoreDiv.style.marginTop = '0.5rem';
 scoreDiv.style.width = '100%';
@@ -1624,39 +1636,91 @@ initLinescoreModal() {
 openLinescoreModal(g) {
   const ls = this.lineScores?.get(g.gid);
   if (!ls) return;
-
   const { visitor, home } = ls;
   if (!visitor || !home) return;
 
-  // Determine how many innings were actually played (trim trailing empty entries)
+  const BREWERS_ABBRS = new Set(['MIL', 'SE1']);
+  const brewersIsHome = BREWERS_ABBRS.has(home.team);
+  const oppLabel = g.Opponent;
+  const visLabel = brewersIsHome ? oppLabel : 'MIL';
+  const homLabel = brewersIsHome ? 'MIL' : oppLabel;
+
+  const date = new Date(g.date);
+  const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  this._renderLinescore(`${visLabel} @ ${homLabel} — ${dateStr}`, visitor, home, visLabel, homLabel, !brewersIsHome);
+}
+
+openLinescoreFromEvent(event) {
+  const competition = event.competitions[0];
+  const competitors = competition.competitors;
+
+  let milC = null, oppC = null;
+  competitors.forEach(c => {
+    if (c.team.abbreviation === 'MIL') milC = c;
+    else oppC = c;
+  });
+  if (!milC || !oppC) return;
+
+  const milIsHome = milC.homeAway === 'home';
+  const visC = milIsHome ? oppC : milC;
+  const homC = milIsHome ? milC : oppC;
+  const visLabel = visC.team.abbreviation;
+  const homLabel = homC.team.abbreviation;
+
+  // Build inning arrays from linescores — ESPN puts them on each competitor
+  const toInns = (c) => {
+    const ls = c.linescores || [];
+    return ls.map(e => String(e.value ?? e.displayValue ?? ''));
+  };
+
+  const statVal = (c, name) => {
+    const s = (c.statistics || []).find(st => st.name === name || st.abbreviation === name);
+    return s ? (parseInt(s.displayValue) || 0) : 0;
+  };
+
+  const visitor = {
+    inns: toInns(visC),
+    r: parseInt(visC.score?.value ?? visC.score ?? 0),
+    h: statVal(visC, 'hits'),
+    e: statVal(visC, 'errors'),
+  };
+  const home = {
+    inns: toInns(homC),
+    r: parseInt(homC.score?.value ?? homC.score ?? 0),
+    h: statVal(homC, 'hits'),
+    e: statVal(homC, 'errors'),
+  };
+
+  const date = new Date(event.date);
+  const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  this._renderLinescore(`${visLabel} @ ${homLabel} — ${dateStr}`, visitor, home, visLabel, homLabel, milIsHome);
+}
+
+_renderLinescore(title, visitor, home, visLabel, homLabel, milIsHome) {
   const maxInns = Math.max(
     ...visitor.inns.map((v, i) => (v !== '' ? i + 1 : 0)),
     ...home.inns.map((v, i) => (v !== '' ? i + 1 : 0)),
     9
   );
 
-  // Which side is the Brewers?
-  const BREWERS_ABBRS = new Set(['MIL', 'SE1']);
-  const brewersIsHome = BREWERS_ABBRS.has(home.team);
-  const brewersLabel = 'MIL';
-  const oppLabel = g.Opponent;
-
-  const visLabel = brewersIsHome ? oppLabel : brewersLabel;
-  const homLabel = brewersIsHome ? brewersLabel : oppLabel;
-
-  const formatCell = (val) => val === '' ? 'x' : val === 'x' ? 'x' : val;
+  const formatCell = (val) => (val === '' ? 'x' : val);
 
   const modal = document.getElementById('linescore-modal');
-  const date = new Date(g.date);
-  const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-  document.getElementById('linescore-title').textContent = `${visLabel} @ ${homLabel} — ${dateStr}`;
-
+  document.getElementById('linescore-title').textContent = title;
   const body = document.getElementById('linescore-body');
 
-  // Build inning header cells
   const innHeaders = Array.from({ length: maxInns }, (_, i) => `<th>${i + 1}</th>`).join('');
   const visInns = Array.from({ length: maxInns }, (_, i) => `<td>${formatCell(visitor.inns[i] ?? '')}</td>`).join('');
   const homInns = Array.from({ length: maxInns }, (_, i) => `<td>${formatCell(home.inns[i] ?? '')}</td>`).join('');
+
+  const showRHE = visitor.h > 0 || home.h > 0 || visitor.e > 0 || home.e > 0;
+  const rheHeaders = showRHE ? `<th class="linescore-rhe">R</th><th class="linescore-rhe">H</th><th class="linescore-rhe">E</th>` : `<th class="linescore-rhe">R</th>`;
+  const visRhe = showRHE
+    ? `<td class="linescore-rhe linescore-total">${visitor.r}</td><td class="linescore-rhe">${visitor.h}</td><td class="linescore-rhe">${visitor.e}</td>`
+    : `<td class="linescore-rhe linescore-total">${visitor.r}</td>`;
+  const homRhe = showRHE
+    ? `<td class="linescore-rhe linescore-total">${home.r}</td><td class="linescore-rhe">${home.h}</td><td class="linescore-rhe">${home.e}</td>`
+    : `<td class="linescore-rhe linescore-total">${home.r}</td>`;
 
   body.innerHTML = `
     <div class="linescore-wrap">
@@ -1665,25 +1729,19 @@ openLinescoreModal(g) {
           <tr>
             <th class="linescore-team-col">Team</th>
             ${innHeaders}
-            <th class="linescore-rhe">R</th>
-            <th class="linescore-rhe">H</th>
-            <th class="linescore-rhe">E</th>
+            ${rheHeaders}
           </tr>
         </thead>
         <tbody>
-          <tr class="${brewersIsHome ? '' : 'linescore-brewers'}">
+          <tr class="${milIsHome ? '' : 'linescore-brewers'}">
             <td class="linescore-team-col">${visLabel}</td>
             ${visInns}
-            <td class="linescore-rhe linescore-total">${visitor.r}</td>
-            <td class="linescore-rhe">${visitor.h}</td>
-            <td class="linescore-rhe">${visitor.e}</td>
+            ${visRhe}
           </tr>
-          <tr class="${brewersIsHome ? 'linescore-brewers' : ''}">
+          <tr class="${milIsHome ? 'linescore-brewers' : ''}">
             <td class="linescore-team-col">${homLabel}</td>
             ${homInns}
-            <td class="linescore-rhe linescore-total">${home.r}</td>
-            <td class="linescore-rhe">${home.h}</td>
-            <td class="linescore-rhe">${home.e}</td>
+            ${homRhe}
           </tr>
         </tbody>
       </table>

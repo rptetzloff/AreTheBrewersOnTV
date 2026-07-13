@@ -91,7 +91,7 @@ export function computeCoaches(rows, tenures, championSeasons) {
 	return { coaches, bySlug: new Map(coaches.map((c) => [c.slug, c])) };
 }
 
-// Meta copy for the /coaches page, shared by server OG meta and client share.
+// Meta copy for the /managers page, shared by server OG meta and client share.
 export function coachesCopy(data) {
 	const { coaches } = data;
 	const wins = [...coaches].sort((a, b) => b.wins - a.wins)[0];
@@ -138,6 +138,23 @@ export function parseTeamstatsMgr(raw) {
 		const gid = v[gidIdx]?.trim();
 		const mgr = v[mgrIdx]?.trim();
 		if (gid && mgr) result.set(gid, mgr);
+	}
+	return result;
+}
+
+// Parses gameinfo.csv rows (already parsed by parseGamesCsv) and returns a
+// Map<gid, mgrId> for Brewers games, using hmgr/vmgr columns.
+// Used as fallback for seasons absent from teamstats.csv (e.g. 1969 SE1).
+export function parseGameinfoMgr(rows) {
+	const result = new Map();
+	for (const r of rows) {
+		const gid = r.gid?.trim();
+		if (!gid) continue;
+		const isHome = BREWERS_IDS.has(r.hometeam?.trim());
+		const isVis = BREWERS_IDS.has(r.visteam?.trim());
+		if (!isHome && !isVis) continue;
+		const mgr = isHome ? r.hmgr?.trim() : r.vmgr?.trim();
+		if (mgr) result.set(gid, mgr);
 	}
 	return result;
 }

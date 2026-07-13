@@ -46,7 +46,7 @@ const INDEX_VERSIONED = loadShell('index.html', ['main.js', 'styles.css']);
 const RECORDS_VERSIONED = loadShell('records.html', ['records.js', 'styles.css']);
 const VS_VERSIONED = loadShell('vs.html', ['vs.js', 'styles.css']);
 const HISTORY_VERSIONED = loadShell('history.html', ['history.js', 'styles.css']);
-const COACHES_VERSIONED = loadShell('coaches.html', ['coaches.js', 'styles.css']);
+const COACHES_VERSIONED = loadShell('managers.html', ['coaches.js', 'styles.css']);
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
@@ -247,11 +247,12 @@ const server = http.createServer(async (req, res) => {
     if (pathname === '/og/history.png')
       return serveCachedPng(res, 'history', () => renderHistoryPng(seasonHistory));
 
-    if (pathname === '/coaches' || pathname === '/coaches/' || pathname === '/coaches.html') {
+    if (pathname === '/managers' || pathname === '/managers/' || pathname === '/managers.html' ||
+        pathname === '/coaches' || pathname === '/coaches/' || pathname === '/coaches.html') {
       const origin = originOf(req);
       const { title, desc } = coachesMeta();
       return sendPage(res, COACHES_VERSIONED, {
-        title, desc, img: `${origin}/og/coaches.png`, canonical: `${origin}/coaches`,
+        title, desc, img: `${origin}/og/coaches.png`, canonical: `${origin}/managers`,
       });
     }
     if (pathname === '/og/coaches.png')
