@@ -44,12 +44,13 @@ export function parseCurrentNamesCsv(raw) {
 		if (id && city && nick) {
 			const display = `${city} ${nick}`;
 			names[id] = display;
-			// Also index by franchiseName (Retrosheet franchise code, e.g. CHN for Cubs)
+			// Also index by franchiseName (first occurrence wins — later rows of the same
+			// franchise would overwrite the historical display name with a modern one).
 			const fran = franIdx >= 0 ? p[franIdx]?.trim() : '';
-			if (fran && fran !== id) names[fran] = display;
-			// Also index by alternate abbreviation
+			if (fran && fran !== id && !names[fran]) names[fran] = display;
+			// Also index by alternate abbreviation (first occurrence wins).
 			const alt = altIdx >= 0 ? p[altIdx]?.trim() : '';
-			if (alt && alt !== id) names[alt] = display;
+			if (alt && alt !== id && !names[alt]) names[alt] = display;
 		}
 	}
 	return names;
@@ -58,13 +59,28 @@ export function parseCurrentNamesCsv(raw) {
 // Brewers Retrosheet team IDs across all seasons.
 export const BREWERS_IDS = new Set(['MIL', 'SEA']); // SEA = Seattle Pilots, 1969
 
-// Retrosheet uses league-suffix codes that may not appear in CurrentNames.csv.
+// Retrosheet uses league-suffix codes and historical codes that may not appear
+// in CurrentNames.csv with a matching teamName. This covers all codes the
+// Brewers have faced since 1969 (AL 1969–1997, NL 1998+, interleague).
 const RETROSHEET_TEAM_NAMES = {
+	// NL teams — Retrosheet appends 'N' for NL
 	CHN: 'Chicago Cubs', NYN: 'New York Mets', SFN: 'San Francisco Giants',
 	SDN: 'San Diego Padres', SLN: 'St. Louis Cardinals', LAN: 'Los Angeles Dodgers',
-	MON: 'Montreal Expos', FLO: 'Florida Marlins', WAS: 'Washington Nationals',
+	MON: 'Montreal Expos', FLO: 'Florida Marlins', MIA: 'Miami Marlins',
+	ARI: 'Arizona Diamondbacks', COL: 'Colorado Rockies',
+	ATL: 'Atlanta Braves', HOU: 'Houston Astros', PHI: 'Philadelphia Phillies',
+	PIT: 'Pittsburgh Pirates', CIN: 'Cincinnati Reds',
+	// AL teams — Retrosheet appends 'A' for AL
 	NYA: 'New York Yankees', CHA: 'Chicago White Sox', KCA: 'Kansas City Royals',
-	ANA: 'Anaheim Angels', CAL: 'California Angels', OAK: 'Oakland Athletics',
+	BOS: 'Boston Red Sox', BAL: 'Baltimore Orioles', CLE: 'Cleveland Guardians',
+	DET: 'Detroit Tigers', MIN: 'Minnesota Twins', OAK: 'Oakland Athletics',
+	SEA: 'Seattle Mariners', TEX: 'Texas Rangers', TOR: 'Toronto Blue Jays',
+	TBA: 'Tampa Bay Rays', TBD: 'Tampa Bay Devil Rays',
+	LAA: 'Los Angeles Angels',
+	// Historical names / franchise eras
+	ANA: 'Anaheim Angels', CAL: 'California Angels',
+	WAS: 'Washington Senators', WAS1: 'Washington Senators',
+	KC1: 'Kansas City Athletics',
 };
 
 // Convert gameinfo.csv rows + CurrentNames.csv into the internal game-row format
