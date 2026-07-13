@@ -274,12 +274,17 @@
   return season != null && season <= this.csvMaxSeason && this.csvBySeason[season] != null;
 }
 
+_defaultSeason() {
+  const now = new Date();
+  return now.getMonth() <= 1 ? now.getFullYear() - 1 : now.getFullYear();
+}
+
 async fetchBrewersData(season) {
-        		// For seasons covered by the CSV, use local data
-  if (season && this.usesCsvData(season)) {
-     this.processCsvSeasonData(season);
-     return;
- }
+  const effectiveSeason = season ?? this._defaultSeason();
+  if (this.usesCsvData(effectiveSeason)) {
+    this.processCsvSeasonData(effectiveSeason);
+    return;
+  }
 
  try {
      const seasonParam = season ? `&season=${season}` : '';
@@ -302,8 +307,8 @@ async fetchBrewersData(season) {
      const mergedData = { ...regularData, events: allEvents };
 
         			// If ESPN returns no events and we have CSV data, fall back to CSV
-     if (allEvents.length === 0 && season && this.usesCsvData(season)) {
-        this.processCsvSeasonData(season);
+     if (allEvents.length === 0 && this.usesCsvData(effectiveSeason)) {
+        this.processCsvSeasonData(effectiveSeason);
         return;
     }
 
@@ -319,8 +324,8 @@ async fetchBrewersData(season) {
     }
 } catch (error) {
         			// If ESPN fetch fails and we have CSV data for this season, use it
- if (season && this.usesCsvData(season)) {
-    this.processCsvSeasonData(season);
+ if (this.usesCsvData(effectiveSeason)) {
+    this.processCsvSeasonData(effectiveSeason);
 } else {
     this.processScheduleData({ events: [] });
 }
