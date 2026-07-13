@@ -1,5 +1,5 @@
 // Shared (browser + node) computation of Brewers records/superlatives from
-// data/brewers_games.csv. Pure functions only — no fs/fetch/DOM.
+// Retrosheet data (gameinfo.csv + CurrentNames.csv). Pure functions only — no fs/fetch/DOM.
 
 export function splitCsvLine(line) {
 	const out = []; let cur = ''; let q = false;
@@ -21,6 +21,68 @@ export function parseGamesCsv(raw) {
 		headers.forEach((h, i) => { o[h] = v[i] ?? ''; });
 		return o;
 	});
+}
+
+// CurrentNames.csv has no header row; columns: team_id,league,division,city,nickname,first,last
+export function parseCurrentNamesCsv(raw) {
+	const names = {};
+	raw.trim().split('\n').forEach((line) => {
+		const p = splitCsvLine(line);
+		if (p[0] && p[3] && p[4]) names[p[0]] = `${p[3]} ${p[4]}`;
+	});
+	return names;
+}
+
+// Brewers Retrosheet team IDs across all seasons.
+const BREWERS_IDS = new Set(['MIL', 'SEA']); // SEA = Seattle Pilots, 1969
+
+// Convert gameinfo.csv rows + CurrentNames.csv into the internal game-row format
+// used throughout records-core, h2h-core, etc.
+export function parseGameinfoCsv(gamesRaw, namesRaw) {
+	const teamNames = parseCurrentNamesCsv(namesRaw);
+	const rows = parseGamesCsv(gamesRaw);
+
+	return rows
+		.filter((r) => BREWERS_IDS.has(r.hometeam) || BREWERS_IDS.has(r.visteam))
+		.map((r) => {
+			const isHome = BREWERS_IDS.has(r.hometeam);
+			const opponentId = isHome ? r.visteam : r.hometeam;
+			const opponentName = teamNames[opponentId] || opponentId;
+
+			const vr = r.vruns !== '' ? parseInt(r.vruns, 10) : NaN;
+			const hr = r.hruns !== '' ? parseInt(r.hruns, 10) : NaN;
+			const brewersScore = isHome ? hr : vr;
+			const opponentScore = isHome ? vr : hr;
+
+			let result = '';
+			if (r.wteam && BREWERS_IDS.has(r.wteam)) result = 'WIN';
+			else if (r.lteam && BREWERS_IDS.has(r.lteam)) result = 'LOSS';
+			else if (!isNaN(vr) && !isNaN(hr) && vr === hr) result = 'TIE';
+
+			// Convert YYYYMMDD → YYYY-MM-DD
+			const rawDate = r.date || '';
+			const isoDate = /^\d{8}$/.test(rawDate)
+				? `${rawDate.slice(0, 4)}-${rawDate.slice(4, 6)}-${rawDate.slice(6, 8)}`
+				: rawDate;
+
+			const gt = (r.gametype || 'R').toUpperCase();
+			const regularSeason = gt === 'R' ? '1' : '0';
+			const playoff = ['D', 'L', 'W', 'F', 'C'].includes(gt) ? '1' : '0';
+			const worldseries = gt === 'W' ? r.season : '';
+
+			return {
+				date: isoDate,
+				season: r.season,
+				regular_season: regularSeason,
+				playoff,
+				worldseries,
+				Opponent: opponentName,
+				'Brewers Win': result,
+				brewers_score: isNaN(brewersScore) ? '' : String(brewersScore),
+				opponent_score: isNaN(opponentScore) ? '' : String(opponentScore),
+				location: isHome ? 'home' : 'away',
+			};
+		});
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];

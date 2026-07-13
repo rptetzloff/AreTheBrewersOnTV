@@ -3,7 +3,7 @@
 // (records-core.js). Multiple metrics can be plotted at once, playoffs can be
 // folded in, manager-era strips carry each manager's record, hover shows a
 // season's numbers, and clicking a season opens its page.
-import { parseGamesCsv, computeSeasonHistory, historyCopy } from './records-core.js';
+import { parseGameinfoCsv, computeSeasonHistory, historyCopy } from './records-core.js';
 import { parseCoachesCsv, computeCoaches } from './coaches-core.js';
 import { buildChartSvg, METRICS } from './history-chart.js';
 import { shareButtonsHtml, wireShareRow } from './share-core.js';
@@ -72,18 +72,20 @@ function render(history, coaches, metrics) {
 
 async function init() {
 	try {
-		const [gamesRes, coachesRes] = await Promise.all([
-			fetch('/data/brewers_games.csv'),
-			fetch('/data/brewers_coaches.csv'),
+		const [gamesRes, namesRes, coachesRes] = await Promise.all([
+			fetch('/data/gameinfo.csv'),
+			fetch('/data/CurrentNames.csv'),
+			fetch('/data/brewers_coaches.csv').catch(() => null),
 		]);
-		if (!gamesRes.ok || !coachesRes.ok) throw new Error('CSV fetch failed');
-		const rows = parseGamesCsv(await gamesRes.text());
+		if (!gamesRes.ok || !namesRes.ok) throw new Error('CSV fetch failed');
+		const rows = parseGameinfoCsv(await gamesRes.text(), await namesRes.text());
+		const coachesText = coachesRes?.ok ? await coachesRes.text() : '';
 		const histories = {
 			regular: computeSeasonHistory(rows),
 			playoffs: computeSeasonHistory(rows, { playoffs: true }),
 		};
 		const champions = histories.regular.filter((s) => s.champion).map((s) => s.season);
-		const { coaches } = computeCoaches(rows, parseCoachesCsv(await coachesRes.text()), champions);
+		const { coaches } = computeCoaches(rows, parseCoachesCsv(coachesText), champions);
 
 		const titles = histories.regular.filter((s) => s.champion).length;
 		const range = `${histories.regular[0].season}–${histories.regular[histories.regular.length - 1].season}`;

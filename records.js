@@ -1,6 +1,6 @@
 // Records & Superlatives page: computes superlatives from the games CSV
 // (records-core.js, shared with the server) and renders one shareable card each.
-import { parseGamesCsv, computeSuperlatives, recordsCopy, formatDate, RECORD_SLUGS, esc } from './records-core.js';
+import { parseGameinfoCsv, computeSuperlatives, recordsCopy, formatDate, RECORD_SLUGS, esc } from './records-core.js';
 import { shareButtonsHtml, wireShareRow } from './share-core.js';
 
 const yearLink = (yr) => `<a href="/${yr}">${yr}</a>`;
@@ -99,9 +99,12 @@ function requestedSlug() {
 async function init() {
 	const grid = document.getElementById('records-grid');
 	try {
-		const res = await fetch('/data/brewers_games.csv');
-		if (!res.ok) throw new Error(`CSV fetch failed: ${res.status}`);
-		const data = computeSuperlatives(parseGamesCsv(await res.text()));
+		const [gamesRes, namesRes] = await Promise.all([
+			fetch('/data/gameinfo.csv'),
+			fetch('/data/CurrentNames.csv'),
+		]);
+		if (!gamesRes.ok || !namesRes.ok) throw new Error(`CSV fetch failed`);
+		const data = computeSuperlatives(parseGameinfoCsv(await gamesRes.text(), await namesRes.text()));
 		document.getElementById('records-subtitle').textContent =
 			`Milwaukee Brewers · ${data.seasonRange.first}–${data.seasonRange.last}`;
 		grid.innerHTML = CARDS.map((c) => cardHtml(c, data)).join('');
