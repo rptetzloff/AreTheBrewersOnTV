@@ -1,8 +1,7 @@
 // Managers page: every Brewers manager in tenure order with their
-// record, computed from the shared coaches-core.js (games assigned to
-// tenures by exact dates, so mid-season changes split correctly).
-import { parseGamesCsv, computeSeasonHistory, esc } from './records-core.js';
-import { parseCoachesCsv, computeCoaches, coachesCopy } from './coaches-core.js';
+// record, derived from gameinfo.csv + teamstats.csv + biofile0.csv.
+import { parseGameinfoCsv, computeSeasonHistory, esc } from './records-core.js';
+import { parseBiofile, parseTeamstatsMgr, computeCoachesFromData, coachesCopy } from './coaches-core.js';
 import { shareButtonsHtml, wireShareRow } from './share-core.js';
 
 const pct = (p) => (p >= 1 ? '1.000' : p.toFixed(3).replace(/^0/, ''));
@@ -34,14 +33,18 @@ function tableHtml(coaches) {
 async function init() {
 	const wrap = document.getElementById('coaches-table-wrap');
 	try {
-		const [gamesRes, coachesRes] = await Promise.all([
-			fetch('/data/brewers_games.csv'),
-			fetch('/data/brewers_coaches.csv'),
+		const [gamesRes, namesRes, teamstatsRes, biofileRes] = await Promise.all([
+			fetch('/data/gameinfo.csv'),
+			fetch('/data/CurrentNames.csv'),
+			fetch('/data/teamstats.csv'),
+			fetch('/data/biofile0.csv'),
 		]);
-		if (!gamesRes.ok || !coachesRes.ok) throw new Error('CSV fetch failed');
-		const rows = parseGamesCsv(await gamesRes.text());
+		if (!gamesRes.ok || !namesRes.ok || !teamstatsRes.ok || !biofileRes.ok) throw new Error('CSV fetch failed');
+		const rows = parseGameinfoCsv(await gamesRes.text(), await namesRes.text());
+		const gidToMgr = parseTeamstatsMgr(await teamstatsRes.text());
+		const mgrNames = parseBiofile(await biofileRes.text());
 		const champions = computeSeasonHistory(rows).filter((s) => s.champion).map((s) => s.season);
-		const data = computeCoaches(rows, parseCoachesCsv(await coachesRes.text()), champions);
+		const data = computeCoachesFromData(rows, gidToMgr, mgrNames, champions);
 
 		document.getElementById('coaches-subtitle').textContent =
 			`Milwaukee Brewers · ${data.coaches.length} managers since ${data.coaches[0].firstSeason}`;

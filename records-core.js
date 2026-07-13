@@ -34,7 +34,7 @@ export function parseCurrentNamesCsv(raw) {
 }
 
 // Brewers Retrosheet team IDs across all seasons.
-const BREWERS_IDS = new Set(['MIL', 'SEA']); // SEA = Seattle Pilots, 1969
+export const BREWERS_IDS = new Set(['MIL', 'SEA']); // SEA = Seattle Pilots, 1969
 
 // Convert gameinfo.csv rows + CurrentNames.csv into the internal game-row format
 // used throughout records-core, h2h-core, etc.
@@ -71,6 +71,7 @@ export function parseGameinfoCsv(gamesRaw, namesRaw) {
 			const worldseries = gt === 'W' ? r.season : '';
 
 			return {
+				gid: r.gid || '',
 				date: isoDate,
 				season: r.season,
 				regular_season: regularSeason,
