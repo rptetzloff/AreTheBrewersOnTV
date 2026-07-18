@@ -1985,9 +1985,8 @@ details:not([open]) > .collapsible-summary::before {
 }
 
 .standings-panel {
-    overflow-y: scroll;
-    flex: 1;
-    min-height: 0;
+    overflow-y: auto;
+    max-height: calc(88vh - 130px);
     padding: 1rem 0 0.5rem;
     display: flex;
     flex-direction: column;
