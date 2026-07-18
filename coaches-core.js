@@ -91,7 +91,7 @@ export function computeCoaches(rows, tenures, championSeasons) {
 	return { coaches, bySlug: new Map(coaches.map((c) => [c.slug, c])) };
 }
 
-// Meta copy for the /coaches page, shared by server OG meta and client share.
+// Meta copy for the /managers page, shared by server OG meta and client share.
 export function coachesCopy(data) {
 	const { coaches } = data;
 	const wins = [...coaches].sort((a, b) => b.wins - a.wins)[0];

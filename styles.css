@@ -1912,3 +1912,205 @@ details:not([open]) > .collapsible-summary::before {
     text-underline-offset: 3px;
 }
 
+/* ── Record standings link ── */
+.record-standings-link {
+    cursor: pointer;
+    border-bottom: 1px dashed rgba(255, 197, 47, 0.6);
+    transition: border-color 0.15s, color 0.15s;
+}
+
+.record-standings-link:hover {
+    border-bottom-color: #FFC52F;
+    color: #FFC52F;
+}
+
+/* ── Standings modal ── */
+.standings-dialog {
+    position: relative;
+    z-index: 1;
+    background: #1a3a6b;
+    border: 1px solid rgba(255, 197, 47, 0.3);
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+    animation: galleryIn 0.2s ease-out;
+    width: min(96vw, 680px);
+    max-height: 88vh;
+    overflow: hidden;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.standings-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    overflow: hidden;
+    flex: 1;
+    min-height: 0;
+    padding: 0 1rem;
+}
+
+.standings-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid rgba(255, 197, 47, 0.2);
+    flex-shrink: 0;
+}
+
+.standings-tab {
+    flex: 1;
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 0.6rem 0.25rem;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: color 0.15s, border-color 0.15s;
+    white-space: nowrap;
+}
+
+.standings-tab:hover {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.standings-tab-active {
+    color: #FFC52F;
+    border-bottom-color: #FFC52F;
+}
+
+.standings-panel {
+    overflow-y: auto;
+    max-height: calc(88vh - 130px);
+    padding: 0.5rem 0 0.5rem;
+    scrollbar-width: thin;
+    scrollbar-color: #FFC52F #1a3558;
+}
+
+.standings-panel::-webkit-scrollbar { width: 6px; }
+.standings-panel::-webkit-scrollbar-track { background: #1a3558; border-radius: 3px; }
+.standings-panel::-webkit-scrollbar-thumb { background: #FFC52F; border-radius: 3px; }
+
+.standings-league-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.standings-league-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #FFC52F;
+    padding: 0.15rem 0.5rem;
+    border-left: 2px solid #FFC52F;
+    margin-bottom: 0.1rem;
+}
+
+.standings-block {
+    background: rgba(0, 0, 0, 0.18);
+    border-radius: 7px;
+    overflow: hidden;
+    margin-bottom: 0.75rem;
+}
+
+.standings-div-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: rgba(255, 255, 255, 0.5);
+    padding: 0.4rem 0.6rem 0.1rem;
+}
+
+.standings-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.standings-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+    min-width: 320px;
+}
+
+.standings-table th {
+    color: rgba(255, 255, 255, 0.45);
+    font-weight: 600;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.25rem 0.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    white-space: nowrap;
+}
+
+.standings-table td {
+    padding: 0.32rem 0.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    color: rgba(255, 255, 255, 0.82);
+    white-space: nowrap;
+}
+
+.standings-table tr:last-child td {
+    border-bottom: none;
+}
+
+.standings-table tbody tr:hover td {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.standings-num {
+    text-align: right;
+}
+
+.standings-team-cell {
+    text-align: left;
+    white-space: nowrap;
+    padding-left: 0.6rem !important;
+    min-width: 90px;
+}
+
+.standings-brewers td {
+    color: #FFC52F;
+    font-weight: 700;
+}
+
+.standings-tag {
+    display: inline-block;
+    font-size: 0.6rem;
+    font-weight: 700;
+    padding: 0 4px;
+    border-radius: 3px;
+    vertical-align: middle;
+    line-height: 1.4;
+    letter-spacing: 0.03em;
+}
+
+.standings-tag-div {
+    background: #FFC52F;
+    color: #12284B;
+}
+
+.standings-tag-wc {
+    background: rgba(255, 197, 47, 0.25);
+    color: #FFC52F;
+    border: 1px solid rgba(255, 197, 47, 0.5);
+}
+
+
+@media (max-width: 480px) {
+    .standings-tab {
+        font-size: 0.7rem;
+        padding: 0.5rem 0.1rem;
+    }
+}
+

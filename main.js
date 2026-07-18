@@ -139,6 +139,7 @@
         			this.initGallery();
         			this.initWatchModal();
         			this.initLinescoreModal();
+        			this.initStandingsModal();
         			this.buildOnThisDay();
         			const params = new URLSearchParams(window.location.search);
         			const seasonParam = params.get('season');
@@ -828,9 +829,17 @@ createCsvGameItem(g, showH2h = false) {
 
              let html = '';
              if (preText) html += `<span class="preseason-record">${preText}</span><br>`;
-             html += regularText;
+             if (!isPastSeason) {
+               html += `<span class="record-standings-link" title="Click to view standings">${regularText}</span>`;
+             } else {
+               html += regularText;
+             }
              if (postText) html += `<br><span class="playoff-record">${postText}</span>`;
              recordEl.innerHTML = html;
+             if (!isPastSeason) {
+               const link = recordEl.querySelector('.record-standings-link');
+               if (link) link.addEventListener('click', () => this.openStandingsModal());
+             }
          }
 
          displaySchedule(events, isPastSeason = false) {
@@ -1109,15 +1118,27 @@ if (isCompleted) {
     resultIndicator = 'T ';
 }
 
-const scoreLink = document.createElement('a');
-scoreLink.href = `https://www.espn.com/mlb/game/_/gameId/${event.id}`;
-scoreLink.target = '_blank';
-scoreLink.rel = 'noopener noreferrer';
-scoreLink.textContent = `${resultIndicator}${brewersScore}-${opponentScore}`;
-scoreLink.style.color = 'inherit';
-scoreLink.style.textDecoration = 'none';
+const hasLinescore = (competition.linescores && competition.linescores.length > 0) ||
+  competitors.some(c => c.linescores && c.linescores.length > 0);
 
-scoreDiv.appendChild(scoreLink);
+if (hasLinescore) {
+  scoreDiv.classList.add('linescore-trigger');
+  scoreDiv.title = 'Click for line score';
+  scoreDiv.textContent = `${resultIndicator}${brewersScore}-${opponentScore}`;
+  scoreDiv.addEventListener('click', (e) => {
+    e.stopPropagation();
+    this.openLinescoreFromEvent(event);
+  });
+} else {
+  const scoreLink = document.createElement('a');
+  scoreLink.href = `https://www.espn.com/mlb/game/_/gameId/${event.id}`;
+  scoreLink.target = '_blank';
+  scoreLink.rel = 'noopener noreferrer';
+  scoreLink.textContent = `${resultIndicator}${brewersScore}-${opponentScore}`;
+  scoreLink.style.color = 'inherit';
+  scoreLink.style.textDecoration = 'none';
+  scoreDiv.appendChild(scoreLink);
+}
 scoreDiv.style.textAlign = 'center';
 scoreDiv.style.marginTop = '0.5rem';
 scoreDiv.style.width = '100%';
@@ -1621,42 +1642,292 @@ initLinescoreModal() {
   });
 }
 
+initStandingsModal() {
+  const modal = document.getElementById('standings-modal');
+  modal.querySelector('.standings-backdrop').addEventListener('click', () => this.closeStandingsModal());
+  document.getElementById('standings-close').addEventListener('click', () => this.closeStandingsModal());
+  document.addEventListener('keydown', (e) => {
+    if (!modal.hidden && e.key === 'Escape') this.closeStandingsModal();
+  });
+}
+
+async openStandingsModal() {
+  const modal = document.getElementById('standings-modal');
+  const body = document.getElementById('standings-body');
+  modal.hidden = false;
+  document.body.style.overflow = 'hidden';
+  body.innerHTML = '<div class="loading">Loading standings...</div>';
+
+  try {
+    const [alData, nlData] = await Promise.all([
+      fetch('https://site.api.espn.com/apis/v2/sports/baseball/mlb/standings?group=7').then(r => r.json()),
+      fetch('https://site.api.espn.com/apis/v2/sports/baseball/mlb/standings?group=8').then(r => r.json()),
+    ]);
+    this._standingsData = { alData, nlData };
+    body.innerHTML = this._buildStandingsShell();
+    this._wireStandingsTabs(body);
+    this._showStandingsTab(body, 'division');
+  } catch {
+    body.innerHTML = '<p class="record-empty">Could not load standings.</p>';
+  }
+}
+
+_buildStandingsShell() {
+  return `
+    <div class="standings-tabs" role="tablist">
+      <button class="standings-tab" data-tab="division" role="tab">Division</button>
+      <button class="standings-tab" data-tab="league" role="tab">League</button>
+      <button class="standings-tab" data-tab="mlb" role="tab">MLB</button>
+      <button class="standings-tab" data-tab="pennant" role="tab">Wild Card</button>
+    </div>
+    <div class="standings-panel"></div>`;
+}
+
+_wireStandingsTabs(body) {
+  body.querySelectorAll('.standings-tab').forEach(btn => {
+    btn.addEventListener('click', () => this._showStandingsTab(body, btn.dataset.tab));
+  });
+}
+
+_showStandingsTab(body, tab) {
+  body.querySelectorAll('.standings-tab').forEach(b => b.classList.toggle('standings-tab-active', b.dataset.tab === tab));
+  const panel = body.querySelector('.standings-panel');
+  panel.innerHTML = this._renderStandingsTab(tab);
+}
+
+_parseDivisions(data) {
+  return (data.children || []).map(div => ({
+    name: div.name,
+    short: div.name.replace('American League ', 'AL ').replace('National League ', 'NL '),
+    isNlCentral: div.name === 'National League Central',
+    entries: div.standings?.entries || [],
+  }));
+}
+
+_stat(entry, abbr) {
+  const s = (entry.stats || []).find(st => st.abbreviation === abbr || st.name === abbr);
+  return s?.displayValue ?? '—';
+}
+
+_parsePct(entry) {
+  const raw = this._stat(entry, 'PCT');
+  return parseFloat(raw.startsWith('.') ? '0' + raw : raw) || 0;
+}
+
+_divisionTableHtml(div, showDivName, cols, playoffTags) {
+  const defaultCols = ['W','L','PCT','GB','STRK','Last Ten'];
+  const activeCols = cols || defaultCols;
+  const colLabels = { W:'W', L:'L', PCT:'PCT', GB:'GB', STRK:'Streak', 'Last Ten':'L10', Home:'Home', AWAY:'Away', DIFF:'Run Diff', MNW:'WC#' };
+
+  const headers = activeCols.map(c => `<th class="standings-num">${colLabels[c] ?? c}</th>`).join('');
+  const rows = div.entries.map((entry) => {
+    const abbr = entry.team?.abbreviation || '';
+    const isMil = abbr === 'MIL';
+    const name = entry.team?.shortDisplayName || entry.team?.displayName || abbr;
+    const cells = activeCols.map(c => `<td class="standings-num">${this._stat(entry, c)}</td>`).join('');
+    const tag = playoffTags?.[entry.team?.id];
+    const tagHtml = tag === 'div' ? ' <span class="standings-tag standings-tag-div">DIV</span>'
+                  : tag === 'wc'  ? ' <span class="standings-tag standings-tag-wc">WC</span>'
+                  : '';
+    return `<tr class="${isMil ? 'standings-brewers' : ''}">
+      <td class="standings-team-cell">${name}${tagHtml}</td>${cells}
+    </tr>`;
+  }).join('');
+
+  const header = showDivName ? `<div class="standings-div-label">${div.short}</div>` : '';
+  return `<div class="standings-block">${header}
+    <div class="standings-scroll">
+      <table class="standings-table">
+        <thead><tr><th class="standings-team-cell">Team</th>${headers}</tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+_renderStandingsTab(tab) {
+  const { alData, nlData } = this._standingsData;
+  const alDivs = this._parseDivisions(alData);
+  const nlDivs = this._parseDivisions(nlData);
+
+  const divOrder = [
+    'American League East','American League Central','American League West',
+    'National League East','National League Central','National League West',
+  ];
+  const sortDivs = (arr) => arr.slice().sort((a,b) => divOrder.indexOf(a.name) - divOrder.indexOf(b.name));
+
+  if (tab === 'division') {
+    const alSorted = sortDivs(alDivs);
+    const nlSorted = sortDivs(nlDivs);
+    return `
+      <div class="standings-league-section">
+        <div class="standings-league-label">National League</div>
+        ${nlSorted.map(d => this._divisionTableHtml(d, true, ['W','L','PCT','GB','STRK','Last Ten'])).join('')}
+      </div>
+      <div class="standings-league-section">
+        <div class="standings-league-label">American League</div>
+        ${alSorted.map(d => this._divisionTableHtml(d, true, ['W','L','PCT','GB','STRK','Last Ten'])).join('')}
+      </div>`;
+  }
+
+  if (tab === 'league') {
+    const sortByPct = (entries) => entries.slice().sort((a, b) => this._parsePct(b) - this._parsePct(a));
+    const alEntries = sortByPct(alDivs.flatMap(d => d.entries));
+    const nlEntries = sortByPct(nlDivs.flatMap(d => d.entries));
+    const alDiv = { short: 'American League', entries: alEntries };
+    const nlDiv = { short: 'National League', entries: nlEntries };
+    return `
+      <div class="standings-league-section">
+        ${this._divisionTableHtml(nlDiv, true, ['W','L','PCT','GB','STRK','Last Ten'])}
+      </div>
+      <div class="standings-league-section">
+        ${this._divisionTableHtml(alDiv, true, ['W','L','PCT','GB','STRK','Last Ten'])}
+      </div>`;
+  }
+
+  if (tab === 'mlb') {
+    const allEntries = [...nlDivs, ...alDivs].flatMap(d => d.entries);
+    allEntries.sort((a, b) => this._parsePct(b) - this._parsePct(a));
+    const fakeSingleDiv = { short: '', entries: allEntries };
+    return this._divisionTableHtml(fakeSingleDiv, false, ['W','L','PCT','GB','STRK','Last Ten','Home','AWAY']);
+  }
+
+  if (tab === 'pennant') {
+    // 6 playoff spots per league: 3 division winners + 3 wild card spots.
+    // No cutoff line — a division winner can sit below a wild card team in
+    // overall winning percentage, so a divider would be misleading.
+    const wcTagged = (divs) => {
+      const divWinnerIds = new Set(divs.map(d => d.entries[0]?.team?.id).filter(Boolean));
+      const all = divs.flatMap(d => d.entries).slice().sort((a, b) => this._parsePct(b) - this._parsePct(a));
+      const tags = {};
+      let wcSlots = 0;
+      const seenDivWinners = new Set();
+      for (let i = 0; i < all.length; i++) {
+        const id = all[i].team?.id;
+        if (divWinnerIds.has(id) && !seenDivWinners.has(id)) {
+          seenDivWinners.add(id);
+          tags[id] = 'div';
+        } else if (!divWinnerIds.has(id) && wcSlots < 3) {
+          tags[id] = 'wc';
+          wcSlots++;
+        }
+      }
+      return { entries: all, tags };
+    };
+    const nl = wcTagged(nlDivs);
+    const al = wcTagged(alDivs);
+    const nlDiv = { short: 'NL Wild Card Race', entries: nl.entries };
+    const alDiv = { short: 'AL Wild Card Race', entries: al.entries };
+    return `
+      <div class="standings-league-section">
+        ${this._divisionTableHtml(nlDiv, true, ['W','L','PCT','STRK','Last Ten','DIFF'], nl.tags)}
+      </div>
+      <div class="standings-league-section">
+        ${this._divisionTableHtml(alDiv, true, ['W','L','PCT','STRK','Last Ten','DIFF'], al.tags)}
+      </div>`;
+  }
+
+  return '';
+}
+
+_renderStandings(alData, nlData) {
+  // kept for compatibility; not called after tab refactor
+  return '';
+}
+
+closeStandingsModal() {
+  document.getElementById('standings-modal').hidden = true;
+  document.body.style.overflow = '';
+}
+
 openLinescoreModal(g) {
   const ls = this.lineScores?.get(g.gid);
   if (!ls) return;
-
   const { visitor, home } = ls;
   if (!visitor || !home) return;
 
-  // Determine how many innings were actually played (trim trailing empty entries)
+  const BREWERS_ABBRS = new Set(['MIL', 'SE1']);
+  const brewersIsHome = BREWERS_ABBRS.has(home.team);
+  const oppLabel = g.Opponent;
+  const visLabel = brewersIsHome ? oppLabel : 'MIL';
+  const homLabel = brewersIsHome ? 'MIL' : oppLabel;
+
+  const date = new Date(g.date);
+  const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  this._renderLinescore(`${visLabel} @ ${homLabel} — ${dateStr}`, visitor, home, visLabel, homLabel, !brewersIsHome);
+}
+
+openLinescoreFromEvent(event) {
+  const competition = event.competitions[0];
+  const competitors = competition.competitors;
+
+  let milC = null, oppC = null;
+  competitors.forEach(c => {
+    if (c.team.abbreviation === 'MIL') milC = c;
+    else oppC = c;
+  });
+  if (!milC || !oppC) return;
+
+  const milIsHome = milC.homeAway === 'home';
+  const visC = milIsHome ? oppC : milC;
+  const homC = milIsHome ? milC : oppC;
+  const visLabel = visC.team.abbreviation;
+  const homLabel = homC.team.abbreviation;
+
+  // Build inning arrays from linescores — ESPN puts them on each competitor
+  const toInns = (c) => {
+    const ls = c.linescores || [];
+    return ls.map(e => String(e.value ?? e.displayValue ?? ''));
+  };
+
+  const statVal = (c, name) => {
+    const s = (c.statistics || []).find(st => st.name === name || st.abbreviation === name);
+    return s ? (parseInt(s.displayValue) || 0) : 0;
+  };
+
+  const visitor = {
+    inns: toInns(visC),
+    r: parseInt(visC.score?.value ?? visC.score ?? 0),
+    h: statVal(visC, 'hits'),
+    e: statVal(visC, 'errors'),
+  };
+  const home = {
+    inns: toInns(homC),
+    r: parseInt(homC.score?.value ?? homC.score ?? 0),
+    h: statVal(homC, 'hits'),
+    e: statVal(homC, 'errors'),
+  };
+
+  const date = new Date(event.date);
+  const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  this._renderLinescore(`${visLabel} @ ${homLabel} — ${dateStr}`, visitor, home, visLabel, homLabel, milIsHome);
+}
+
+_renderLinescore(title, visitor, home, visLabel, homLabel, milIsHome) {
   const maxInns = Math.max(
     ...visitor.inns.map((v, i) => (v !== '' ? i + 1 : 0)),
     ...home.inns.map((v, i) => (v !== '' ? i + 1 : 0)),
     9
   );
 
-  // Which side is the Brewers?
-  const BREWERS_ABBRS = new Set(['MIL', 'SE1']);
-  const brewersIsHome = BREWERS_ABBRS.has(home.team);
-  const brewersLabel = 'MIL';
-  const oppLabel = g.Opponent;
-
-  const visLabel = brewersIsHome ? oppLabel : brewersLabel;
-  const homLabel = brewersIsHome ? brewersLabel : oppLabel;
-
-  const formatCell = (val) => val === '' ? 'x' : val === 'x' ? 'x' : val;
+  const formatCell = (val) => (val === '' ? 'x' : val);
 
   const modal = document.getElementById('linescore-modal');
-  const date = new Date(g.date);
-  const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-  document.getElementById('linescore-title').textContent = `${visLabel} @ ${homLabel} — ${dateStr}`;
-
+  document.getElementById('linescore-title').textContent = title;
   const body = document.getElementById('linescore-body');
 
-  // Build inning header cells
   const innHeaders = Array.from({ length: maxInns }, (_, i) => `<th>${i + 1}</th>`).join('');
   const visInns = Array.from({ length: maxInns }, (_, i) => `<td>${formatCell(visitor.inns[i] ?? '')}</td>`).join('');
   const homInns = Array.from({ length: maxInns }, (_, i) => `<td>${formatCell(home.inns[i] ?? '')}</td>`).join('');
+
+  const showRHE = visitor.h > 0 || home.h > 0 || visitor.e > 0 || home.e > 0;
+  const rheHeaders = showRHE ? `<th class="linescore-rhe">R</th><th class="linescore-rhe">H</th><th class="linescore-rhe">E</th>` : `<th class="linescore-rhe">R</th>`;
+  const visRhe = showRHE
+    ? `<td class="linescore-rhe linescore-total">${visitor.r}</td><td class="linescore-rhe">${visitor.h}</td><td class="linescore-rhe">${visitor.e}</td>`
+    : `<td class="linescore-rhe linescore-total">${visitor.r}</td>`;
+  const homRhe = showRHE
+    ? `<td class="linescore-rhe linescore-total">${home.r}</td><td class="linescore-rhe">${home.h}</td><td class="linescore-rhe">${home.e}</td>`
+    : `<td class="linescore-rhe linescore-total">${home.r}</td>`;
 
   body.innerHTML = `
     <div class="linescore-wrap">
@@ -1665,25 +1936,19 @@ openLinescoreModal(g) {
           <tr>
             <th class="linescore-team-col">Team</th>
             ${innHeaders}
-            <th class="linescore-rhe">R</th>
-            <th class="linescore-rhe">H</th>
-            <th class="linescore-rhe">E</th>
+            ${rheHeaders}
           </tr>
         </thead>
         <tbody>
-          <tr class="${brewersIsHome ? '' : 'linescore-brewers'}">
+          <tr class="${milIsHome ? '' : 'linescore-brewers'}">
             <td class="linescore-team-col">${visLabel}</td>
             ${visInns}
-            <td class="linescore-rhe linescore-total">${visitor.r}</td>
-            <td class="linescore-rhe">${visitor.h}</td>
-            <td class="linescore-rhe">${visitor.e}</td>
+            ${visRhe}
           </tr>
-          <tr class="${brewersIsHome ? 'linescore-brewers' : ''}">
+          <tr class="${milIsHome ? 'linescore-brewers' : ''}">
             <td class="linescore-team-col">${homLabel}</td>
             ${homInns}
-            <td class="linescore-rhe linescore-total">${home.r}</td>
-            <td class="linescore-rhe">${home.h}</td>
-            <td class="linescore-rhe">${home.e}</td>
+            ${homRhe}
           </tr>
         </tbody>
       </table>

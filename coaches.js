@@ -63,7 +63,7 @@ async function init() {
 
 		const share = document.getElementById('coaches-share');
 		share.innerHTML = shareButtonsHtml('share-btn record-share-btn');
-		wireShareRow(share, coachesCopy(data).desc, `${window.location.origin}/coaches`);
+		wireShareRow(share, coachesCopy(data).desc, `${window.location.origin}/managers`);
 	} catch (e) {
 		wrap.innerHTML = '<p class="record-empty">Could not load the game data. Try again later.</p>';
 		console.error(e);
