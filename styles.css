@@ -1851,6 +1851,41 @@ details:not([open]) > .collapsible-summary::before {
     color: rgba(255, 255, 255, 0.55);
 }
 
+.watch-provider-input-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.watch-provider-input-wrap .watch-provider-input {
+    padding-right: 2.2rem;
+}
+
+.watch-provider-clear {
+    position: absolute;
+    right: 0.4rem;
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.55);
+    cursor: pointer;
+    padding: 0.2rem 0.35rem;
+    font-size: 1.05rem;
+    line-height: 1;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.watch-provider-clear:hover {
+    color: #FFC52F;
+    background: rgba(255, 197, 47, 0.15);
+}
+
+.watch-provider-input-wrap datalist {
+    display: none;
+}
+
 .watch-channel-num {
     display: flex;
     align-items: baseline;
