@@ -1709,18 +1709,24 @@ _stat(entry, abbr) {
   return s?.displayValue ?? '—';
 }
 
-_divisionTableHtml(div, showDivName, cols) {
+_parsePct(entry) {
+  const raw = this._stat(entry, 'PCT');
+  return parseFloat(raw.startsWith('.') ? '0' + raw : raw) || 0;
+}
+
+_divisionTableHtml(div, showDivName, cols, cutoffAfter) {
   const defaultCols = ['W','L','PCT','GB','STRK','Last Ten'];
   const activeCols = cols || defaultCols;
-  const colLabels = { W:'W', L:'L', PCT:'PCT', GB:'GB', STRK:'Streak', 'Last Ten':'L10', Home:'Home', AWAY:'Away', DIFF:'Run Diff' };
+  const colLabels = { W:'W', L:'L', PCT:'PCT', GB:'GB', STRK:'Streak', 'Last Ten':'L10', Home:'Home', AWAY:'Away', DIFF:'Run Diff', MNW:'WC#' };
 
   const headers = activeCols.map(c => `<th class="standings-num">${colLabels[c] ?? c}</th>`).join('');
-  const rows = div.entries.map(entry => {
+  const rows = div.entries.map((entry, i) => {
     const abbr = entry.team?.abbreviation || '';
     const isMil = abbr === 'MIL';
     const name = entry.team?.shortDisplayName || entry.team?.displayName || abbr;
     const cells = activeCols.map(c => `<td class="standings-num">${this._stat(entry, c)}</td>`).join('');
-    return `<tr class="${isMil ? 'standings-brewers' : ''}">
+    const cutClass = (cutoffAfter !== undefined && i === cutoffAfter - 1) ? ' standings-cutoff' : '';
+    return `<tr class="${isMil ? 'standings-brewers' : ''}${cutClass}">
       <td class="standings-team-cell">${name}</td>${cells}
     </tr>`;
   }).join('');
@@ -1762,11 +1768,7 @@ _renderStandingsTab(tab) {
   }
 
   if (tab === 'league') {
-    const sortByPct = (entries) => entries.slice().sort((a, b) => {
-      const pa = parseFloat(this._stat(a, 'PCT').replace(/^\./, '0.') || 0);
-      const pb = parseFloat(this._stat(b, 'PCT').replace(/^\./, '0.') || 0);
-      return pb - pa;
-    });
+    const sortByPct = (entries) => entries.slice().sort((a, b) => this._parsePct(b) - this._parsePct(a));
     const alEntries = sortByPct(alDivs.flatMap(d => d.entries));
     const nlEntries = sortByPct(nlDivs.flatMap(d => d.entries));
     const alDiv = { short: 'American League', entries: alEntries };
@@ -1782,31 +1784,25 @@ _renderStandingsTab(tab) {
 
   if (tab === 'mlb') {
     const allEntries = [...nlDivs, ...alDivs].flatMap(d => d.entries);
-    allEntries.sort((a,b) => {
-      const wa = parseFloat(this._stat(a,'PCT').replace(/^\./, '0.') || 0);
-      const wb = parseFloat(this._stat(b,'PCT').replace(/^\./, '0.') || 0);
-      return wb - wa;
-    });
+    allEntries.sort((a, b) => this._parsePct(b) - this._parsePct(a));
     const fakeSingleDiv = { short: '', entries: allEntries };
     return this._divisionTableHtml(fakeSingleDiv, false, ['W','L','PCT','GB','STRK','Last Ten','Home','AWAY']);
   }
 
   if (tab === 'pennant') {
-    const sortByPct = (entries) => entries.slice().sort((a,b) => {
-      const pa = parseFloat(this._stat(a,'PCT').replace(/^\./,'0.'));
-      const pb = parseFloat(this._stat(b,'PCT').replace(/^\./,'0.'));
-      return pb - pa;
-    });
+    // 6 playoff spots per league: 3 division winners + 3 wild card spots
+    // sort each league by W%, draw cutoff line after position 6
+    const sortByPct = (entries) => entries.slice().sort((a, b) => this._parsePct(b) - this._parsePct(a));
     const nlEntries = sortByPct(nlDivs.flatMap(d => d.entries));
     const alEntries = sortByPct(alDivs.flatMap(d => d.entries));
-    const nlDiv = { short: 'NL Pennant Race', entries: nlEntries };
-    const alDiv = { short: 'AL Pennant Race', entries: alEntries };
+    const nlDiv = { short: 'NL Wild Card Race', entries: nlEntries };
+    const alDiv = { short: 'AL Wild Card Race', entries: alEntries };
     return `
       <div class="standings-league-section">
-        ${this._divisionTableHtml(nlDiv, true, ['W','L','PCT','STRK','Last Ten','DIFF'])}
+        ${this._divisionTableHtml(nlDiv, true, ['W','L','PCT','STRK','Last Ten','DIFF'], 6)}
       </div>
       <div class="standings-league-section">
-        ${this._divisionTableHtml(alDiv, true, ['W','L','PCT','STRK','Last Ten','DIFF'])}
+        ${this._divisionTableHtml(alDiv, true, ['W','L','PCT','STRK','Last Ten','DIFF'], 6)}
       </div>`;
   }
 

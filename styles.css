@@ -1927,6 +1927,7 @@ details:not([open]) > .collapsible-summary::before {
 /* ── Standings modal ── */
 .standings-dialog {
     width: min(96vw, 680px);
+    height: min(88vh, 720px);
     max-height: 88vh;
     display: flex;
     flex-direction: column;
@@ -2074,10 +2075,15 @@ details:not([open]) > .collapsible-summary::before {
     min-width: 90px;
 }
 
+.standings-table tr.standings-cutoff td {
+    border-bottom: 2px solid rgba(255, 197, 47, 0.5);
+}
+
 .standings-brewers td {
     color: #FFC52F;
     font-weight: 700;
 }
+
 
 @media (max-width: 480px) {
     .standings-tab {
