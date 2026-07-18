@@ -1994,7 +1994,6 @@ details:not([open]) > .collapsible-summary::before {
     scrollbar-width: thin;
     scrollbar-color: #FFC52F #1a3558;
 }
-}
 
 .standings-panel::-webkit-scrollbar { width: 6px; }
 .standings-panel::-webkit-scrollbar-track { background: #1a3558; border-radius: 3px; }
