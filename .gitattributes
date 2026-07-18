@@ -1,6 +1,5 @@
-*.csv filter=lfs diff=lfs merge=lfs -text
-*.csv !text !filter !merge !diff
 *.lfs.csv filter=lfs diff=lfs merge=lfs -text
+*.csv !text !filter !merge !diff
 data/plays.csv filter=lfs diff=lfs merge=lfs -text
 data/plays.lfs.csv filter=lfs diff=lfs merge=lfs -text
 data/batting.lfs.csv filter=lfs diff=lfs merge=lfs -text
