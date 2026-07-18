@@ -1985,19 +1985,13 @@ details:not([open]) > .collapsible-summary::before {
     display: flex;
     flex-direction: column;
     gap: 1rem;
+    scrollbar-width: thin;
+    scrollbar-color: #FFC52F #1a3558;
 }
 
-.standings-featured .standings-block {
-    background: rgba(255, 197, 47, 0.06);
-    border: 1px solid rgba(255, 197, 47, 0.2);
-    border-radius: 8px;
-}
-
-.standings-rest {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-}
+.standings-panel::-webkit-scrollbar { width: 6px; }
+.standings-panel::-webkit-scrollbar-track { background: #1a3558; border-radius: 3px; }
+.standings-panel::-webkit-scrollbar-thumb { background: #FFC52F; border-radius: 3px; }
 
 .standings-league-section {
     display: flex;

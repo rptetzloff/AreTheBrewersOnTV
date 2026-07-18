@@ -1748,16 +1748,6 @@ _renderStandingsTab(tab) {
   const sortDivs = (arr) => arr.slice().sort((a,b) => divOrder.indexOf(a.name) - divOrder.indexOf(b.name));
 
   if (tab === 'division') {
-    const nlc = nlDivs.find(d => d.isNlCentral);
-    const rest = sortDivs([...alDivs, ...nlDivs.filter(d => !d.isNlCentral)]);
-    const milDivHtml = nlc
-      ? `<div class="standings-featured">${this._divisionTableHtml(nlc, false, ['W','L','PCT','GB','STRK','Last Ten'])}</div>`
-      : '';
-    const restHtml = rest.map(d => this._divisionTableHtml(d, true, ['W','L','PCT','GB','STRK'])).join('');
-    return `${milDivHtml}<div class="standings-rest">${restHtml}</div>`;
-  }
-
-  if (tab === 'league') {
     const alSorted = sortDivs(alDivs);
     const nlSorted = sortDivs(nlDivs);
     return `
@@ -1768,6 +1758,25 @@ _renderStandingsTab(tab) {
       <div class="standings-league-section">
         <div class="standings-league-label">National League</div>
         ${nlSorted.map(d => this._divisionTableHtml(d, true, ['W','L','PCT','GB','STRK','Last Ten'])).join('')}
+      </div>`;
+  }
+
+  if (tab === 'league') {
+    const sortByPct = (entries) => entries.slice().sort((a, b) => {
+      const pa = parseFloat(this._stat(a, 'PCT').replace(/^\./, '0.') || 0);
+      const pb = parseFloat(this._stat(b, 'PCT').replace(/^\./, '0.') || 0);
+      return pb - pa;
+    });
+    const alEntries = sortByPct(alDivs.flatMap(d => d.entries));
+    const nlEntries = sortByPct(nlDivs.flatMap(d => d.entries));
+    const alDiv = { short: 'American League', entries: alEntries };
+    const nlDiv = { short: 'National League', entries: nlEntries };
+    return `
+      <div class="standings-league-section">
+        ${this._divisionTableHtml(alDiv, true, ['W','L','PCT','GB','STRK','Last Ten'])}
+      </div>
+      <div class="standings-league-section">
+        ${this._divisionTableHtml(nlDiv, true, ['W','L','PCT','GB','STRK','Last Ten'])}
       </div>`;
   }
 
