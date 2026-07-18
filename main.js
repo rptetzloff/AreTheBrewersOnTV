@@ -27,6 +27,9 @@
         		this.seasonRecords = {};
         		this.photosBySeason = {};
         		this.channelMeta = {};
+        		this.providerMeta = {};
+        		this.providerAliasIndex = new Map();
+        		this.selectedProvider = localStorage.getItem('tvProvider') || null;
         		this.lineScores = null;
         		this.init();
         	}
@@ -84,11 +87,13 @@
         				});
         			});
 
-        			const [gamesRes, namesRes, photosRes, channelsRes, teamstatsRes] = await Promise.all([
+        			const [gamesRes, namesRes, photosRes, channelsRes, channelLookupRes, providerLookupRes, teamstatsRes] = await Promise.all([
         				fetch('./data/gameinfo.csv'),
         				fetch('./data/CurrentNames.csv'),
         				fetch('./data/photos.csv').catch(() => null),
         				fetch('./data/broadcast_channels.csv'),
+        				fetch('./data/channel_lookup.csv'),
+        				fetch('./data/provider_lookup.csv'),
         				fetch('./data/teamstats.csv'),
         			]);
         			if (channelsRes.ok) {
@@ -100,6 +105,9 @@
         						sort_order: parseInt(ch.sort_order) || 99,
         					};
         				});
+        			}
+        			if (channelLookupRes.ok && providerLookupRes.ok) {
+        				this._loadTvLookup(await channelLookupRes.text(), await providerLookupRes.text());
         			}
         			if (gamesRes.ok && namesRes.ok) {
         				const teamstatsText = teamstatsRes?.ok ? await teamstatsRes.text() : null;
@@ -1509,6 +1517,82 @@ resolveChannel(networkName) {
   return null;
 }
 
+_loadTvLookup(channelLookupRaw, providerLookupRaw) {
+  const channels = parseGamesCsv(channelLookupRaw);
+  const providers = parseGamesCsv(providerLookupRaw);
+
+  // provider key -> metadata + channel map (key -> channel number string)
+  this.providerMeta = {};
+  this.providerAliasIndex = new Map();
+  for (const p of providers) {
+    const key = p.provider;
+    this.providerMeta[key] = {
+      key,
+      display_name: p.display_name,
+      alternate_name: p.alternate_name || '',
+      website_url: p.website_url || '',
+      channel_lineup: p.channel_lineup || '',
+      channels: {},
+    };
+    // index display name + each comma-separated alternate name
+    const names = [p.display_name, ...(p.alternate_name || '').split(',').map(s => s.trim()).filter(Boolean)];
+    for (const n of names) {
+      this.providerAliasIndex.set(n.toLowerCase(), key);
+    }
+  }
+
+  // channel_lookup columns: key,alias,display_name,type,...<provider keys>
+  const providerKeys = Object.keys(this.providerMeta);
+  for (const ch of channels) {
+    const channelKey = ch.key;
+    const alias = ch.alias || '';
+    for (const pk of providerKeys) {
+      const v = (ch[pk] || '').trim();
+      if (v && v.toLowerCase() !== 'varies by market') {
+        // Map both the primary key and alias so both resolve to the same channel.
+        this.providerMeta[pk].channels[channelKey] = v;
+        if (alias) this.providerMeta[pk].channels[alias] = v;
+      }
+    }
+  }
+}
+
+resolveProviderByName(query) {
+  if (!query) return null;
+  const q = query.trim().toLowerCase();
+  if (!q) return null;
+  // exact alias match
+  const hit = this.providerAliasIndex.get(q);
+  if (hit) return this.providerMeta[hit];
+  // partial match (starts-with then includes)
+  for (const [alias, key] of this.providerAliasIndex) {
+    if (alias.startsWith(q)) return this.providerMeta[key];
+  }
+  for (const [alias, key] of this.providerAliasIndex) {
+    if (alias.includes(q)) return this.providerMeta[key];
+  }
+  return null;
+}
+
+resolveProviderChannel(providerKey, networkName) {
+  if (!providerKey || !networkName) return null;
+  const p = this.providerMeta[providerKey];
+  if (!p) return null;
+  const key = networkName.trim();
+  // direct hit on channel key or alias
+  if (p.channels[key]) return p.channels[key];
+  const lower = key.toLowerCase();
+  for (const [k, v] of Object.entries(p.channels)) {
+    if (k.toLowerCase() === lower) return v;
+  }
+  return null;
+}
+
+providerOptions() {
+  return Object.values(this.providerMeta)
+    .sort((a, b) => a.display_name.localeCompare(b.display_name));
+}
+
 initWatchModal() {
   const modal = document.getElementById('watch-modal');
   const backdrop = modal.querySelector('.watch-backdrop');
@@ -1517,6 +1601,150 @@ initWatchModal() {
   closeBtn.addEventListener('click', () => this.closeWatchModal());
   document.addEventListener('keydown', (e) => {
     if (!modal.hidden && e.key === 'Escape') this.closeWatchModal();
+  });
+}
+
+_renderProviderPicker(channelsEl) {
+  const wrap = document.createElement('div');
+  wrap.className = 'watch-provider-picker';
+
+  const label = document.createElement('label');
+  label.className = 'watch-provider-label';
+  label.htmlFor = 'watch-provider-input';
+  label.textContent = 'Your TV provider';
+  wrap.appendChild(label);
+
+  const input = document.createElement('input');
+  input.type = 'search';
+  input.id = 'watch-provider-input';
+  input.className = 'watch-provider-input';
+  input.placeholder = 'Search providers (e.g. Xfinity, Spectrum, TDS)…';
+  input.setAttribute('list', 'watch-provider-list');
+  input.autocomplete = 'off';
+  if (this.selectedProvider && this.providerMeta[this.selectedProvider]) {
+    input.value = this.providerMeta[this.selectedProvider].display_name;
+  }
+  wrap.appendChild(input);
+
+  const list = document.createElement('datalist');
+  list.id = 'watch-provider-list';
+  this.providerOptions().forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.display_name;
+    list.appendChild(opt);
+  });
+  wrap.appendChild(list);
+
+  const hint = document.createElement('div');
+  hint.className = 'watch-provider-hint';
+  hint.hidden = true;
+  wrap.appendChild(hint);
+
+  input.addEventListener('input', () => {
+    const match = this.resolveProviderByName(input.value);
+    if (match) {
+      this.selectedProvider = match.key;
+      localStorage.setItem('tvProvider', match.key);
+      input.value = match.display_name;
+      hint.hidden = true;
+      this._renderWatchChannels(channelsEl, channelsEl._resolved);
+    } else {
+      this.selectedProvider = null;
+      localStorage.removeItem('tvProvider');
+      hint.hidden = !input.value.trim();
+      hint.textContent = input.value.trim() ? `No provider matching "${input.value.trim()}".` : '';
+      this._renderWatchChannels(channelsEl, channelsEl._resolved);
+    }
+  });
+
+  channelsEl.innerHTML = '';
+  channelsEl.appendChild(wrap);
+}
+
+_renderWatchChannels(channelsEl, resolved) {
+  // Remove previously rendered channel sections (keep the picker).
+  [...channelsEl.querySelectorAll('.watch-channel-section')].forEach(el => el.remove());
+
+  if (!resolved || resolved.length === 0) {
+    const empty = document.createElement('p');
+  empty.className = 'watch-no-data watch-channel-section';
+  empty.textContent = 'No broadcast information available for this game.';
+  channelsEl.appendChild(empty);
+  return;
+  }
+
+  const typeOrder = ['broadcast', 'cable', 'regional', 'streaming'];
+  const typeLabels = { broadcast: 'On TV — Broadcast', cable: 'On TV — Cable', regional: 'Regional TV', streaming: 'Streaming' };
+  const groups = {};
+  resolved.forEach(ch => {
+    const t = typeOrder.includes(ch.type) ? ch.type : 'cable';
+    if (!groups[t]) groups[t] = [];
+    groups[t].push(ch);
+  });
+
+  const provider = this.selectedProvider && this.providerMeta[this.selectedProvider] ? this.providerMeta[this.selectedProvider] : null;
+  const showChannelNum = Boolean(provider);
+
+  typeOrder.forEach(type => {
+    if (!groups[type]) return;
+    const section = document.createElement('div');
+    section.className = 'watch-channel-section';
+
+    const label = document.createElement('div');
+    label.className = 'watch-group-label';
+    label.textContent = typeLabels[type];
+    section.appendChild(label);
+
+    const list = document.createElement('div');
+    list.className = 'watch-channel-list';
+
+    groups[type].forEach(ch => {
+      const item = document.createElement('div');
+      item.className = 'watch-channel-item';
+
+      const nameDiv = document.createElement('div');
+      nameDiv.className = 'watch-channel-name';
+      if (ch.website_url) {
+        nameDiv.innerHTML = `<a href="${ch.website_url}" target="_blank" rel="noopener noreferrer">${ch.display_name}</a>`;
+      } else {
+        nameDiv.textContent = ch.display_name;
+      }
+      item.appendChild(nameDiv);
+
+      if (ch.description) {
+        const desc = document.createElement('div');
+        desc.className = 'watch-channel-desc';
+        desc.textContent = ch.description;
+        item.appendChild(desc);
+      }
+
+      if (showChannelNum) {
+        const num = this.resolveProviderChannel(provider.key, ch.key);
+        const numDiv = document.createElement('div');
+        numDiv.className = 'watch-channel-num';
+        if (num) {
+          numDiv.innerHTML = `<span class="watch-channel-num-label">${provider.display_name}</span> <span class="watch-channel-num-value">Ch. ${num}</span>`;
+        } else if (type === 'broadcast' || type === 'cable' || type === 'regional') {
+          numDiv.innerHTML = `<span class="watch-channel-num-label watch-channel-num-none">Not listed for ${provider.display_name}</span>`;
+        } else {
+          numDiv.hidden = true;
+        }
+        item.appendChild(numDiv);
+      }
+
+      const providers = Array.isArray(ch.providers) ? ch.providers : [];
+      if (providers.length > 0) {
+        const pDiv = document.createElement('div');
+        pDiv.className = 'watch-providers';
+        pDiv.textContent = 'Available on: ' + providers.join(', ');
+        item.appendChild(pDiv);
+      }
+
+      list.appendChild(item);
+    });
+
+    section.appendChild(list);
+    channelsEl.appendChild(section);
   });
 }
 
@@ -1553,11 +1781,6 @@ async openWatchModal(game) {
     ? mlbBroadcasts.map(b => b.name).filter(Boolean)
     : espnNetworks;
 
-  if (allNetworkNames.length === 0) {
-    channelsEl.innerHTML = '<p class="watch-no-data">No broadcast information available for this game.</p>';
-    return;
-  }
-
   // Deduplicate + resolve
   const seen = new Set();
   const resolved = [];
@@ -1569,63 +1792,10 @@ async openWatchModal(game) {
     }
   }
 
-  // Group by type
-  const typeOrder = ['broadcast', 'cable', 'regional', 'streaming'];
-  const typeLabels = { broadcast: 'On TV — Broadcast', cable: 'On TV — Cable', regional: 'Regional TV', streaming: 'Streaming' };
-  const groups = {};
-  resolved.forEach(ch => {
-    const t = typeOrder.includes(ch.type) ? ch.type : 'cable';
-    if (!groups[t]) groups[t] = [];
-    groups[t].push(ch);
-  });
-
-  channelsEl.innerHTML = '';
-  typeOrder.forEach(type => {
-    if (!groups[type]) return;
-    const section = document.createElement('div');
-
-    const label = document.createElement('div');
-    label.className = 'watch-group-label';
-    label.textContent = typeLabels[type];
-    section.appendChild(label);
-
-    const list = document.createElement('div');
-    list.className = 'watch-channel-list';
-
-    groups[type].forEach(ch => {
-      const item = document.createElement('div');
-      item.className = 'watch-channel-item';
-
-      const nameDiv = document.createElement('div');
-      nameDiv.className = 'watch-channel-name';
-      if (ch.website_url) {
-        nameDiv.innerHTML = `<a href="${ch.website_url}" target="_blank" rel="noopener noreferrer">${ch.display_name}</a>`;
-      } else {
-        nameDiv.textContent = ch.display_name;
-      }
-      item.appendChild(nameDiv);
-
-      if (ch.description) {
-        const desc = document.createElement('div');
-        desc.className = 'watch-channel-desc';
-        desc.textContent = ch.description;
-        item.appendChild(desc);
-      }
-
-      const providers = Array.isArray(ch.providers) ? ch.providers : [];
-      if (providers.length > 0) {
-        const pDiv = document.createElement('div');
-        pDiv.className = 'watch-providers';
-        pDiv.textContent = 'Available on: ' + providers.join(', ');
-        item.appendChild(pDiv);
-      }
-
-      list.appendChild(item);
-    });
-
-    section.appendChild(list);
-    channelsEl.appendChild(section);
-  });
+  // Picker (session-persistent provider) + channel sections.
+  this._renderProviderPicker(channelsEl);
+  channelsEl._resolved = resolved;
+  this._renderWatchChannels(channelsEl, resolved);
 }
 
 closeWatchModal() {

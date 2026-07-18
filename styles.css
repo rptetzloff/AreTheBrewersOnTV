@@ -1806,6 +1806,73 @@ details:not([open]) > .collapsible-summary::before {
     border-color: rgba(255, 197, 47, 0.6);
 }
 
+/* ── Provider picker (inside watch modal) ── */
+.watch-provider-picker {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    margin: 0 0 1.25rem;
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.watch-provider-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #FFC52F;
+}
+
+.watch-provider-input {
+    width: 100%;
+    box-sizing: border-box;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 197, 47, 0.35);
+    border-radius: 8px;
+    color: white;
+    font-size: 0.95rem;
+    padding: 0.55rem 0.8rem;
+    transition: border-color 0.15s, background 0.15s;
+}
+
+.watch-provider-input::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.watch-provider-input:focus {
+    outline: none;
+    border-color: #FFC52F;
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.watch-provider-hint {
+    font-size: 0.78rem;
+    color: rgba(255, 255, 255, 0.55);
+}
+
+.watch-channel-num {
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    margin-top: 0.2rem;
+    font-size: 0.85rem;
+}
+
+.watch-channel-num-label {
+    color: rgba(255, 255, 255, 0.55);
+}
+
+.watch-channel-num-value {
+    color: #FFC52F;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.watch-channel-num-none {
+    font-style: italic;
+}
+
 /* ── Line score modal ── */
 .linescore-backdrop {
     position: fixed;
