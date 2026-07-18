@@ -139,6 +139,7 @@
         			this.initGallery();
         			this.initWatchModal();
         			this.initLinescoreModal();
+        			this.initStandingsModal();
         			this.buildOnThisDay();
         			const params = new URLSearchParams(window.location.search);
         			const seasonParam = params.get('season');
@@ -828,9 +829,17 @@ createCsvGameItem(g, showH2h = false) {
 
              let html = '';
              if (preText) html += `<span class="preseason-record">${preText}</span><br>`;
-             html += regularText;
+             if (!isPastSeason) {
+               html += `<span class="record-standings-link" title="Click to view standings">${regularText}</span>`;
+             } else {
+               html += regularText;
+             }
              if (postText) html += `<br><span class="playoff-record">${postText}</span>`;
              recordEl.innerHTML = html;
+             if (!isPastSeason) {
+               const link = recordEl.querySelector('.record-standings-link');
+               if (link) link.addEventListener('click', () => this.openStandingsModal());
+             }
          }
 
          displaySchedule(events, isPastSeason = false) {
@@ -1631,6 +1640,113 @@ initLinescoreModal() {
   document.addEventListener('keydown', (e) => {
     if (!modal.hidden && e.key === 'Escape') this.closeLinescoreModal();
   });
+}
+
+initStandingsModal() {
+  const modal = document.getElementById('standings-modal');
+  modal.querySelector('.standings-backdrop').addEventListener('click', () => this.closeStandingsModal());
+  document.getElementById('standings-close').addEventListener('click', () => this.closeStandingsModal());
+  document.addEventListener('keydown', (e) => {
+    if (!modal.hidden && e.key === 'Escape') this.closeStandingsModal();
+  });
+}
+
+async openStandingsModal() {
+  const modal = document.getElementById('standings-modal');
+  const body = document.getElementById('standings-body');
+  modal.hidden = false;
+  document.body.style.overflow = 'hidden';
+  body.innerHTML = '<div class="loading">Loading standings...</div>';
+
+  try {
+    const res = await fetch('https://site.api.espn.com/apis/v2/sports/baseball/mlb/standings');
+    const data = await res.json();
+    body.innerHTML = this._renderStandings(data);
+  } catch {
+    body.innerHTML = '<p class="record-empty">Could not load standings.</p>';
+  }
+}
+
+_renderStandings(data) {
+  const children = data.children || [];
+  const divOrder = ['AL West', 'AL Central', 'AL East', 'NL West', 'NL Central', 'NL East'];
+  const divs = [];
+
+  for (const league of children) {
+    for (const div of (league.children || [])) {
+      const name = div.name || div.abbreviation || '';
+      const entries = div.standings?.entries || [];
+      divs.push({ name, entries });
+    }
+  }
+
+  divs.sort((a, b) => {
+    const ai = divOrder.indexOf(a.name), bi = divOrder.indexOf(b.name);
+    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+  });
+
+  const stat = (entry, abbr) => {
+    const s = (entry.stats || []).find(st => st.abbreviation === abbr || st.name === abbr);
+    return s?.displayValue ?? s?.value ?? '—';
+  };
+
+  const divHtml = (d) => {
+    const rows = d.entries.map(entry => {
+      const team = entry.team;
+      const abbr = team?.abbreviation || '';
+      const isMil = abbr === 'MIL';
+      const name = team?.shortDisplayName || team?.displayName || abbr;
+      const w = stat(entry, 'wins');
+      const l = stat(entry, 'losses');
+      const pct = stat(entry, 'winPercent');
+      const gb = stat(entry, 'gamesBehind');
+      const streak = stat(entry, 'streak');
+      const last10 = stat(entry, 'last10');
+      return `<tr class="${isMil ? 'standings-brewers' : ''}">
+        <td class="standings-team">${isMil ? '<strong>' : ''}${name}${isMil ? '</strong>' : ''}</td>
+        <td class="standings-num">${w}</td>
+        <td class="standings-num">${l}</td>
+        <td class="standings-num">${pct}</td>
+        <td class="standings-num">${gb}</td>
+        <td class="standings-num">${streak}</td>
+        <td class="standings-num">${last10}</td>
+      </tr>`;
+    }).join('');
+    return `<div class="standings-division">
+      <h3 class="standings-div-name">${d.name}</h3>
+      <table class="standings-table">
+        <thead><tr>
+          <th class="standings-team">Team</th>
+          <th class="standings-num">W</th>
+          <th class="standings-num">L</th>
+          <th class="standings-num">PCT</th>
+          <th class="standings-num">GB</th>
+          <th class="standings-num">Streak</th>
+          <th class="standings-num">L10</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  };
+
+  const leagueGroups = [
+    { label: 'American League', names: ['AL West', 'AL Central', 'AL East'] },
+    { label: 'National League', names: ['NL West', 'NL Central', 'NL East'] },
+  ];
+
+  return leagueGroups.map(lg => {
+    const lgDivs = divs.filter(d => lg.names.includes(d.name));
+    if (!lgDivs.length) return '';
+    return `<div class="standings-league">
+      <h2 class="standings-league-name">${lg.label}</h2>
+      <div class="standings-divisions">${lgDivs.map(divHtml).join('')}</div>
+    </div>`;
+  }).join('');
+}
+
+closeStandingsModal() {
+  document.getElementById('standings-modal').hidden = true;
+  document.body.style.overflow = '';
 }
 
 openLinescoreModal(g) {

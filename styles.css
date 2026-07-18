@@ -1912,3 +1912,100 @@ details:not([open]) > .collapsible-summary::before {
     text-underline-offset: 3px;
 }
 
+/* ── Record standings link ── */
+.record-standings-link {
+    cursor: pointer;
+    border-bottom: 1px dashed rgba(255, 197, 47, 0.6);
+    transition: border-color 0.15s, color 0.15s;
+}
+
+.record-standings-link:hover {
+    border-bottom-color: #FFC52F;
+    color: #FFC52F;
+}
+
+/* ── Standings modal ── */
+.standings-dialog {
+    width: min(96vw, 860px);
+    max-height: 85vh;
+    overflow-y: auto;
+}
+
+.standings-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.standings-league-name {
+    font-size: 1rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #FFC52F;
+    margin: 0 0 0.75rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid rgba(255, 197, 47, 0.25);
+}
+
+.standings-divisions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+}
+
+.standings-division {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    padding: 0.75rem;
+}
+
+.standings-div-name {
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: rgba(255, 255, 255, 0.6);
+    margin: 0 0 0.5rem;
+}
+
+.standings-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+}
+
+.standings-table th {
+    color: rgba(255, 255, 255, 0.5);
+    font-weight: 600;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.2rem 0.3rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.standings-table td {
+    padding: 0.3rem 0.3rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.standings-table tr:last-child td {
+    border-bottom: none;
+}
+
+.standings-num {
+    text-align: right;
+}
+
+.standings-team {
+    text-align: left;
+    white-space: nowrap;
+}
+
+.standings-brewers td {
+    color: #FFC52F;
+    font-weight: 600;
+}
+
