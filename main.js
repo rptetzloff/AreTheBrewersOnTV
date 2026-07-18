@@ -1663,82 +1663,156 @@ async openStandingsModal() {
       fetch('https://site.api.espn.com/apis/v2/sports/baseball/mlb/standings?group=7').then(r => r.json()),
       fetch('https://site.api.espn.com/apis/v2/sports/baseball/mlb/standings?group=8').then(r => r.json()),
     ]);
-    body.innerHTML = this._renderStandings(alData, nlData);
+    this._standingsData = { alData, nlData };
+    body.innerHTML = this._buildStandingsShell();
+    this._wireStandingsTabs(body);
+    this._showStandingsTab(body, 'division');
   } catch {
     body.innerHTML = '<p class="record-empty">Could not load standings.</p>';
   }
 }
 
-_renderStandings(alData, nlData) {
-  // group=7 = AL (3 divisions as children), group=8 = NL (3 divisions as children)
-  const parseDivisions = (data) =>
-    (data.children || []).map(div => ({
-      name: div.name,
-      entries: div.standings?.entries || [],
-    }));
+_buildStandingsShell() {
+  return `
+    <div class="standings-tabs" role="tablist">
+      <button class="standings-tab" data-tab="division" role="tab">Division</button>
+      <button class="standings-tab" data-tab="league" role="tab">League</button>
+      <button class="standings-tab" data-tab="mlb" role="tab">MLB</button>
+      <button class="standings-tab" data-tab="pennant" role="tab">Pennant Race</button>
+    </div>
+    <div class="standings-panel"></div>`;
+}
 
-  const divOrder = [
-    'American League East', 'American League Central', 'American League West',
-    'National League East', 'National League Central', 'National League West',
-  ];
+_wireStandingsTabs(body) {
+  body.querySelectorAll('.standings-tab').forEach(btn => {
+    btn.addEventListener('click', () => this._showStandingsTab(body, btn.dataset.tab));
+  });
+}
 
-  const stat = (entry, abbr) => {
-    const s = (entry.stats || []).find(st => st.abbreviation === abbr || st.name === abbr);
-    return s?.displayValue ?? '—';
-  };
+_showStandingsTab(body, tab) {
+  body.querySelectorAll('.standings-tab').forEach(b => b.classList.toggle('standings-tab-active', b.dataset.tab === tab));
+  const panel = body.querySelector('.standings-panel');
+  panel.innerHTML = this._renderStandingsTab(tab);
+}
 
-  const divHtml = (d) => {
-    const shortName = d.name.replace('American League ', 'AL ').replace('National League ', 'NL ');
-    const rows = d.entries.map(entry => {
-      const abbr = entry.team?.abbreviation || '';
-      const isMil = abbr === 'MIL';
-      const name = entry.team?.shortDisplayName || entry.team?.displayName || abbr;
-      const w = stat(entry, 'W');
-      const l = stat(entry, 'L');
-      const pct = stat(entry, 'PCT');
-      const gb = stat(entry, 'GB');
-      const strk = stat(entry, 'STRK');
-      const l10 = stat(entry, 'Last Ten');
-      return `<tr class="${isMil ? 'standings-brewers' : ''}">
-        <td class="standings-team">${name}</td>
-        <td class="standings-num">${w}</td>
-        <td class="standings-num">${l}</td>
-        <td class="standings-num">${pct}</td>
-        <td class="standings-num">${gb}</td>
-        <td class="standings-num">${strk}</td>
-        <td class="standings-num">${l10}</td>
-      </tr>`;
-    }).join('');
-    return `<div class="standings-division">
-      <h3 class="standings-div-name">${shortName}</h3>
+_parseDivisions(data) {
+  return (data.children || []).map(div => ({
+    name: div.name,
+    short: div.name.replace('American League ', 'AL ').replace('National League ', 'NL '),
+    isNlCentral: div.name === 'National League Central',
+    entries: div.standings?.entries || [],
+  }));
+}
+
+_stat(entry, abbr) {
+  const s = (entry.stats || []).find(st => st.abbreviation === abbr || st.name === abbr);
+  return s?.displayValue ?? '—';
+}
+
+_divisionTableHtml(div, showDivName, cols) {
+  const defaultCols = ['W','L','PCT','GB','STRK','Last Ten'];
+  const activeCols = cols || defaultCols;
+  const colLabels = { W:'W', L:'L', PCT:'PCT', GB:'GB', STRK:'Streak', 'Last Ten':'L10', Home:'Home', AWAY:'Away', DIFF:'Run Diff' };
+
+  const headers = activeCols.map(c => `<th class="standings-num">${colLabels[c] ?? c}</th>`).join('');
+  const rows = div.entries.map(entry => {
+    const abbr = entry.team?.abbreviation || '';
+    const isMil = abbr === 'MIL';
+    const name = entry.team?.shortDisplayName || entry.team?.displayName || abbr;
+    const cells = activeCols.map(c => `<td class="standings-num">${this._stat(entry, c)}</td>`).join('');
+    return `<tr class="${isMil ? 'standings-brewers' : ''}">
+      <td class="standings-team-cell">${name}</td>${cells}
+    </tr>`;
+  }).join('');
+
+  const header = showDivName ? `<div class="standings-div-label">${div.short}</div>` : '';
+  return `<div class="standings-block">${header}
+    <div class="standings-scroll">
       <table class="standings-table">
-        <thead><tr>
-          <th class="standings-team">Team</th>
-          <th class="standings-num">W</th>
-          <th class="standings-num">L</th>
-          <th class="standings-num">PCT</th>
-          <th class="standings-num">GB</th>
-          <th class="standings-num">Streak</th>
-          <th class="standings-num">L10</th>
-        </tr></thead>
+        <thead><tr><th class="standings-team-cell">Team</th>${headers}</tr></thead>
         <tbody>${rows}</tbody>
       </table>
-    </div>`;
-  };
+    </div>
+  </div>`;
+}
 
-  const leagues = [
-    { label: 'American League', divs: parseDivisions(alData) },
-    { label: 'National League', divs: parseDivisions(nlData) },
+_renderStandingsTab(tab) {
+  const { alData, nlData } = this._standingsData;
+  const alDivs = this._parseDivisions(alData);
+  const nlDivs = this._parseDivisions(nlData);
+
+  const divOrder = [
+    'American League East','American League Central','American League West',
+    'National League East','National League Central','National League West',
   ];
+  const sortDivs = (arr) => arr.slice().sort((a,b) => divOrder.indexOf(a.name) - divOrder.indexOf(b.name));
 
-  return leagues.map(lg => {
-    const sorted = lg.divs.slice().sort((a, b) => divOrder.indexOf(a.name) - divOrder.indexOf(b.name));
-    if (!sorted.length) return '';
-    return `<div class="standings-league">
-      <h2 class="standings-league-name">${lg.label}</h2>
-      <div class="standings-divisions">${sorted.map(divHtml).join('')}</div>
-    </div>`;
-  }).join('');
+  if (tab === 'division') {
+    const nlc = nlDivs.find(d => d.isNlCentral);
+    const rest = sortDivs([...alDivs, ...nlDivs.filter(d => !d.isNlCentral)]);
+    const milDivHtml = nlc
+      ? `<div class="standings-featured">${this._divisionTableHtml(nlc, false, ['W','L','PCT','GB','STRK','Last Ten'])}</div>`
+      : '';
+    const restHtml = rest.map(d => this._divisionTableHtml(d, true, ['W','L','PCT','GB','STRK'])).join('');
+    return `${milDivHtml}<div class="standings-rest">${restHtml}</div>`;
+  }
+
+  if (tab === 'league') {
+    const alSorted = sortDivs(alDivs);
+    const nlSorted = sortDivs(nlDivs);
+    return `
+      <div class="standings-league-section">
+        <div class="standings-league-label">American League</div>
+        ${alSorted.map(d => this._divisionTableHtml(d, true, ['W','L','PCT','GB','STRK','Last Ten'])).join('')}
+      </div>
+      <div class="standings-league-section">
+        <div class="standings-league-label">National League</div>
+        ${nlSorted.map(d => this._divisionTableHtml(d, true, ['W','L','PCT','GB','STRK','Last Ten'])).join('')}
+      </div>`;
+  }
+
+  if (tab === 'mlb') {
+    const allEntries = [...alDivs, ...nlDivs].flatMap(d => d.entries);
+    allEntries.sort((a,b) => {
+      const wa = parseFloat(this._stat(a,'PCT').replace('.','0.') || 0);
+      const wb = parseFloat(this._stat(b,'PCT').replace('.','0.') || 0);
+      return wb - wa;
+    });
+    const fakeSingleDiv = { short: 'All MLB Teams', entries: allEntries };
+    return this._divisionTableHtml(fakeSingleDiv, false, ['W','L','PCT','GB','STRK','Last Ten','Home','AWAY']);
+  }
+
+  if (tab === 'pennant') {
+    // NL wildcard: top 6 NL teams by W% (excluding division leaders already counted)
+    const nlEntries = nlDivs.flatMap(d => d.entries).slice().sort((a,b) => {
+      const pa = parseFloat(this._stat(a,'PCT').replace(/^\./,'0.'));
+      const pb = parseFloat(this._stat(b,'PCT').replace(/^\./,'0.'));
+      return pb - pa;
+    });
+    const alEntries = alDivs.flatMap(d => d.entries).slice().sort((a,b) => {
+      const pa = parseFloat(this._stat(a,'PCT').replace(/^\./,'0.'));
+      const pb = parseFloat(this._stat(b,'PCT').replace(/^\./,'0.'));
+      return pb - pa;
+    });
+    const nlTop = nlEntries.slice(0, 8);
+    const alTop = alEntries.slice(0, 8);
+    const nlDiv = { short: 'NL Pennant Race (Top 8)', entries: nlTop };
+    const alDiv = { short: 'AL Pennant Race (Top 8)', entries: alTop };
+    return `
+      <div class="standings-league-section">
+        ${this._divisionTableHtml(nlDiv, true, ['W','L','PCT','STRK','Last Ten','DIFF'])}
+      </div>
+      <div class="standings-league-section">
+        ${this._divisionTableHtml(alDiv, true, ['W','L','PCT','STRK','Last Ten','DIFF'])}
+      </div>`;
+  }
+
+  return '';
+}
+
+_renderStandings(alData, nlData) {
+  // kept for compatibility; not called after tab refactor
+  return '';
 }
 
 closeStandingsModal() {

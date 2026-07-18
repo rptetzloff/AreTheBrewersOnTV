@@ -1926,86 +1926,169 @@ details:not([open]) > .collapsible-summary::before {
 
 /* ── Standings modal ── */
 .standings-dialog {
-    width: min(96vw, 860px);
-    max-height: 85vh;
-    overflow-y: auto;
+    width: min(96vw, 680px);
+    max-height: 88vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 0;
+    gap: 0;
 }
 
 .standings-body {
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: 0;
+    overflow: hidden;
+    flex: 1;
+    min-height: 0;
+    padding: 0 1rem;
 }
 
-.standings-league-name {
-    font-size: 1rem;
-    font-weight: 700;
+.standings-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid rgba(255, 197, 47, 0.2);
+    flex-shrink: 0;
+}
+
+.standings-tab {
+    flex: 1;
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: #FFC52F;
-    margin: 0 0 0.75rem;
-    padding-bottom: 0.4rem;
-    border-bottom: 1px solid rgba(255, 197, 47, 0.25);
+    padding: 0.6rem 0.25rem;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: color 0.15s, border-color 0.15s;
+    white-space: nowrap;
 }
 
-.standings-divisions {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+.standings-tab:hover {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.standings-tab-active {
+    color: #FFC52F;
+    border-bottom-color: #FFC52F;
+}
+
+.standings-panel {
+    overflow-y: auto;
+    flex: 1;
+    padding: 1rem 0 0.5rem;
+    display: flex;
+    flex-direction: column;
     gap: 1rem;
 }
 
-.standings-division {
-    background: rgba(0, 0, 0, 0.2);
+.standings-featured .standings-block {
+    background: rgba(255, 197, 47, 0.06);
+    border: 1px solid rgba(255, 197, 47, 0.2);
     border-radius: 8px;
-    padding: 0.75rem;
 }
 
-.standings-div-name {
-    font-size: 0.8rem;
+.standings-rest {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.standings-league-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.standings-league-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #FFC52F;
+    padding: 0.15rem 0.5rem;
+    border-left: 2px solid #FFC52F;
+    margin-bottom: 0.1rem;
+}
+
+.standings-block {
+    background: rgba(0, 0, 0, 0.18);
+    border-radius: 7px;
+    overflow: hidden;
+}
+
+.standings-div-label {
+    font-size: 0.7rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: rgba(255, 255, 255, 0.6);
-    margin: 0 0 0.5rem;
+    color: rgba(255, 255, 255, 0.5);
+    padding: 0.4rem 0.6rem 0.1rem;
+}
+
+.standings-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 .standings-table {
     width: 100%;
     border-collapse: collapse;
     font-size: 0.82rem;
+    min-width: 320px;
 }
 
 .standings-table th {
-    color: rgba(255, 255, 255, 0.5);
+    color: rgba(255, 255, 255, 0.45);
     font-weight: 600;
-    font-size: 0.72rem;
+    font-size: 0.68rem;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
-    padding: 0.2rem 0.3rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    letter-spacing: 0.05em;
+    padding: 0.25rem 0.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    white-space: nowrap;
 }
 
 .standings-table td {
-    padding: 0.3rem 0.3rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    color: rgba(255, 255, 255, 0.85);
+    padding: 0.32rem 0.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    color: rgba(255, 255, 255, 0.82);
+    white-space: nowrap;
 }
 
 .standings-table tr:last-child td {
     border-bottom: none;
 }
 
+.standings-table tbody tr:hover td {
+    background: rgba(255, 255, 255, 0.04);
+}
+
 .standings-num {
     text-align: right;
 }
 
-.standings-team {
+.standings-team-cell {
     text-align: left;
     white-space: nowrap;
+    padding-left: 0.6rem !important;
+    min-width: 90px;
 }
 
 .standings-brewers td {
     color: #FFC52F;
-    font-weight: 600;
+    font-weight: 700;
+}
+
+@media (max-width: 480px) {
+    .standings-tab {
+        font-size: 0.7rem;
+        padding: 0.5rem 0.1rem;
+    }
 }
 
