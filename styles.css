@@ -829,6 +829,14 @@ details:not([open]) > .collapsible-summary::before {
     gap: 0.75rem;
 }
 
+.footer-disclaimer {
+    font-size: 0.72rem;
+    line-height: 1.5;
+    color: rgba(255, 255, 255, 0.4);
+    max-width: 520px;
+    margin: 0 1rem;
+}
+
 .emoji-toggle-label {
     display: inline-flex;
     align-items: center;
@@ -1782,6 +1790,15 @@ details:not([open]) > .collapsible-summary::before {
     color: rgba(255, 255, 255, 0.5);
     font-size: 0.9rem;
     padding: 1rem 0;
+}
+
+.watch-disclaimer {
+    margin-top: 1.25rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 0.72rem;
+    line-height: 1.5;
+    color: rgba(255, 255, 255, 0.45);
 }
 
 .watch-btn {

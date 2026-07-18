@@ -36,30 +36,13 @@
         	getTvStatus(game) {
         		if (!game) return 'no';
         		const broadcasts = game.competitions?.[0]?.broadcasts || [];
-        		const networks = broadcasts.flatMap(b => {
-        			const names = [];
-        			if (b.media?.shortName) names.push(b.media.shortName.toLowerCase());
-        			if (b.names) names.push(...b.names.map(n => n.toLowerCase()));
-        			return names;
-        		});
-        		const streamingOnly = [
-        			'mlb.tv', 'brewers.tv', 'mlbtv',
-        			'apple tv', 'apple tv+', 'appletv+',
-        			'peacock', 'espn+', 'espnplus',
-        			'paramount+', 'fubo', 'sling',
-        		];
-        		const onTv = [
-        			'fox', 'fs1', 'fs2', 'espn', 'espn2', 'abc',
-        			'tbs', 'tnt', 'mlb network', 'mlbn',
-        			'bally', 'bsmi', 'bswi', 'nbcs', 'nbc sports',
-        		];
-        		if (networks.length === 0) return 'no';
-        		const hasTV = networks.some(n => onTv.some(tv => n.includes(tv)));
+        		if (broadcasts.length === 0) return 'no';
+        		// ESPN's type.shortName is authoritative: 'TV', 'Streaming', 'Radio'.
+        		const hasTV = broadcasts.some(b => (b.type?.shortName || '') === 'TV');
         		if (hasTV) return 'yes';
-        		const hasStreaming = networks.some(n => streamingOnly.some(s => n.includes(s)));
+        		const hasStreaming = broadcasts.some(b => (b.type?.shortName || '') === 'Streaming');
         		if (hasStreaming) return 'streaming';
-        		// unknown network — treat as on TV
-        		return 'yes';
+        		return 'no';
         	}
 
         	async init() {
@@ -775,41 +758,38 @@ createCsvGameItem(g, showH2h = false) {
         		this._lastResult = { isUndefeated, wins, losses, ties, isPastSeason, worldSeriesName, postRecord, preRecord, tvStatus };
         		this._isOffseason = false;
 
-        		const emojis = this.showEmojis;
-
         		if (worldSeriesName) {
-        			answerEl.innerHTML = `🏆⚾🍺<br>${worldSeriesName.toUpperCase()}<br>CHAMPIONS!<br>🎉🎊🎉`;
+        			answerEl.innerHTML = `🏆🍺<br>${worldSeriesName.toUpperCase()}<br>CHAMPIONS!<br>🎉`;
         			answerEl.className = 'answer champions';
         			document.body.classList.remove('undefeated');
         		} else if (!isPastSeason && tvStatus !== null) {
         			// Current season: answer based on whether today's game is on TV
         			if (tvStatus === 'yes') {
-        				const tvHtml = emojis ? this.emojiRowHtml('📺', 1) : '';
-        				answerEl.innerHTML = `${tvHtml}YES!!!`;
+        				answerEl.innerHTML = `YES!!!`;
         				answerEl.className = 'answer yes';
         				document.body.classList.add('undefeated');
         			} else if (tvStatus === 'streaming') {
-        				const streamHtml = emojis ? this.emojiRowHtml('📱', 1) : '';
-        				answerEl.innerHTML = `${streamHtml}STREAMING ONLY`;
+        				answerEl.innerHTML = `STREAMING ONLY`;
         				answerEl.className = 'answer streaming';
         				document.body.classList.remove('undefeated');
         			} else {
-        				const baseballHtml = emojis ? this.emojiRowHtml('⚾', 1) : '';
-        				answerEl.innerHTML = `${baseballHtml}NO`;
+        				answerEl.innerHTML = `NO`;
         				answerEl.className = 'answer no';
         				document.body.classList.remove('undefeated');
         			}
         		} else if (isUndefeated) {
-        			const baseballHtml = emojis && wins > 0 ? this.emojiRowHtml('⚾', wins) : '';
-        			const beerHtml = emojis && !isPastSeason ? this.emojiRowHtml('🍺', 1) : '';
-        			answerEl.innerHTML = `${baseballHtml}YES!!!${beerHtml}`;
+        			const beerHtml = !isPastSeason ? this.emojiRowHtml('🍺', 1) : '';
+        			answerEl.innerHTML = `YES!!!${beerHtml}`;
         			answerEl.className = 'answer yes';
         			document.body.classList.add('undefeated');
+        		} else if (isPastSeason) {
+        			// Past seasons: show no YES/NO/streaming answer, just the record.
+        			answerEl.innerHTML = '';
+        			answerEl.className = 'answer past';
+        			document.body.classList.remove('undefeated');
         		} else {
-        			const baseballHtml = emojis && wins > 0 ? this.emojiRowHtml('⚾', wins) : '';
-        			const beerHtml = emojis && !isPastSeason ? this.emojiRowHtml('🍺', 1) : '';
-        			const frownHtml = emojis && losses > 0 ? this.emojiRowHtml('😢', losses) : '';
-        			answerEl.innerHTML = `${baseballHtml}NO${beerHtml}${frownHtml}`;
+        			const beerHtml = this.emojiRowHtml('🍺', 1);
+        			answerEl.innerHTML = `NO${beerHtml}`;
         			answerEl.className = 'answer no';
         			document.body.classList.remove('undefeated');
         		}
@@ -1095,10 +1075,11 @@ if (isNext) {
 gameDetails.appendChild(countdownDiv);
 }
 
-// Watch button — show for any game in the current/latest season that has
-// broadcast data (TV, streaming, or radio) attached to the ESPN event.
+// Watch button — current and future games in the current/latest season
+// that have broadcast data attached to the ESPN event.
 const hasBroadcasts = (competition?.broadcasts || []).some(b => b.media?.shortName);
-if (hasBroadcasts && this.currentSeason === this.latestSeason) {
+const gameIsCompleted = status.type.name === 'STATUS_FINAL';
+if (hasBroadcasts && !gameIsCompleted && this.currentSeason === this.latestSeason) {
   const watchBtn = document.createElement('button');
   watchBtn.className = 'watch-btn';
   watchBtn.innerHTML = '<i class="mdi mdi-television-play"></i> Where to watch';
