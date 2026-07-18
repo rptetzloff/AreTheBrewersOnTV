@@ -2079,10 +2079,6 @@ details:not([open]) > .collapsible-summary::before {
     min-width: 90px;
 }
 
-.standings-table tr.standings-cutoff td {
-    border-bottom: 2px solid rgba(255, 197, 47, 0.5);
-}
-
 .standings-brewers td {
     color: #FFC52F;
     font-weight: 700;

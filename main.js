@@ -1714,23 +1714,22 @@ _parsePct(entry) {
   return parseFloat(raw.startsWith('.') ? '0' + raw : raw) || 0;
 }
 
-_divisionTableHtml(div, showDivName, cols, cutoffAfter, playoffTags) {
+_divisionTableHtml(div, showDivName, cols, playoffTags) {
   const defaultCols = ['W','L','PCT','GB','STRK','Last Ten'];
   const activeCols = cols || defaultCols;
   const colLabels = { W:'W', L:'L', PCT:'PCT', GB:'GB', STRK:'Streak', 'Last Ten':'L10', Home:'Home', AWAY:'Away', DIFF:'Run Diff', MNW:'WC#' };
 
   const headers = activeCols.map(c => `<th class="standings-num">${colLabels[c] ?? c}</th>`).join('');
-  const rows = div.entries.map((entry, i) => {
+  const rows = div.entries.map((entry) => {
     const abbr = entry.team?.abbreviation || '';
     const isMil = abbr === 'MIL';
     const name = entry.team?.shortDisplayName || entry.team?.displayName || abbr;
     const cells = activeCols.map(c => `<td class="standings-num">${this._stat(entry, c)}</td>`).join('');
-    const cutClass = (cutoffAfter !== undefined && i === cutoffAfter - 1) ? ' standings-cutoff' : '';
     const tag = playoffTags?.[entry.team?.id];
     const tagHtml = tag === 'div' ? ' <span class="standings-tag standings-tag-div">DIV</span>'
                   : tag === 'wc'  ? ' <span class="standings-tag standings-tag-wc">WC</span>'
                   : '';
-    return `<tr class="${isMil ? 'standings-brewers' : ''}${cutClass}">
+    return `<tr class="${isMil ? 'standings-brewers' : ''}">
       <td class="standings-team-cell">${name}${tagHtml}</td>${cells}
     </tr>`;
   }).join('');
@@ -1794,14 +1793,14 @@ _renderStandingsTab(tab) {
   }
 
   if (tab === 'pennant') {
-    // 6 playoff spots per league: 3 division winners + 3 wild card spots
-    const wcCutoff = (divs) => {
+    // 6 playoff spots per league: 3 division winners + 3 wild card spots.
+    // No cutoff line — a division winner can sit below a wild card team in
+    // overall winning percentage, so a divider would be misleading.
+    const wcTagged = (divs) => {
       const divWinnerIds = new Set(divs.map(d => d.entries[0]?.team?.id).filter(Boolean));
       const all = divs.flatMap(d => d.entries).slice().sort((a, b) => this._parsePct(b) - this._parsePct(a));
-      // Assign tags: first time a div-winner appears = 'div', next 3 non-div-winners = 'wc'
       const tags = {};
       let wcSlots = 0;
-      let cutoff = 6;
       const seenDivWinners = new Set();
       for (let i = 0; i < all.length; i++) {
         const id = all[i].team?.id;
@@ -1812,28 +1811,19 @@ _renderStandingsTab(tab) {
           tags[id] = 'wc';
           wcSlots++;
         }
-        if (seenDivWinners.size === divWinnerIds.size && wcSlots === 3 && cutoff === 6) {
-          cutoff = i + 1;
-        }
       }
-      // fallback: cutoff is after 3rd WC regardless of div winner position
-      wcSlots = 0;
-      for (let i = 0; i < all.length; i++) {
-        if (!divWinnerIds.has(all[i].team?.id)) wcSlots++;
-        if (wcSlots === 3) { cutoff = i + 1; break; }
-      }
-      return { entries: all, cutoff, tags };
+      return { entries: all, tags };
     };
-    const nl = wcCutoff(nlDivs);
-    const al = wcCutoff(alDivs);
+    const nl = wcTagged(nlDivs);
+    const al = wcTagged(alDivs);
     const nlDiv = { short: 'NL Wild Card Race', entries: nl.entries };
     const alDiv = { short: 'AL Wild Card Race', entries: al.entries };
     return `
       <div class="standings-league-section">
-        ${this._divisionTableHtml(nlDiv, true, ['W','L','PCT','STRK','Last Ten','DIFF'], nl.cutoff, nl.tags)}
+        ${this._divisionTableHtml(nlDiv, true, ['W','L','PCT','STRK','Last Ten','DIFF'], nl.tags)}
       </div>
       <div class="standings-league-section">
-        ${this._divisionTableHtml(alDiv, true, ['W','L','PCT','STRK','Last Ten','DIFF'], al.cutoff, al.tags)}
+        ${this._divisionTableHtml(alDiv, true, ['W','L','PCT','STRK','Last Ten','DIFF'], al.tags)}
       </div>`;
   }
 
