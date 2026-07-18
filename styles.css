@@ -1929,11 +1929,12 @@ details:not([open]) > .collapsible-summary::before {
     width: min(96vw, 680px);
     height: min(88vh, 720px);
     max-height: 88vh;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    padding: 0;
-    gap: 0;
+    overflow: hidden !important;
+    overflow-y: hidden !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
 }
 
 .standings-body {
