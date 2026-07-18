@@ -37,10 +37,27 @@
         		if (!game) return 'no';
         		const broadcasts = game.competitions?.[0]?.broadcasts || [];
         		if (broadcasts.length === 0) return 'no';
-        		// ESPN's type.shortName is authoritative: 'TV', 'Streaming', 'Radio'.
-        		const hasTV = broadcasts.some(b => (b.type?.shortName || '') === 'TV');
+        		// Use our channel_lookup/broadcast_channels metadata to classify each
+        		// broadcast: a channel typed broadcast/cable/regional counts as "on TV"
+        		// even when ESPN labels it "Streaming" (e.g. Brewers.TV is carried on
+        		// DirecTV, Spectrum, Xfinity, etc.). Only fall back to ESPN's type when
+        		// the network isn't in our metadata at all.
+        		const tvTypes = new Set(['broadcast', 'cable', 'regional']);
+        		let hasTV = false;
+        		let hasStreaming = false;
+        		for (const b of broadcasts) {
+        			if (!b.media?.shortName) continue;
+        			const ch = this.resolveChannel(b.media.shortName);
+        			if (ch) {
+        				if (tvTypes.has(ch.type)) { hasTV = true; continue; }
+        				if (ch.type === 'streaming') { hasStreaming = true; continue; }
+        			}
+        			// Unknown to our metadata — trust ESPN's type label.
+        			const t = b.type?.shortName || '';
+        			if (t === 'TV') hasTV = true;
+        			else if (t === 'Streaming') hasStreaming = true;
+        		}
         		if (hasTV) return 'yes';
-        		const hasStreaming = broadcasts.some(b => (b.type?.shortName || '') === 'Streaming');
         		if (hasStreaming) return 'streaming';
         		return 'no';
         	}
