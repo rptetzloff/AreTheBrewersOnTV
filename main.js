@@ -1678,7 +1678,7 @@ _buildStandingsShell() {
       <button class="standings-tab" data-tab="division" role="tab">Division</button>
       <button class="standings-tab" data-tab="league" role="tab">League</button>
       <button class="standings-tab" data-tab="mlb" role="tab">MLB</button>
-      <button class="standings-tab" data-tab="pennant" role="tab">Pennant Race</button>
+      <button class="standings-tab" data-tab="pennant" role="tab">Wild Card</button>
     </div>
     <div class="standings-panel"></div>`;
 }
@@ -1791,18 +1791,30 @@ _renderStandingsTab(tab) {
 
   if (tab === 'pennant') {
     // 6 playoff spots per league: 3 division winners + 3 wild card spots
-    // sort each league by W%, draw cutoff line after position 6
-    const sortByPct = (entries) => entries.slice().sort((a, b) => this._parsePct(b) - this._parsePct(a));
-    const nlEntries = sortByPct(nlDivs.flatMap(d => d.entries));
-    const alEntries = sortByPct(alDivs.flatMap(d => d.entries));
-    const nlDiv = { short: 'NL Wild Card Race', entries: nlEntries };
-    const alDiv = { short: 'AL Wild Card Race', entries: alEntries };
+    // Division winner = team ranked 1st in each division (first entry per div, ESPN-ordered)
+    // Remaining 12 compete for 3 wild card spots; sort all 15 by W% and mark cutoff correctly
+    const wcCutoff = (divs) => {
+      const divWinners = new Set(divs.map(d => d.entries[0]?.team?.id).filter(Boolean));
+      const all = divs.flatMap(d => d.entries).slice().sort((a, b) => this._parsePct(b) - this._parsePct(a));
+      // find the position of the 3rd wild card: count div winners and non-div-winners until 3 WC spots filled
+      let wcSlots = 0;
+      let cutoff = 6;
+      for (let i = 0; i < all.length; i++) {
+        if (!divWinners.has(all[i].team?.id)) wcSlots++;
+        if (wcSlots === 3) { cutoff = i + 1; break; }
+      }
+      return { entries: all, cutoff };
+    };
+    const nl = wcCutoff(nlDivs);
+    const al = wcCutoff(alDivs);
+    const nlDiv = { short: 'NL Wild Card Race', entries: nl.entries };
+    const alDiv = { short: 'AL Wild Card Race', entries: al.entries };
     return `
       <div class="standings-league-section">
-        ${this._divisionTableHtml(nlDiv, true, ['W','L','PCT','STRK','Last Ten','DIFF'], 6)}
+        ${this._divisionTableHtml(nlDiv, true, ['W','L','PCT','STRK','Last Ten','DIFF'], nl.cutoff)}
       </div>
       <div class="standings-league-section">
-        ${this._divisionTableHtml(alDiv, true, ['W','L','PCT','STRK','Last Ten','DIFF'], 6)}
+        ${this._divisionTableHtml(alDiv, true, ['W','L','PCT','STRK','Last Ten','DIFF'], al.cutoff)}
       </div>`;
   }
 
