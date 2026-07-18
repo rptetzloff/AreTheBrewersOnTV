@@ -64,18 +64,6 @@
 
         	async init() {
         		try {
-        			const toggle = document.getElementById('emoji-toggle');
-        			toggle.checked = this.showEmojis;
-        			toggle.addEventListener('change', () => {
-        				localStorage.setItem('showEmojis', toggle.checked ? 'true' : 'false');
-        				if (this._isOffseason) {
-        					this.displayOffseasonMessage();
-        				} else if (this._lastResult) {
-        					const { isUndefeated, wins, losses, ties, isPastSeason, superBowlName, postRecord, preRecord, tvStatus } = this._lastResult;
-        					this.displayResult(isUndefeated, wins, losses, ties, isPastSeason, superBowlName, postRecord, preRecord, tvStatus);
-        				}
-        			});
-
         			['streak-details', 'otd-details'].forEach(id => {
         				const details = document.getElementById(id);
         				if (!details) return;
@@ -747,19 +735,14 @@ createCsvGameItem(g, showH2h = false) {
         		const answerEl = document.getElementById('answer');
         		const recordEl = document.getElementById('record');
 
-        		const baseballHtml = this.showEmojis ? '⚾<br>' : '';
         		this._lastResult = null;
         		this._isOffseason = true;
-        		answerEl.innerHTML = `${baseballHtml}OFFSEASON`;
+        		answerEl.innerHTML = `OFFSEASON`;
         		answerEl.className = 'answer offseason';
         		document.body.classList.remove('undefeated');
         		document.body.classList.add('offseason');
 
         		recordEl.textContent = 'The season hasn\'t started yet!';
-        	}
-
-        	get showEmojis() {
-        		return localStorage.getItem('showEmojis') !== 'false';
         	}
 
         	emojiRowHtml(emoji, count) {

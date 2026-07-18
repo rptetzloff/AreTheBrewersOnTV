@@ -837,28 +837,6 @@ details:not([open]) > .collapsible-summary::before {
     margin: 0 1rem;
 }
 
-.emoji-toggle-label {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    color: rgba(255, 255, 255, 0.5);
-    font-size: 0.8rem;
-    cursor: pointer;
-    user-select: none;
-    transition: color 0.2s;
-}
-
-.emoji-toggle-label:hover {
-    color: rgba(255, 255, 255, 0.85);
-}
-
-.emoji-toggle-label input[type="checkbox"] {
-    accent-color: #FFC52F;
-    width: 0.9rem;
-    height: 0.9rem;
-    cursor: pointer;
-}
-
 .github-link {
     display: inline-flex;
     align-items: center;
