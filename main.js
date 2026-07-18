@@ -1752,12 +1752,12 @@ _renderStandingsTab(tab) {
     const nlSorted = sortDivs(nlDivs);
     return `
       <div class="standings-league-section">
-        <div class="standings-league-label">American League</div>
-        ${alSorted.map(d => this._divisionTableHtml(d, true, ['W','L','PCT','GB','STRK','Last Ten'])).join('')}
-      </div>
-      <div class="standings-league-section">
         <div class="standings-league-label">National League</div>
         ${nlSorted.map(d => this._divisionTableHtml(d, true, ['W','L','PCT','GB','STRK','Last Ten'])).join('')}
+      </div>
+      <div class="standings-league-section">
+        <div class="standings-league-label">American League</div>
+        ${alSorted.map(d => this._divisionTableHtml(d, true, ['W','L','PCT','GB','STRK','Last Ten'])).join('')}
       </div>`;
   }
 
@@ -1773,40 +1773,34 @@ _renderStandingsTab(tab) {
     const nlDiv = { short: 'National League', entries: nlEntries };
     return `
       <div class="standings-league-section">
-        ${this._divisionTableHtml(alDiv, true, ['W','L','PCT','GB','STRK','Last Ten'])}
+        ${this._divisionTableHtml(nlDiv, true, ['W','L','PCT','GB','STRK','Last Ten'])}
       </div>
       <div class="standings-league-section">
-        ${this._divisionTableHtml(nlDiv, true, ['W','L','PCT','GB','STRK','Last Ten'])}
+        ${this._divisionTableHtml(alDiv, true, ['W','L','PCT','GB','STRK','Last Ten'])}
       </div>`;
   }
 
   if (tab === 'mlb') {
-    const allEntries = [...alDivs, ...nlDivs].flatMap(d => d.entries);
+    const allEntries = [...nlDivs, ...alDivs].flatMap(d => d.entries);
     allEntries.sort((a,b) => {
-      const wa = parseFloat(this._stat(a,'PCT').replace('.','0.') || 0);
-      const wb = parseFloat(this._stat(b,'PCT').replace('.','0.') || 0);
+      const wa = parseFloat(this._stat(a,'PCT').replace(/^\./, '0.') || 0);
+      const wb = parseFloat(this._stat(b,'PCT').replace(/^\./, '0.') || 0);
       return wb - wa;
     });
-    const fakeSingleDiv = { short: 'All MLB Teams', entries: allEntries };
+    const fakeSingleDiv = { short: '', entries: allEntries };
     return this._divisionTableHtml(fakeSingleDiv, false, ['W','L','PCT','GB','STRK','Last Ten','Home','AWAY']);
   }
 
   if (tab === 'pennant') {
-    // NL wildcard: top 6 NL teams by W% (excluding division leaders already counted)
-    const nlEntries = nlDivs.flatMap(d => d.entries).slice().sort((a,b) => {
+    const sortByPct = (entries) => entries.slice().sort((a,b) => {
       const pa = parseFloat(this._stat(a,'PCT').replace(/^\./,'0.'));
       const pb = parseFloat(this._stat(b,'PCT').replace(/^\./,'0.'));
       return pb - pa;
     });
-    const alEntries = alDivs.flatMap(d => d.entries).slice().sort((a,b) => {
-      const pa = parseFloat(this._stat(a,'PCT').replace(/^\./,'0.'));
-      const pb = parseFloat(this._stat(b,'PCT').replace(/^\./,'0.'));
-      return pb - pa;
-    });
-    const nlTop = nlEntries.slice(0, 8);
-    const alTop = alEntries.slice(0, 8);
-    const nlDiv = { short: 'NL Pennant Race (Top 8)', entries: nlTop };
-    const alDiv = { short: 'AL Pennant Race (Top 8)', entries: alTop };
+    const nlEntries = sortByPct(nlDivs.flatMap(d => d.entries));
+    const alEntries = sortByPct(alDivs.flatMap(d => d.entries));
+    const nlDiv = { short: 'NL Pennant Race', entries: nlEntries };
+    const alDiv = { short: 'AL Pennant Race', entries: alEntries };
     return `
       <div class="standings-league-section">
         ${this._divisionTableHtml(nlDiv, true, ['W','L','PCT','STRK','Last Ten','DIFF'])}
