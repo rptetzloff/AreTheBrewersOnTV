@@ -2088,6 +2088,28 @@ details:not([open]) > .collapsible-summary::before {
     font-weight: 700;
 }
 
+.standings-tag {
+    display: inline-block;
+    font-size: 0.6rem;
+    font-weight: 700;
+    padding: 0 4px;
+    border-radius: 3px;
+    vertical-align: middle;
+    line-height: 1.4;
+    letter-spacing: 0.03em;
+}
+
+.standings-tag-div {
+    background: #FFC52F;
+    color: #12284B;
+}
+
+.standings-tag-wc {
+    background: rgba(255, 197, 47, 0.25);
+    color: #FFC52F;
+    border: 1px solid rgba(255, 197, 47, 0.5);
+}
+
 
 @media (max-width: 480px) {
     .standings-tab {
