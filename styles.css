@@ -1934,7 +1934,6 @@ details:not([open]) > .collapsible-summary::before {
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
     animation: galleryIn 0.2s ease-out;
     width: min(96vw, 680px);
-    height: min(88vh, 720px);
     max-height: 88vh;
     overflow: hidden;
     padding: 0;
@@ -1986,7 +1985,7 @@ details:not([open]) > .collapsible-summary::before {
 }
 
 .standings-panel {
-    overflow-y: auto;
+    overflow-y: scroll;
     flex: 1;
     min-height: 0;
     padding: 1rem 0 0.5rem;
@@ -1995,6 +1994,7 @@ details:not([open]) > .collapsible-summary::before {
     gap: 1rem;
     scrollbar-width: thin;
     scrollbar-color: #FFC52F #1a3558;
+}
 }
 
 .standings-panel::-webkit-scrollbar { width: 6px; }
