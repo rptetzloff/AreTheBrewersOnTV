@@ -1,6 +1,6 @@
 // Records & Superlatives page: computes superlatives from the games CSV
 // (records-core.js, shared with the server) and renders one shareable card each.
-import { parseGameinfoCsv, computeSuperlatives, recordsCopy, formatDate, RECORD_SLUGS, esc } from './records-core.js';
+import { parseGameinfoCsv, computeSuperlatives, computeTeamstatsRecords, recordsCopy, formatDate, RECORD_SLUGS, esc } from './records-core.js';
 import { shareButtonsHtml, labeledShareButtonsHtml, wireShareRow, wireShareDropdown } from './share-core.js';
 
 const yearLink = (yr) => `<a href="/${yr}">${yr}</a>`;
@@ -10,8 +10,23 @@ const blowoutEntry = (g) => ({
 	main: `${g.pf}–${g.pa}`, sub: `vs ${g.opponent}`,
 	detailHtml: `${gameLink(g.season, g.gid, esc(formatDate(g.date)))}${esc(gameFlag(g))}`,
 });
+const seasonEntry = (s) => ({
+	main: s.record,
+	subHtml: yearLink(s.season),
+	detailHtml: `.${String(Math.round(s.winPct * 1000)).padStart(3, '0')} winning percentage`,
+});
 
 const CARDS = [
+	{
+		slug: 'best-seasons', icon: 'mdi-crown', title: 'Best Seasons',
+		note: 'Highest winning percentage among completed seasons',
+		entries: (d) => d.bestSeasons.map(seasonEntry),
+	},
+	{
+		slug: 'worst-seasons', icon: 'mdi-emoticon-sad-outline', title: 'Worst Seasons',
+		note: 'Lowest winning percentage among completed seasons',
+		entries: (d) => d.worstSeasons.map(seasonEntry),
+	},
 	{
 		slug: 'best-starts', icon: 'mdi-rocket-launch-outline', title: 'Best Season Starts',
 		note: 'Wins to open a season',
@@ -41,8 +56,23 @@ const CARDS = [
 		entries: (d) => d.lopsidedLosses.map(blowoutEntry),
 	},
 	{
+		slug: 'no-hitters', icon: 'mdi-baseball', title: 'No-Hitters',
+		note: 'Every no-hitter in franchise history, most recent first',
+		highlightTop: false,
+		entries: (d) => d.noHitters.map(blowoutEntry),
+		empty: 'The Brewers have never thrown a no-hitter.',
+	},
+	{
+		slug: 'perfect-games', icon: 'mdi-baseball-diamond', title: 'Perfect Games',
+		note: 'Every perfect game in franchise history, most recent first',
+		highlightTop: false,
+		entries: (d) => d.perfectGames.map(blowoutEntry),
+		empty: 'The Brewers have never thrown a perfect game.',
+	},
+	{
 		slug: 'world-series-appearances', icon: 'mdi-trophy-outline', title: 'World Series Appearances',
 		note: 'Brewers World Series results by year',
+		highlightTop: false,
 		entries: (d) => d.worldSeriesAppearances.map((p) => ({
 			main: String(p.season),
 			subHtml: `<a href="/${p.season}#g-${esc(p.firstGid)}">${esc(p.result)} vs ${esc(p.opponent)} (${esc(p.record)})</a>`,
@@ -52,6 +82,7 @@ const CARDS = [
 	{
 		slug: 'playoff-appearances', icon: 'mdi-medal-outline', title: 'Playoff Appearances',
 		note: 'Brewers postseason series results by year',
+		highlightTop: false,
 		entries: (d) => d.playoffAppearances.map((p) => ({
 			main: String(p.season),
 			subHtml: p.series.map((s) => `<a href="/${s.season}#g-${esc(s.firstGid)}">${esc(s.result)} ${esc(s.roundLabel)} vs ${esc(s.opponent)} (${esc(s.record)})</a>`).join('<br>'),
@@ -61,15 +92,16 @@ const CARDS = [
 	{
 		slug: 'ties', icon: 'mdi-equal', title: 'Ties',
 		note: 'Every tie in franchise history, most recent first',
+		highlightTop: false,
 		entries: (d) => d.ties.map(blowoutEntry),
 		empty: 'The Brewers have never tied a game.',
 	},
 ];
 
-function entryHtml(e, i) {
+function entryHtml(e, i, highlightTop) {
 	const sub = e.subHtml ?? esc(e.sub);
 	const detail = e.detailHtml ?? (e.detail ? esc(e.detail) : '');
-	return `<li class="record-entry${i === 0 ? ' record-entry-top' : ''}">
+	return `<li class="record-entry${highlightTop && i === 0 ? ' record-entry-top' : ''}">
 		<span class="record-entry-main">${esc(e.main)}</span>
 		<span class="record-entry-sub">${sub}</span>
 		${detail ? `<span class="record-entry-detail">${detail}</span>` : ''}
@@ -83,7 +115,7 @@ function shareRowHtml(slug) {
 function cardHtml(card, data) {
 	const entries = card.entries(data);
 	const body = entries.length
-		? `<ol class="record-list">${entries.map(entryHtml).join('')}</ol>`
+		? `<ol class="record-list">${entries.map((e, i) => entryHtml(e, i, card.highlightTop !== false)).join('')}</ol>`
 		: `<p class="record-empty">${esc(card.empty || 'Nothing here yet.')}</p>`;
 	return `<section class="record-card" id="card-${card.slug}">
 		<h2 class="record-card-title"><i class="mdi ${card.icon}"></i> ${esc(card.title)}</h2>
@@ -115,7 +147,10 @@ async function init() {
 			fetch('/data/teamstats.csv'),
 		]);
 		if (!gamesRes.ok || !namesRes.ok || !teamstatsRes.ok) throw new Error(`CSV fetch failed`);
-		const data = computeSuperlatives(parseGameinfoCsv(await gamesRes.text(), await namesRes.text(), await teamstatsRes.text()));
+		const namesText = await namesRes.text();
+		const teamstatsText = await teamstatsRes.text();
+		const rows = parseGameinfoCsv(await gamesRes.text(), namesText, teamstatsText);
+		const data = { ...computeSuperlatives(rows), ...computeTeamstatsRecords(rows, teamstatsText) };
 		document.getElementById('records-subtitle').textContent =
 			`Milwaukee Brewers · ${data.seasonRange.first}–${data.seasonRange.last}`;
 		grid.innerHTML = CARDS.map((c) => cardHtml(c, data)).join('');

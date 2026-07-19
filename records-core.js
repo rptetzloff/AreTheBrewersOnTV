@@ -512,6 +512,63 @@ export function computeSeasonHistory(rows, { now = new Date(), playoffs = false 
 	});
 }
 
+// Per-season best/worst records and team-pitching milestones (no-hitters,
+// perfect games) from teamstats.csv. `rows` are the parsed gameinfo rows
+// (for opponent/score/date cross-reference). Best/worst seasons use only
+// settled regular-season records.
+export function computeTeamstatsRecords(rows, teamstatsRaw, { top = 5, now = new Date() } = {}) {
+	const lines = teamstatsRaw.trim().split('\n');
+	const headers = splitCsvLine(lines[0]);
+	const idx = (name) => headers.indexOf(name);
+	const gidI = idx('gid'), teamI = idx('team');
+	const hitI = idx('p_h'), ipoutsI = idx('p_ipouts'), wI = idx('p_w'), hbpI = idx('p_hbp'), bfpI = idx('p_bfp');
+	const pitch = new Map();
+	for (const line of lines.slice(1)) {
+		const v = splitCsvLine(line);
+		const team = v[teamI]?.trim();
+		if (team !== 'MIL' && team !== 'SE1') continue;
+		const gid = v[gidI]?.trim();
+		if (!gid) continue;
+		pitch.set(gid, {
+			h: parseInt(v[hitI], 10) || 0,
+			ipouts: parseInt(v[ipoutsI], 10) || 0,
+			w: parseInt(v[wI], 10) || 0,
+			hbp: parseInt(v[hbpI], 10) || 0,
+			bfp: parseInt(v[bfpI], 10) || 0,
+		});
+	}
+
+	const seasons = computeSeasonHistory(rows, { now, playoffs: false });
+	const completed = seasons.filter((s) => seasonSettled(s.season, now) && (s.wins + s.losses + s.ties) > 0);
+	const byBest = (a, b) => b.winPct - a.winPct || b.wins - a.wins || a.season - b.season;
+	const byWorst = (a, b) => a.winPct - b.winPct || a.losses - b.losses || a.season - b.season;
+	const bestSeasons = completed.slice().sort(byBest).slice(0, top);
+	const worstSeasons = completed.slice().sort(byWorst).slice(0, top);
+
+	const games = rows
+		.filter((r) => RESULTS.has(r['Brewers Win']))
+		.slice()
+		.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+	const noHitters = [];
+	const perfectGames = [];
+	for (const g of games) {
+		const p = pitch.get(g.gid);
+		if (!p || p.ipouts < 27 || p.h !== 0) continue;
+		const perfect = p.w === 0 && p.hbp === 0 && p.bfp === p.ipouts;
+		const entry = {
+			gid: g.gid, date: g.date, season: parseInt(g.season, 10), opponent: g.Opponent,
+			pf: parseInt(g.brewers_score, 10) || 0, pa: parseInt(g.opponent_score, 10) || 0,
+			playoff: g.regular_season !== '1', worldseries: !!(g.worldseries && g.worldseries.trim()),
+			perfect,
+		};
+		noHitters.push(entry);
+		if (perfect) perfectGames.push({ ...entry });
+	}
+	noHitters.reverse();
+	perfectGames.reverse();
+	return { bestSeasons, worstSeasons, noHitters, perfectGames };
+}
+
 // Meta copy for the /history page, shared by server OG meta and client share.
 export function historyCopy(history) {
 	const first = history[0].season, last = history[history.length - 1].season;
@@ -590,6 +647,38 @@ export function recordsCopy(slug, data) {
 				desc: `The Brewers have played ${data.ties.length} ties. Most recent: ${t.pf}–${t.pa} vs the ${t.opponent} on ${formatDate(t.date)}.`,
 			};
 		}
+		case 'best-seasons': {
+			const s = data.bestSeasons[0];
+			return {
+				title: `Best Brewers Seasons — ${s.record} in ${s.season}`,
+				desc: `The best Milwaukee Brewers season: ${s.record} in ${s.season}. Top ${data.bestSeasons.length} seasons by winning percentage.`,
+			};
+		}
+		case 'worst-seasons': {
+			const s = data.worstSeasons[0];
+			return {
+				title: `Worst Brewers Seasons — ${s.record} in ${s.season}`,
+				desc: `The worst Milwaukee Brewers season: ${s.record} in ${s.season}. It happens to the best of us.`,
+			};
+		}
+		case 'no-hitters': {
+			const n = data.noHitters;
+			if (!n.length) return { title: 'Brewers No-Hitters', desc: 'The Brewers have never thrown a no-hitter.' };
+			const g = n[0];
+			return {
+				title: `Brewers No-Hitters — ${n.length} all-time`,
+				desc: `The Brewers have thrown ${n.length} no-hitter${n.length === 1 ? '' : 's'}. Most recent: ${g.pf}–${g.pa} vs the ${g.opponent} on ${formatDate(g.date)}.`,
+			};
+		}
+		case 'perfect-games': {
+			const n = data.perfectGames;
+			if (!n.length) return { title: 'Brewers Perfect Games', desc: 'The Brewers have never thrown a perfect game.' };
+			const g = n[0];
+			return {
+				title: `Brewers Perfect Games — ${n.length} all-time`,
+				desc: `The Brewers have thrown ${n.length} perfect game${n.length === 1 ? '' : 's'}. Most recent: ${g.pf}–${g.pa} vs the ${g.opponent} on ${formatDate(g.date)}.`,
+			};
+		}
 		default:
 			return {
 				title: 'Brewers Records & Superlatives',
@@ -634,4 +723,4 @@ export function parseTeamstatsLineScores(raw) {
 	return map;
 }
 
-export const RECORD_SLUGS = ['best-starts', 'win-streaks', 'worst-starts', 'lopsided-wins', 'worst-losses', 'world-series-appearances', 'playoff-appearances', 'ties'];
+export const RECORD_SLUGS = ['best-seasons', 'worst-seasons', 'best-starts', 'win-streaks', 'worst-starts', 'lopsided-wins', 'worst-losses', 'no-hitters', 'perfect-games', 'world-series-appearances', 'playoff-appearances', 'ties'];
