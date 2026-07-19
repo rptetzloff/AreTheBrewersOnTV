@@ -113,12 +113,20 @@ export function buildChartSvg(history, {
 	}
 
 	if (milestones) {
-		for (const ms of milestones) {
-			const px = x(seasonOfDate(ms.date));
+		const milestoneAnchors = milestones.map((ms) => x(seasonOfDate(ms.date)));
+		for (let i = 0; i < milestones.length; i++) {
+			const ms = milestones[i];
+			const px = milestoneAnchors[i];
 			if (px < pad.l || px > width - pad.r) continue;
 			parts.push(`<line x1="${px.toFixed(1)}" y1="${pad.t}" x2="${px.toFixed(1)}" y2="${(pad.t + plotH).toFixed(1)}" stroke="${WHITE}" stroke-width="1" stroke-dasharray="2 3" opacity="0.35"/>`);
 			if (ms.label && axes) {
-				parts.push(`<text x="${(px + 3).toFixed(1)}" y="${(pad.t + 11).toFixed(1)}" font-size="10" fill="${WHITE}" opacity="0.6">${ms.label}</text>`);
+				// Rotate labels vertically so adjacent milestones (e.g. 1969 & 1970)
+				// don't collide. Alternate left/right of the line to avoid overlap.
+				const side = i % 2 === 0 ? 1 : -1;
+				const tx = px + side * 4;
+				const anchor = side > 0 ? 'start' : 'end';
+				const rotate = side > 0 ? `${tx} ${pad.t + plotH - 4} -90` : `${tx} ${pad.t + 4} 90`;
+				parts.push(`<text x="${tx.toFixed(1)}" y="${(pad.t + plotH - 4).toFixed(1)}" font-size="10" fill="${WHITE}" opacity="0.6" text-anchor="${anchor}" transform="rotate(${rotate})">${ms.label}</text>`);
 			}
 		}
 	}
@@ -165,7 +173,7 @@ export function buildChartSvg(history, {
 				parts.push(`<circle cx="${x(s.season).toFixed(1)}" cy="${cy.toFixed(1)}" r="${axes ? 4 : 2}" fill="${P.color}" stroke="${DARK}" stroke-width="1" opacity="0.9"/>`);
 			}
 			if (emoji && axes) {
-				parts.push(`<text x="${x(s.season).toFixed(1)}" y="${(cy - (tier === 'wsWin' ? 12 : 9)).toFixed(1)}" font-size="${tier === 'wsWin' ? 14 : 11}" text-anchor="middle">${P.glyph}</text>`);
+				parts.push(`<text x="${x(s.season).toFixed(1)}" y="${(cy - (tier === 'wsWin' ? 12 : 9)).toFixed(1)}" font-size="${tier === 'wsWin' ? 14 : 11}" fill="${P.color}" text-anchor="middle">${P.glyph}</text>`);
 			}
 		}
 	}
