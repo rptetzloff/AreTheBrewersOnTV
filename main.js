@@ -1,4 +1,4 @@
-        import { parseGamesCsv, parseGameinfoCsv, computeSeasonHistory, parseTeamstatsLineScores } from './records-core.js';
+        import { parseGamesCsv, parseGameinfoCsv, parseCurrentNamesCsv, BREWERS_IDS, computeSeasonHistory, parseTeamstatsLineScores } from './records-core.js';
         import { computeHeadToHead, canonicalOpponent } from './h2h-core.js';
         import { buildChartSvg } from './history-chart.js';
         import { intentUrls, copyText, flashCopied } from './share-core.js';
@@ -116,7 +116,9 @@
         			}
         			if (gamesRes.ok && namesRes.ok) {
         				const teamstatsText = teamstatsRes?.ok ? await teamstatsRes.text() : null;
-        				const games = parseGameinfoCsv(await gamesRes.text(), await namesRes.text(), teamstatsText);
+        				const namesText = await namesRes.text();
+        				const games = parseGameinfoCsv(await gamesRes.text(), namesText, teamstatsText);
+        				this.teamNames = parseCurrentNamesCsv(namesText);
         				this.csvBySeason = buildSeasonMap(games);
         				if (teamstatsText) this.lineScores = parseTeamstatsLineScores(teamstatsText);
         				// name -> all-time head-to-head entry, for schedule annotations
@@ -2105,10 +2107,10 @@ openLinescoreModal(g) {
   const { visitor, home } = ls;
   if (!visitor || !home) return;
 
-  const BREWERS_ABBRS = new Set(['MIL', 'SE1']);
-  const brewersIsHome = BREWERS_ABBRS.has(home.team);
+  const brewersAbbr = BREWERS_IDS.has(home.team) ? home.team : visitor.team;
+  const brewersIsHome = BREWERS_IDS.has(home.team);
   const oppLabel = g.Opponent;
-  const brewersLabel = 'Milwaukee Brewers';
+  const brewersLabel = this.teamNames?.[brewersAbbr] || 'Milwaukee Brewers';
   const visLabel = brewersIsHome ? oppLabel : brewersLabel;
   const homLabel = brewersIsHome ? brewersLabel : oppLabel;
 
