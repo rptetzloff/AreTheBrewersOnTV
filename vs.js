@@ -4,12 +4,21 @@
 import { parseGameinfoCsv, formatDate, esc } from './records-core.js';
 import { computeHeadToHead, h2hCopy, streakSentence } from './h2h-core.js';
 import { shareButtonsHtml, labeledShareButtonsHtml, wireShareRow, wireShareDropdown } from './share-core.js';
+import { sortableHeadHtml, sortRows, wireSortable } from './sortable.js';
 
 const pct = (p) => (p >= 1 ? '1.000' : p.toFixed(3).replace(/^0/, ''));
 
 const resultLetter = { WIN: 'W', LOSS: 'L', TIE: 'T' };
 const meeting = (m) =>
 	`${resultLetter[m.result]} ${m.pf}–${m.pa} · <a href="/${m.season}">${esc(formatDate(m.date))}</a>`;
+
+const H2H_COLUMNS = [
+	{ key: 'name',   label: 'Opponent' },
+	{ key: 'record', label: 'Record', title: 'Win-Loss-Tie', num: true, sortKey: (o) => o.winPct, defaultDir: -1 },
+	{ key: 'games',  label: 'Games', title: 'Games played', num: true, defaultDir: -1 },
+	{ key: 'winPct', label: 'Win %', title: 'Winning percentage', num: true, defaultDir: -1 },
+];
+let h2hSort = { key: 'games', dir: -1 };
 
 function focusCardHtml(o) {
 	const stats = [
@@ -29,15 +38,16 @@ function focusCardHtml(o) {
 }
 
 function tableHtml(opponents) {
-	const rows = opponents.map((o) => `
+	const sorted = sortRows(opponents, H2H_COLUMNS, h2hSort);
+	const rows = sorted.map((o) => `
 		<tr>
 			<td><a href="/vs/${o.slug}">${esc(o.name)}</a></td>
 			<td class="h2h-num">${esc(o.record)}</td>
 			<td class="h2h-num">${o.games}</td>
 			<td class="h2h-num">${pct(o.winPct)}</td>
 		</tr>`).join('');
-	return `<table class="h2h-table">
-		<thead><tr><th>Opponent</th><th class="h2h-num">Record</th><th class="h2h-num">Games</th><th class="h2h-num">Win %</th></tr></thead>
+	return `<table class="h2h-table sortable-table">
+		<thead><tr>${sortableHeadHtml(H2H_COLUMNS, h2hSort)}</tr></thead>
 		<tbody>${rows}</tbody>
 	</table>`;
 }
@@ -95,9 +105,13 @@ async function init() {
 			const opponents = data.opponents.filter((o) =>
 				(!controls.current.checked || o.current)
 				&& (q === '' || o.name.toLowerCase().includes(q)));
-			wrap.innerHTML = opponents.length
-				? tableHtml(opponents)
-				: '<p class="record-empty">No opponents match those filters.</p>';
+			if (opponents.length) {
+				wrap.innerHTML = tableHtml(opponents);
+				const table = wrap.querySelector('table');
+				if (table) wireSortable(table, H2H_COLUMNS, h2hSort, renderTable);
+			} else {
+				wrap.innerHTML = '<p class="record-empty">No opponents match those filters.</p>';
+			}
 			const filtered = venue !== 'all' || type !== 'all' || controls.current.checked || q !== '';
 			countEl.textContent = filtered ? `${opponents.length} of ${allTime.opponents.length} opponents` : '';
 		};

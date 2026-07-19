@@ -7,6 +7,7 @@ import { parseGameinfoCsv, computeSeasonHistory, historyCopy, parseBallparksCsv,
 import { parseBiofile, parseTeamstatsMgr, parseManagersCsv, computeCoachesFromData } from './coaches-core.js';
 import { buildChartSvg, METRICS, POSTSEASON, postseasonTier } from './history-chart.js';
 import { shareButtonsHtml, labeledShareButtonsHtml, wireShareRow, wireShareDropdown } from './share-core.js';
+import { sortableHeadHtml, sortRows, wireSortable } from './sortable.js';
 
 const chartEl = document.getElementById('history-chart');
 const tooltip = document.getElementById('history-tooltip');
@@ -80,16 +81,16 @@ function render(history, coaches, metrics, milestones) {
 }
 
 const TABLE_COLUMNS = [
-	{ key: 'season',   label: 'Year',   title: 'Season' },
-	{ key: 'record',   label: 'Record', title: 'Win-Loss-Tie' },
-	{ key: 'winPct',   label: 'Pct',    title: 'Winning percentage', fmt: (v) => pct(v) },
-	{ key: 'wins',     label: 'W',      title: 'Wins', num: true },
-	{ key: 'losses',   label: 'L',      title: 'Losses', num: true },
-	{ key: 'ties',     label: 'T',      title: 'Ties', num: true },
-	{ key: 'pf',       label: 'RF',     title: 'Runs scored', num: true },
-	{ key: 'pa',       label: 'RA',     title: 'Runs allowed', num: true },
-	{ key: 'diff',     label: 'Diff',   title: 'Run differential (RF - RA)', num: true, fmt: (v) => (v > 0 ? `+${v}` : String(v)) },
-	{ key: 'finish',   label: 'Finish', title: 'Postseason result' },
+	{ key: 'season',   label: 'Year',   title: 'Season', num: true, defaultDir: -1 },
+	{ key: 'record',   label: 'Record', title: 'Win-Loss-Tie', num: true, sortKey: (s) => s.winPct, defaultDir: -1 },
+	{ key: 'winPct',   label: 'Pct',    title: 'Winning percentage', num: true, fmt: (v) => pct(v), defaultDir: -1 },
+	{ key: 'wins',     label: 'W',      title: 'Wins', num: true, defaultDir: -1 },
+	{ key: 'losses',   label: 'L',      title: 'Losses', num: true, defaultDir: -1 },
+	{ key: 'ties',     label: 'T',      title: 'Ties', num: true, defaultDir: -1 },
+	{ key: 'pf',       label: 'RF',     title: 'Runs scored', num: true, defaultDir: -1 },
+	{ key: 'pa',       label: 'RA',     title: 'Runs allowed', num: true, defaultDir: -1 },
+	{ key: 'diff',     label: 'Diff',   title: 'Run differential (RF - RA)', num: true, sortKey: (s) => s.pf - s.pa, defaultDir: -1 },
+	{ key: 'finish',   label: 'Finish', title: 'Postseason result', sortKey: (s) => s.champion && s.worldseries ? 5 : ({ W: 4, L: 3, D: 2, F: 1 }[s.postseason] || 0), defaultDir: -1 },
 ];
 
 let tableSort = { key: 'season', dir: -1 }; // most recent first by default
@@ -102,32 +103,15 @@ function finishLabel(s) {
 }
 
 function renderHistoryTable() {
-	const rows = tableHistory.slice().map((s) => ({ ...s, diff: s.pf - s.pa, finish: finishLabel(s) }));
-	const { key, dir } = tableSort;
-	const cmp = (a, b) => {
-		const av = a[key], bv = b[key];
-		if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir;
-		return String(av).localeCompare(String(bv)) * dir;
-	};
-	if (key === 'record') {
-		rows.sort((a, b) => (b.winPct - a.winPct) * dir || (b.wins - a.wins) * dir || (a.season - b.season) * -dir);
-	} else if (key === 'finish') {
-		const tierOf = (s) => s.champion && s.worldseries ? 5 : ({ W: 4, L: 3, D: 2, F: 1 }[s.postseason] || 0);
-		rows.sort((a, b) => (tierOf(a) - tierOf(b)) * dir || (a.winPct - b.winPct) * -dir);
-	} else {
-		rows.sort((a, b) => cmp(a, b) || (b.season - a.season));
-	}
-	const head = TABLE_COLUMNS.map((c) => {
-		const active = c.key === key;
-		const arrow = active ? (dir > 0 ? ' ▲' : ' ▼') : '';
-		return `<th data-key="${c.key}" title="${c.title}"${c.num ? ' class="h2h-num"' : ''}${active ? ` aria-sort="${dir > 0 ? 'ascending' : 'descending'}"` : ''}>${c.label}${arrow}</th>`;
-	}).join('');
-	const body = rows.map((s) => {
+	const rows = tableHistory.map((s) => ({ ...s, diff: s.pf - s.pa, finish: finishLabel(s) }));
+	const sorted = sortRows(rows, TABLE_COLUMNS, tableSort);
+	const head = sortableHeadHtml(TABLE_COLUMNS, tableSort);
+	const body = sorted.map((s) => {
 		const finishTier = postseasonTier(s);
 		const glyph = finishTier ? `<span class="legend-glyph" style="color:${POSTSEASON[finishTier].color}">${POSTSEASON[finishTier].glyph}</span> ` : '';
 		return `<tr data-season="${s.season}">
-			<td><a href="/${s.season}">${s.season}</a></td>
-			<td>${s.record}</td>
+			<td class="h2h-num"><a href="/${s.season}">${s.season}</a></td>
+			<td class="h2h-num">${s.record}</td>
 			<td class="h2h-num">${pct(s.winPct)}</td>
 			<td class="h2h-num">${s.wins}</td>
 			<td class="h2h-num">${s.losses}</td>
@@ -138,18 +122,12 @@ function renderHistoryTable() {
 			<td>${glyph}${s.finish}</td>
 		</tr>`;
 	}).join('');
-	tableWrap.innerHTML = `<table class="h2h-table season-table">
+	tableWrap.innerHTML = `<table class="h2h-table season-table sortable-table">
 		<thead><tr>${head}</tr></thead>
 		<tbody>${body}</tbody>
 	</table>`;
-	tableWrap.querySelectorAll('th[data-key]').forEach((th) => {
-		th.addEventListener('click', () => {
-			const k = th.dataset.key;
-			if (tableSort.key === k) tableSort.dir = -tableSort.dir;
-			else { tableSort.key = k; tableSort.dir = (k === 'season') ? -1 : 1; }
-			renderHistoryTable();
-		});
-	});
+	const table = tableWrap.querySelector('table');
+	if (table) wireSortable(table, TABLE_COLUMNS, tableSort, renderHistoryTable);
 	tableWrap.querySelectorAll('tbody tr').forEach((tr) => {
 		tr.addEventListener('click', (e) => {
 			if (e.target.closest('a')) return;

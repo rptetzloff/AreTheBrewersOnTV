@@ -1958,18 +1958,19 @@ details:not([open]) > .collapsible-summary::before {
     text-transform: uppercase;
 }
 
-.season-table {
+.season-table,
+.sortable-table {
     font-variant-numeric: tabular-nums;
 }
 
-.season-table thead th {
+.sortable-table thead th {
     cursor: pointer;
     user-select: none;
     white-space: nowrap;
     transition: color 0.15s, background 0.15s;
 }
 
-.season-table thead th:hover {
+.sortable-table thead th:hover {
     color: white;
     background: rgba(255, 197, 47, 0.12);
 }
