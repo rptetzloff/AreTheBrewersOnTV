@@ -815,6 +815,25 @@ details:not([open]) > .collapsible-summary::before {
     white-space: nowrap;
 }
 
+.game-channel {
+    font-size: 0.8rem;
+    margin-top: 0.15rem;
+    line-height: 1.3;
+}
+
+.game-channel-watchable {
+    cursor: pointer;
+    transition: color 0.15s;
+}
+
+.game-channel-watchable:hover {
+    color: #FFC52F;
+}
+
+.game-channel-watchable:hover .game-network {
+    opacity: 1;
+}
+
 .game-result {
     text-align: center;
     width: 100%;
@@ -1925,29 +1944,6 @@ details:not([open]) > .collapsible-summary::before {
     color: rgba(255, 255, 255, 0.45);
 }
 
-.watch-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
-    font-size: 0.75rem;
-    color: #FFC52F;
-    background: rgba(255, 197, 47, 0.1);
-    border: 1px solid rgba(255, 197, 47, 0.35);
-    border-radius: 4px;
-    padding: 0.2rem 0.5rem;
-    cursor: pointer;
-    text-decoration: none;
-    transition: background 0.15s, border-color 0.15s;
-    margin-top: 0.3rem;
-    align-self: flex-start;
-}
-
-.watch-btn:hover {
-    background: rgba(255, 197, 47, 0.2);
-    border-color: rgba(255, 197, 47, 0.6);
-}
-
-/* ── Provider picker (inside watch modal) ── */
 .watch-provider-picker {
     display: flex;
     flex-direction: column;

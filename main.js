@@ -1053,37 +1053,59 @@ const opponentDiv = document.createElement('div');
 opponentDiv.className = 'game-opponent';
 opponentDiv.textContent = `${isHome ? 'vs' : '@'} ${opponent}`;
 
+const primaryBroadcast = this.pickPrimaryBroadcast(event) || {};
+const network = primaryBroadcast.media?.shortName || '';
+const channelNum = this.scheduleChannelNumber(primaryBroadcast);
+const hasBroadcasts = (competition?.broadcasts || []).some(b => b.media?.shortName);
+const gameIsCompleted = status.type.name === 'STATUS_FINAL';
+const canWatch = hasBroadcasts && !gameIsCompleted && this.currentSeason === this.latestSeason;
+
+gameDetails.appendChild(opponentDiv);
+
+// All-time head-to-head sits right below the opponent.
+if (this.currentSeason === this.latestSeason) {
+ const h2h = this.h2hNote(opponent);
+ if (h2h) gameDetails.appendChild(h2h);
+}
+
 const dateDiv = document.createElement('div');
 dateDiv.className = 'game-date';
-
-const primaryBroadcast = this.pickPrimaryBroadcast(event) || {};
- const network = primaryBroadcast.media?.shortName || '';
- const channelNum = this.scheduleChannelNumber(primaryBroadcast);
-
 if (isLive || isInProgress) {
- dateDiv.innerHTML = `<span class="live-indicator-small"></span>LIVE NOW${network ? ` · <span class="game-network">${network}${channelNum ? ` <span class="game-channum">Ch. ${channelNum}</span>` : ''}</span>` : ''}`;
+ dateDiv.innerHTML = `<span class="live-indicator-small"></span>LIVE NOW`;
 } else {
- const dateText = date.toLocaleDateString('en-US', {
+ dateDiv.textContent = date.toLocaleDateString('en-US', {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit'
 });
- dateDiv.innerHTML = network
- ? `${dateText} · <span class="game-network">${network}${channelNum ? ` <span class="game-channum">Ch. ${channelNum}</span>` : ''}</span>`
- : dateText;
 }
-
-gameDetails.appendChild(opponentDiv);
 gameDetails.appendChild(dateDiv);
 
-// H2H notes only on the current season's schedule (offseason included —
-// displaySchedule's isPastSeason arg also covers "don't autoscroll", so
-// key off the season instead).
-if (this.currentSeason === this.latestSeason) {
- const h2h = this.h2hNote(opponent);
- if (h2h) gameDetails.appendChild(h2h);
+// Channel/network on its own line below the date. Clickable to open the
+// "Where to watch" modal when full broadcast data is available.
+if (network || canWatch) {
+ const channelLine = document.createElement('div');
+ channelLine.className = 'game-channel';
+ let html = '';
+ if (isLive || isInProgress) html += `<span class="live-indicator-small"></span>`;
+ if (network) {
+   html += `<span class="game-network">${network}${channelNum ? ` <span class="game-channum">Ch. ${channelNum}</span>` : ''}</span>`;
+ }
+ if (canWatch && !network) {
+   html += `<i class="mdi mdi-television-play"></i> Where to watch`;
+ }
+ channelLine.innerHTML = html;
+ if (canWatch) {
+   channelLine.classList.add('game-channel-watchable');
+   channelLine.title = 'Click for where to watch';
+   channelLine.addEventListener('click', (e) => {
+     e.stopPropagation();
+     this.openWatchModal(event);
+   });
+ }
+ gameDetails.appendChild(channelLine);
 }
 
 if (isLive || isInProgress) {
@@ -1145,21 +1167,6 @@ if (isNext) {
 }
 
 gameDetails.appendChild(countdownDiv);
-}
-
-// Watch button — current and future games in the current/latest season
-// that have broadcast data attached to the ESPN event.
-const hasBroadcasts = (competition?.broadcasts || []).some(b => b.media?.shortName);
-const gameIsCompleted = status.type.name === 'STATUS_FINAL';
-if (hasBroadcasts && !gameIsCompleted && this.currentSeason === this.latestSeason) {
-  const watchBtn = document.createElement('button');
-  watchBtn.className = 'watch-btn';
-  watchBtn.innerHTML = '<i class="mdi mdi-television-play"></i> Where to watch';
-  watchBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    this.openWatchModal(event);
-  });
-  gameDetails.appendChild(watchBtn);
 }
 
 gameInfo.appendChild(gameDetails);
