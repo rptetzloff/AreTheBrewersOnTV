@@ -118,34 +118,45 @@ export function computeFranchiseMilestones(rawGameinfo, brewersParks) {
 	}
 	homeGames.sort((a, b) => (a.date < b.date ? -1 : 1));
 	if (!homeGames.length) return [];
-	const ms = [];
+	// Park name lookup. ballparks.csv omits Sick's Stadium (SEA01), the
+	// Pilots' 1969 home, so we fill it in directly.
+	const parkName = new Map(brewersParks.map((p) => [p.id, p.park]));
+	parkName.set('SEA01', "Sick's Stadium");
+	// Gather milestones keyed by date so same-date team + park transitions
+	// collapse into a single combined label instead of overlapping.
+	const byDate = new Map();
+	const addMs = (date, label, type) => {
+		if (!byDate.has(date)) byDate.set(date, { date, labels: [], types: [] });
+		const e = byDate.get(date);
+		e.labels.push(label);
+		e.types.push(type);
+	};
 	// Team identity transitions: first home game under each team id.
 	const teamName = { SE1: 'Seattle Pilots', MIL: 'Milwaukee Brewers' };
 	const seenTeam = new Set();
 	for (const g of homeGames) {
 		if (seenTeam.has(g.teamId)) continue;
 		seenTeam.add(g.teamId);
-		ms.push({ date: g.date, label: teamName[g.teamId] || g.teamId, type: 'team' });
+		addMs(g.date, teamName[g.teamId] || g.teamId, 'team');
 	}
 	// Ballpark transitions: first home game at each Brewers home park site.
-	const parkName = new Map(brewersParks.map((p) => [p.id, p.park]));
 	const seenPark = new Set();
 	for (const g of homeGames) {
 		if (seenPark.has(g.site)) continue;
 		seenPark.add(g.site);
 		const name = parkName.get(g.site);
-		if (name) ms.push({ date: g.date, label: name, type: 'park' });
+		if (name) addMs(g.date, name, 'park');
 	}
-	// Dedup by date+label, sort ascending.
-	const seen = new Set();
-	const out = [];
-	for (const m of ms.sort((a, b) => (a.date < b.date ? -1 : 1))) {
-		const k = `${m.date}|${m.label}`;
-		if (seen.has(k)) continue;
-		seen.add(k);
-		out.push(m);
-	}
-	return out;
+	// Emit one milestone per date, with a combined label. When a team rename
+	// and a park change share a date (1970: Pilots→Brewers + Sick's→County),
+	// show the team name first, then the park.
+	return [...byDate.values()]
+		.sort((a, b) => (a.date < b.date ? -1 : 1))
+		.map((e) => ({
+			date: e.date,
+			label: e.labels.join(' · '),
+			type: e.types.includes('team') ? 'team' : e.types[0],
+		}));
 }
 
 // Retrosheet teamName codes that may not appear in CurrentNames.csv or whose
