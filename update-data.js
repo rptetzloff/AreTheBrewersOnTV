@@ -39,7 +39,7 @@ async function main() {
     const gamesRaw = readFileSync('./data/gameinfo.csv', 'utf8');
     const namesRaw = readFileSync('./data/CurrentNames.csv', 'utf8');
 
-    const teamNames = parseCurrentNamesCsv(namesRaw);
+    const { teamNames } = parseCurrentNamesCsv(namesRaw);
     console.log(`Team name entries: ${Object.keys(teamNames).length}`);
 
     const games = parseGameinfoCsv(gamesRaw, namesRaw);

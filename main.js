@@ -1,5 +1,5 @@
         import { parseGamesCsv, parseGameinfoCsv, parseCurrentNamesCsv, BREWERS_IDS, computeSeasonHistory, parseTeamstatsLineScores } from './records-core.js';
-        import { computeHeadToHead, canonicalOpponent } from './h2h-core.js';
+        import { computeHeadToHead } from './h2h-core.js';
         import { buildChartSvg } from './history-chart.js';
         import { intentUrls, copyText, flashCopied, wireShareDropdown } from './share-core.js';
 
@@ -119,7 +119,8 @@
         				const teamstatsText = teamstatsRes?.ok ? await teamstatsRes.text() : null;
         				const namesText = await namesRes.text();
         				const games = parseGameinfoCsv(await gamesRes.text(), namesText, teamstatsText);
-        				this.teamNames = parseCurrentNamesCsv(namesText);
+        				this.namesData = parseCurrentNamesCsv(namesText);
+        				this.teamNames = this.namesData.teamNames;
         				if (playersRes?.ok) {
         					this.playerNames = new Map(
         						parseGamesCsv(await playersRes.text()).map(p => [p.id, `${p.usename} ${p.lastname}`.trim()])
@@ -127,8 +128,8 @@
         				}
         				this.csvBySeason = buildSeasonMap(games);
         				if (teamstatsText) this.lineScores = parseTeamstatsLineScores(teamstatsText);
-        				// name -> all-time head-to-head entry, for schedule annotations
-        				this.h2hByName = new Map(computeHeadToHead(games).opponents.map(o => [o.name, o]));
+        				// franchise code -> all-time head-to-head entry, for schedule annotations
+        				this.h2hByFranchise = new Map(computeHeadToHead(games).opponents.map(o => [o.franchise, o]));
         				this.seasonHistory = computeSeasonHistory(games);
         				this.renderHistorySpark();
         				const seasons = Object.keys(this.csvBySeason).map(Number).sort((a, b) => a - b);
@@ -423,8 +424,8 @@ processCsvSeasonData(season) {
 
 // All-time head-to-head note linking to the opponent's rivalry page.
 // Returns null for opponents with no CSV history (shouldn't happen).
-h2hNote(opponentName) {
-  const o = this.h2hByName?.get(canonicalOpponent(opponentName));
+h2hNote(franchise) {
+  const o = this.h2hByFranchise?.get(franchise);
   if (!o) return null;
   const note = document.createElement('a');
   note.className = 'game-h2h';
@@ -532,7 +533,7 @@ createCsvGameItem(g, showH2h = false) {
         		gameDetails.appendChild(dateDiv);
 
         		if (showH2h) {
-        			const h2h = this.h2hNote(opponent);
+        			const h2h = this.h2hNote(g.franchise);
         			if (h2h) gameDetails.appendChild(h2h);
         		}
 

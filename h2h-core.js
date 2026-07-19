@@ -1,51 +1,44 @@
 // Shared (browser + node) all-time head-to-head records vs every opponent,
 // computed from data/brewers_games.csv. Pure functions only — no fs/fetch/DOM.
+//
+// Opponents are grouped by franchise (the stable `franchiseName` code from
+// CurrentNames.csv), so a franchise that relocates or rebrands — e.g. the
+// Athletics (Philadelphia → Kansas City → Oakland → Sacramento) — is one
+// continuous opponent, not split across cities. The display name is the
+// opponent's most recent era name (so the A's show as "Sacramento Athletics"
+// today), and the slug is derived from that current name.
 import { rec, formatDate } from './records-core.js';
 
 export const slugifyOpponent = (name) =>
 	name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
-// Fold relocated franchises to their current names so historical data is
-// continuous. (Montreal Expos and defunct franchises are NOT aliased — those
-// are distinct historical teams.)
-const FRANCHISE_ALIASES = {
-	'Montreal Expos': 'Washington Nationals',
-	'Anaheim Angels': 'Los Angeles Angels',
-	'California Angels': 'Los Angeles Angels',
-	'Los Angeles Angels of Anaheim': 'Los Angeles Angels',
-	'Florida Marlins': 'Miami Marlins',
-	'Tampa Bay Devil Rays': 'Tampa Bay Rays',
-};
-export const canonicalOpponent = (name) => FRANCHISE_ALIASES[name] || name;
-
-// The 29 other active MLB franchises, by canonical names.
-const CURRENT_FRANCHISES = new Set([
-	'Arizona Diamondbacks', 'Atlanta Braves', 'Baltimore Orioles', 'Boston Red Sox',
-	'Chicago Cubs', 'Chicago White Sox', 'Cincinnati Reds', 'Cleveland Guardians',
-	'Colorado Rockies', 'Detroit Tigers', 'Houston Astros', 'Kansas City Royals',
-	'Los Angeles Angels', 'Los Angeles Dodgers', 'Miami Marlins', 'Minnesota Twins',
-	'New York Mets', 'New York Yankees', 'Oakland Athletics', 'Philadelphia Phillies',
-	'Pittsburgh Pirates', 'San Diego Padres', 'San Francisco Giants', 'Seattle Mariners',
-	'St. Louis Cardinals', 'Tampa Bay Rays', 'Texas Rangers', 'Toronto Blue Jays',
-	'Washington Nationals',
-]);
-
 const RESULTS = new Set(['WIN', 'LOSS', 'TIE']);
 
-// rows: parsed CSV rows. Returns { opponents, bySlug } — opponents sorted by
-// meetings played (rivals first), then name. All games count (playoffs
-// included); the playoff split is broken out per opponent.
+// rows: parsed game rows (each carries a `franchise` code and an `Opponent`
+// display name). Returns { opponents, bySlug, latestSeason } — opponents
+// sorted by meetings played (rivals first), then name. All games count
+// (playoffs included); the playoff split is broken out per opponent.
+//
+// A franchise is "current" if it appears in the latest season present in the
+// data, so the "Current franchises only" filter stays accurate as franchises
+// relocate or rebrand without needing a hardcoded list.
 export function computeHeadToHead(rows) {
 	const games = rows
 		.filter((g) => RESULTS.has(g['Brewers Win']))
 		.slice()
 		.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 
-	const byOpp = new Map();
+	let latestSeason = 0;
 	for (const g of games) {
-		const name = canonicalOpponent(g.Opponent);
-		if (!byOpp.has(name)) byOpp.set(name, []);
-		byOpp.get(name).push(g);
+		const yr = parseInt(g.season, 10);
+		if (yr > latestSeason) latestSeason = yr;
+	}
+
+	const byFran = new Map();
+	for (const g of games) {
+		const key = g.franchise || g.Opponent;
+		if (!byFran.has(key)) byFran.set(key, []);
+		byFran.get(key).push(g);
 	}
 
 	const info = (g) => ({
@@ -55,7 +48,7 @@ export function computeHeadToHead(rows) {
 		pa: parseInt(g.opponent_score, 10) || 0,
 	});
 
-	const opponents = [...byOpp.entries()].map(([name, list]) => {
+	const opponents = [...byFran.entries()].map(([fran, list]) => {
 		const count = { WIN: 0, LOSS: 0, TIE: 0 };
 		const playoff = { WIN: 0, LOSS: 0, TIE: 0 };
 		let biggestWin = null;
@@ -72,9 +65,14 @@ export function computeHeadToHead(rows) {
 		let streak = 1;
 		for (let i = list.length - 2; i >= 0 && list[i]['Brewers Win'] === last['Brewers Win']; i--) streak++;
 		const playoffGames = playoff.WIN + playoff.LOSS + playoff.TIE;
+		// Display name = the opponent's most recent era name. Games are sorted
+		// ascending by date, so the last row carries the current-era name
+		// (e.g. "Sacramento Athletics" for the A's franchise today).
+		const name = last.Opponent;
 		return {
 			name, slug: slugifyOpponent(name),
-			current: CURRENT_FRANCHISES.has(name),
+			franchise: fran,
+			current: parseInt(last.season, 10) === latestSeason,
 			games: list.length,
 			wins: count.WIN, losses: count.LOSS, ties: count.TIE,
 			record: rec(count.WIN, count.LOSS, count.TIE),

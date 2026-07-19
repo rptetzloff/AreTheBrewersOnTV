@@ -25,10 +25,22 @@ export function parseGamesCsv(raw) {
 
 // CurrentNames.csv columns: franchiseName,teamName,league,division,city,team,alternate,startDate,endDate,...
 // teamName = period-specific abbreviation used as the primary lookup key.
-// franchiseName and alternate are indexed too so Retrosheet franchise codes
-// (e.g. CHN, NYN, NYA) resolve even when the period teamName differs.
+// franchiseName is the stable organization code (ANA, OAK, WAS, etc.) — the
+// correct grouping key for all-time head-to-head, since one franchise spans
+// multiple cities and teamName codes over time (e.g. OAK covers Philadelphia,
+// Kansas City, Oakland, and Sacramento Athletics).
+//
+// Returns { teamNames, teamToFranchise, franchiseFirst }:
+//   teamNames: teamName/alternate/franchiseName -> display name ("City Nick")
+//   teamToFranchise: teamName/alternate -> franchiseName
+//   franchiseFirst: franchiseName -> the EARLIEST display name for that
+//     franchise (historical name — first row wins), used as the canonical key
+//     for grouping. A franchise that later relocates keeps its original name
+//     so historical games fold into one continuous opponent.
 export function parseCurrentNamesCsv(raw) {
-	const names = {};
+	const teamNames = {};
+	const teamToFranchise = {};
+	const franchiseFirst = {};
 	const lines = raw.trim().split('\n');
 	const headers = splitCsvLine(lines[0]);
 	const franIdx = headers.indexOf('franchiseName');
@@ -43,17 +55,25 @@ export function parseCurrentNamesCsv(raw) {
 		const nick = p[nickIdx]?.trim();
 		if (id && city && nick) {
 			const display = `${city} ${nick}`;
-			names[id] = display;
-			// Also index by franchiseName (first occurrence wins — later rows of the same
-			// franchise would overwrite the historical display name with a modern one).
+			// teamName -> display (first occurrence wins to preserve historical name)
+			if (!teamNames[id]) teamNames[id] = display;
 			const fran = franIdx >= 0 ? p[franIdx]?.trim() : '';
-			if (fran && fran !== id && !names[fran]) names[fran] = display;
-			// Also index by alternate abbreviation (first occurrence wins).
+			if (fran) {
+				// franchiseName -> display (first occurrence wins)
+				if (fran !== id && !teamNames[fran]) teamNames[fran] = display;
+				// franchiseName -> earliest display name (first row wins)
+				if (!franchiseFirst[fran]) franchiseFirst[fran] = display;
+			}
+			// Index teamName and alternate -> franchiseName for grouping.
+			if (fran) teamToFranchise[id] = fran;
 			const alt = altIdx >= 0 ? p[altIdx]?.trim() : '';
-			if (alt && alt !== id && !names[alt]) names[alt] = display;
+			if (alt) {
+				if (alt !== id && !teamNames[alt]) teamNames[alt] = display;
+				if (fran) teamToFranchise[alt] = fran;
+			}
 		}
 	}
-	return names;
+	return { teamNames, teamToFranchise, franchiseFirst };
 }
 
 // Brewers Retrosheet team IDs across all seasons.
@@ -196,7 +216,7 @@ function normalizeGametype(gt) {
 // a known playoff type (D/L/W/F/C), so that regular season games (however
 // teamstats encodes them) always default to 'R'.
 export function parseGameinfoCsv(gamesRaw, namesRaw, teamstatsRaw = null) {
-	const teamNames = parseCurrentNamesCsv(namesRaw);
+	const { teamNames, teamToFranchise, franchiseFirst } = parseCurrentNamesCsv(namesRaw);
 
 	// Build gid→gametype from teamstats, but only retain known playoff codes.
 	// teamstats uses full-word values: 'regular' for regular season, and words
@@ -230,6 +250,12 @@ export function parseGameinfoCsv(gamesRaw, namesRaw, teamstatsRaw = null) {
 			const isHome = BREWERS_IDS.has(r.hometeam);
 			const opponentId = isHome ? r.visteam : r.hometeam;
 			const opponentName = teamNames[opponentId] || RETROSHEET_TEAM_NAMES[opponentId] || opponentId;
+			// Franchise code for all-time grouping (e.g. OAK covers Philadelphia,
+			// Kansas City, Oakland, and Sacramento Athletics). Falls back to the
+			// opponentId itself for codes absent from CurrentNames (defunct
+			// franchises like WS1/WS2/CLE1), so each such franchise still groups
+			// as one opponent under its historical name.
+			const franchise = teamToFranchise[opponentId] || opponentId;
 
 			const vr = r.vruns !== '' ? parseInt(r.vruns, 10) : NaN;
 			const hr = r.hruns !== '' ? parseInt(r.hruns, 10) : NaN;
@@ -266,6 +292,7 @@ export function parseGameinfoCsv(gamesRaw, namesRaw, teamstatsRaw = null) {
 				worldseries,
 				gametype: gt,
 				Opponent: opponentName,
+				franchise,
 				'Brewers Win': result,
 				brewers_score: isNaN(brewersScore) ? '' : String(brewersScore),
 				opponent_score: isNaN(opponentScore) ? '' : String(opponentScore),
