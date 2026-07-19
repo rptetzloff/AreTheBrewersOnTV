@@ -260,6 +260,27 @@ export function computeSuperlatives(rows, { top = 5, now = new Date() } = {}) {
 	}
 	perfectSeasons.sort((a, b) => b.wins - a.wins || a.season - b.season);
 
+	// Postseason appearances: distinct seasons with at least one playoff game.
+	// World Series appearances: distinct seasons with at least one WS game.
+	const playoffAppearances = [];
+	const worldSeriesAppearances = [];
+	const seenPlayoff = new Set();
+	const seenWS = new Set();
+	for (const g of games) {
+		if (g.regular_season === '1') continue;
+		const yr = parseInt(g.season, 10);
+		if (!seenPlayoff.has(yr)) {
+			seenPlayoff.add(yr);
+			playoffAppearances.push({ season: yr });
+		}
+		if (g.worldseries && g.worldseries.trim() && !seenWS.has(yr)) {
+			seenWS.add(yr);
+			worldSeriesAppearances.push({ season: yr });
+		}
+	}
+	playoffAppearances.sort((a, b) => b.season - a.season);
+	worldSeriesAppearances.sort((a, b) => b.season - a.season);
+
 	// Regular-season win streaks, contained within a single season; a loss or tie ends one.
 	const winStreaks = [];
 	let run = null;
@@ -315,6 +336,7 @@ export function computeSuperlatives(rows, { top = 5, now = new Date() } = {}) {
 	return {
 		seasonRange, bestStarts, perfectSeasons, winStreaks: topStreaks, worstStarts,
 		lopsidedWins: lopsided('WIN'), lopsidedLosses: lopsided('LOSS'), ties,
+		playoffAppearances, worldSeriesAppearances,
 	};
 }
 
@@ -394,13 +416,22 @@ export function recordsCopy(slug, data) {
 				desc: `The best start in Milwaukee Brewers history: ${b.games}–0 to open the ${b.season} season. Top ${data.bestStarts.length} starts, ${range}.`,
 			};
 		}
-		case 'perfect-seasons': {
-			const p = data.perfectSeasons[0];
+		case 'world-series-appearances': {
+			const w = data.worldSeriesAppearances;
 			return {
-				title: p ? `Perfect Brewers Seasons — ${p.record} in ${p.season}` : 'Perfect Brewers Seasons',
-				desc: p
-					? `Seasons the Milwaukee Brewers finished without a loss: ${data.perfectSeasons.map((x) => `${x.record} in ${x.season}`).join(', ')}.`
-					: 'No Brewers season has finished without a loss. Yet.',
+				title: w.length ? `Brewers World Series Appearances — ${w.map((x) => x.season).join(', ')}` : 'Brewers World Series Appearances',
+				desc: w.length
+					? `World Series appearances by the Milwaukee Brewers: ${w.map((x) => x.season).join(', ')}.`
+					: 'The Brewers have not yet reached a World Series.',
+			};
+		}
+		case 'playoff-appearances': {
+			const p = data.playoffAppearances;
+			return {
+				title: p.length ? `Brewers Playoff Appearances — ${p.map((x) => x.season).join(', ')}` : 'Brewers Playoff Appearances',
+				desc: p.length
+					? `Playoff appearances by the Milwaukee Brewers: ${p.map((x) => x.season).join(', ')}.`
+					: 'The Brewers have not yet reached the playoffs.',
 			};
 		}
 		case 'win-streaks': {
@@ -442,7 +473,7 @@ export function recordsCopy(slug, data) {
 		default:
 			return {
 				title: 'Brewers Records & Superlatives',
-				desc: `Best starts, perfect seasons, longest win streaks, worst starts, lopsided wins, worst losses, and every tie — Milwaukee Brewers, ${range}.`,
+				desc: `Best starts, longest win streaks, worst starts, lopsided wins, worst losses, World Series and playoff appearances, and every tie — Milwaukee Brewers, ${range}.`,
 			};
 	}
 }
@@ -483,4 +514,4 @@ export function parseTeamstatsLineScores(raw) {
 	return map;
 }
 
-export const RECORD_SLUGS = ['best-starts', 'perfect-seasons', 'win-streaks', 'worst-starts', 'lopsided-wins', 'worst-losses', 'ties'];
+export const RECORD_SLUGS = ['best-starts', 'win-streaks', 'worst-starts', 'lopsided-wins', 'worst-losses', 'world-series-appearances', 'playoff-appearances', 'ties'];

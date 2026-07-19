@@ -17,12 +17,6 @@ const CARDS = [
 		entries: (d) => d.bestStarts.map((b) => ({ main: `${b.games}–0`, subHtml: yearLink(b.season) })),
 	},
 	{
-		slug: 'perfect-seasons', icon: 'mdi-trophy-outline', title: 'Perfect Seasons',
-		note: 'Finished the regular season without a loss',
-		entries: (d) => d.perfectSeasons.map((p) => ({ main: p.record, subHtml: yearLink(p.season) })),
-		empty: 'No perfect seasons. Yet.',
-	},
-	{
 		slug: 'win-streaks', icon: 'mdi-fire', title: 'Longest Win Streaks',
 		note: 'Consecutive regular-season wins (ties end a streak)',
 		entries: (d) => d.winStreaks.map((s) => ({
@@ -47,6 +41,18 @@ const CARDS = [
 		slug: 'worst-losses', icon: 'mdi-thumb-down-outline', title: 'Worst Losses',
 		note: 'Biggest margins of defeat, playoffs included',
 		entries: (d) => d.lopsidedLosses.map(blowoutEntry),
+	},
+	{
+		slug: 'world-series-appearances', icon: 'mdi-trophy-outline', title: 'World Series Appearances',
+		note: 'Seasons the Brewers reached the World Series',
+		entries: (d) => d.worldSeriesAppearances.map((p) => ({ main: String(p.season), subHtml: 'Brewers' })),
+		empty: 'The Brewers have not yet reached a World Series.',
+	},
+	{
+		slug: 'playoff-appearances', icon: 'mdi-medal-outline', title: 'Playoff Appearances',
+		note: 'Seasons the Brewers reached the postseason',
+		entries: (d) => d.playoffAppearances.map((p) => ({ main: String(p.season), subHtml: 'Brewers' })),
+		empty: 'The Brewers have not yet reached the playoffs.',
 	},
 	{
 		slug: 'ties', icon: 'mdi-equal', title: 'Ties',
