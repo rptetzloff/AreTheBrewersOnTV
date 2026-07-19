@@ -264,7 +264,7 @@ export function computeSuperlatives(rows, { top = 5, now = new Date() } = {}) {
 	// opponent); gametype codes: F=Wild Card, D=Division Series, L=LCS, W=World Series.
 	const ROUND_LABEL = { T: 'Tiebreaker', F: 'Wild Card', D: 'Division Series', L: 'LCS', W: 'World Series' };
 	const ROUND_ORDER = { T: 0, F: 1, D: 2, L: 3, W: 4 };
-	const seriesMap = new Map(); // key -> { season, round, opponent, wins, losses }
+	const seriesMap = new Map(); // key -> { season, round, opponent, wins, losses, firstGid, firstDate }
 	for (const g of games) {
 		if (g.regular_season === '1') continue;
 		const yr = parseInt(g.season, 10);
@@ -272,8 +272,13 @@ export function computeSuperlatives(rows, { top = 5, now = new Date() } = {}) {
 		const key = `${yr}|${gt}|${g.Opponent}`;
 		let s = seriesMap.get(key);
 		if (!s) {
-			s = { season: yr, round: gt, opponent: g.Opponent, wins: 0, losses: 0 };
+			s = { season: yr, round: gt, opponent: g.Opponent, wins: 0, losses: 0, firstGid: g.gid || '', firstDate: g.date || '' };
 			seriesMap.set(key, s);
+		}
+		// Keep the chronologically earliest game as the series anchor.
+		if (g.date && (!s.firstDate || g.date < s.firstDate)) {
+			s.firstGid = g.gid || s.firstGid;
+			s.firstDate = g.date;
 		}
 		if (g['Brewers Win'] === 'WIN') s.wins++;
 		else if (g['Brewers Win'] === 'LOSS') s.losses++;

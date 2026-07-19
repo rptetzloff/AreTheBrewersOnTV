@@ -402,6 +402,7 @@ processCsvSeasonData(season) {
 
  this.displayResult(isUndefeated, wins, losses, ties, true, worldSeriesName, postRecord, null);
  this.displayCsvSchedule(games, season);
+ this.scrollToGameAnchor();
  this.showLastUpdated();
  this.setDataCredit(true);
  this.updateLastUndefeated(wins, losses);
@@ -475,6 +476,18 @@ displayCsvSchedule(games, season) {
 });
 }
 
+scrollToGameAnchor() {
+  const hash = window.location.hash;
+  if (!hash || !hash.startsWith('#g-')) return;
+  const el = document.getElementById(hash.slice(1));
+  if (!el) return;
+  const grid = document.getElementById('schedule-grid');
+  const top = el.offsetTop - (grid.clientHeight / 2) + (el.offsetHeight / 2);
+  grid.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+  el.classList.add('highlight');
+  setTimeout(() => el.classList.remove('highlight'), 2500);
+}
+
 createCsvGameItem(g, showH2h = false) {
         		const result = g['Brewers Win']; // WIN / LOSS / TIE
         		const opponent = g.Opponent;
@@ -487,6 +500,7 @@ createCsvGameItem(g, showH2h = false) {
         		const gameItem = document.createElement('div');
         		gameItem.className = 'game-item completed';
 
+        		if (g.gid) gameItem.id = `g-${g.gid}`;
         		if (result === 'WIN') gameItem.classList.add('win');
         		else if (result === 'LOSS') gameItem.classList.add('loss');
 

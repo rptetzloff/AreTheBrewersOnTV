@@ -47,7 +47,7 @@ const CARDS = [
 		note: 'Brewers World Series results by year',
 		entries: (d) => d.worldSeriesAppearances.map((p) => ({
 			main: String(p.season),
-			subHtml: `${p.result} vs ${esc(p.opponent)} (${p.record})`,
+			subHtml: `<a href="/${p.season}#g-${esc(p.firstGid)}">${esc(p.result)} vs ${esc(p.opponent)} (${esc(p.record)})</a>`,
 		})),
 		empty: 'The Brewers have not yet reached a World Series.',
 	},
@@ -56,7 +56,7 @@ const CARDS = [
 		note: 'Brewers postseason series results by year',
 		entries: (d) => d.playoffAppearances.map((p) => ({
 			main: String(p.season),
-			subHtml: p.series.map((s) => `${s.result} ${s.roundLabel} vs ${esc(s.opponent)} (${s.record})`).join('<br>'),
+			subHtml: p.series.map((s) => `<a href="/${s.season}#g-${esc(s.firstGid)}">${esc(s.result)} ${esc(s.roundLabel)} vs ${esc(s.opponent)} (${esc(s.record)})</a>`).join('<br>'),
 		})),
 		empty: 'The Brewers have not yet reached the playoffs.',
 	},

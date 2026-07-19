@@ -656,6 +656,13 @@ details:not([open]) > .collapsible-summary::before {
     box-shadow: 0 0 10px rgba(255, 197, 47, 0.3);
 }
 
+.game-item.highlight {
+    outline: 2px solid #FFC52F;
+    outline-offset: -2px;
+    box-shadow: 0 0 14px rgba(255, 197, 47, 0.55);
+    animation: pulse 1.5s 2;
+}
+
 .game-info {
     display: flex;
     justify-content: space-between;
