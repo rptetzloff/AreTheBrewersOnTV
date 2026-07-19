@@ -1002,37 +1002,40 @@ details:not([open]) > .collapsible-summary::before {
 
 .site-footer {
     margin-top: 1.5rem;
-    padding-bottom: 0.5rem;
-    text-align: center;
+    padding: 0.7rem 1rem 0.5rem;
     display: flex;
-    flex-direction: column;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 0.75rem;
+    justify-content: center;
+    gap: 0.4rem 0.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .footer-disclaimer {
-    font-size: 0.72rem;
+    flex-basis: 100%;
+    text-align: center;
+    font-size: 0.7rem;
     line-height: 1.5;
     color: rgba(255, 255, 255, 0.4);
-    max-width: 520px;
-    margin: 0 1rem;
+    max-width: 640px;
+    margin: 0.15rem auto 0;
+    order: 2;
 }
 
 .footer-nav {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     justify-content: center;
-    gap: 0.35rem 0.25rem;
-    max-width: 640px;
+    gap: 0.25rem;
 }
 
 .footer-share {
     display: flex;
     flex-wrap: wrap;
-    justify-content: center;
     align-items: center;
-    gap: 0.5rem;
-    max-width: 640px;
+    justify-content: center;
+    gap: 0.4rem;
 }
 
 .github-link {
@@ -1051,6 +1054,17 @@ details:not([open]) > .collapsible-summary::before {
 
 .github-link .mdi {
     font-size: 1rem;
+}
+
+@media (max-width: 640px) {
+    .site-footer {
+        gap: 0.3rem 0.4rem;
+    }
+
+    .footer-nav,
+    .footer-share {
+        flex-basis: 100%;
+    }
 }
 
 /* Photo gallery button */
