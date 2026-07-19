@@ -122,7 +122,7 @@
         				this.teamNames = parseCurrentNamesCsv(namesText);
         				if (playersRes?.ok) {
         					this.playerNames = new Map(
-        						parseGamesCsv(await playersRes.text()).map(p => [p.id, (p.fullname || `${p.usename} ${p.lastname}`.trim()).trim()])
+        						parseGamesCsv(await playersRes.text()).map(p => [p.id, `${p.usename} ${p.lastname}`.trim()])
         					);
         				}
         				this.csvBySeason = buildSeasonMap(games);
