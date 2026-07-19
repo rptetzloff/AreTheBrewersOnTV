@@ -1153,14 +1153,13 @@ if (hasLinescore) {
     this.openLinescoreFromEvent(event);
   });
 } else {
-  const scoreLink = document.createElement('a');
-  scoreLink.href = `https://www.espn.com/mlb/game/_/gameId/${event.id}`;
-  scoreLink.target = '_blank';
-  scoreLink.rel = 'noopener noreferrer';
-  scoreLink.textContent = `${resultIndicator}${brewersScore}-${opponentScore}`;
-  scoreLink.style.color = 'inherit';
-  scoreLink.style.textDecoration = 'none';
-  scoreDiv.appendChild(scoreLink);
+  scoreDiv.classList.add('linescore-trigger');
+  scoreDiv.title = 'Click for line score';
+  scoreDiv.textContent = `${resultIndicator}${brewersScore}-${opponentScore}`;
+  scoreDiv.addEventListener('click', (e) => {
+    e.stopPropagation();
+    this.openLinescoreFromEvent(event);
+  });
 }
 scoreDiv.style.textAlign = 'center';
 scoreDiv.style.marginTop = '0.5rem';
@@ -1168,17 +1167,13 @@ scoreDiv.style.width = '100%';
 gameItem.appendChild(scoreDiv);
 } else if (isLive || isInProgress) {
  const scoreDiv = document.createElement('div');
- scoreDiv.className = 'game-score live';
-
- const scoreLink = document.createElement('a');
- scoreLink.href = `https://www.espn.com/mlb/game/_/gameId/${event.id}`;
- scoreLink.target = '_blank';
- scoreLink.rel = 'noopener noreferrer';
- scoreLink.textContent = `${brewersScore}-${opponentScore}`;
- scoreLink.style.color = 'inherit';
- scoreLink.style.textDecoration = 'none';
-
- scoreDiv.appendChild(scoreLink);
+ scoreDiv.className = 'game-score live linescore-trigger';
+ scoreDiv.title = 'Click for line score';
+ scoreDiv.textContent = `${brewersScore}-${opponentScore}`;
+ scoreDiv.addEventListener('click', (e) => {
+   e.stopPropagation();
+   this.openLinescoreFromEvent(event);
+ });
  scoreDiv.style.textAlign = 'center';
  scoreDiv.style.marginTop = '0.5rem';
  scoreDiv.style.width = '100%';
@@ -2133,8 +2128,8 @@ openLinescoreFromEvent(event) {
   const milIsHome = milC.homeAway === 'home';
   const visC = milIsHome ? oppC : milC;
   const homC = milIsHome ? milC : oppC;
-  const visLabel = visC.team.abbreviation;
-  const homLabel = homC.team.abbreviation;
+  const visLabel = visC.team.shortDisplayName || visC.team.displayName || visC.team.abbreviation;
+  const homLabel = homC.team.shortDisplayName || homC.team.displayName || homC.team.abbreviation;
 
   // Build inning arrays from linescores — ESPN puts them on each competitor
   const toInns = (c) => {
@@ -2162,10 +2157,11 @@ openLinescoreFromEvent(event) {
 
   const date = new Date(event.date);
   const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-  this._renderLinescore(`${visLabel} @ ${homLabel} — ${dateStr}`, visitor, home, visLabel, homLabel, milIsHome);
+  const boxScoreUrl = event.id ? `https://www.espn.com/mlb/game/_/gameId/${event.id}` : '';
+  this._renderLinescore(`${visLabel} @ ${homLabel} — ${dateStr}`, visitor, home, visLabel, homLabel, milIsHome, boxScoreUrl);
 }
 
-_renderLinescore(title, visitor, home, visLabel, homLabel, milIsHome) {
+_renderLinescore(title, visitor, home, visLabel, homLabel, milIsHome, boxScoreUrl = '') {
   const maxInns = Math.max(
     ...visitor.inns.map((v, i) => (v !== '' ? i + 1 : 0)),
     ...home.inns.map((v, i) => (v !== '' ? i + 1 : 0)),
@@ -2215,6 +2211,7 @@ _renderLinescore(title, visitor, home, visLabel, homLabel, milIsHome) {
         </tbody>
       </table>
     </div>
+    ${boxScoreUrl ? `<a class="linescore-box-link" href="${boxScoreUrl}" target="_blank" rel="noopener noreferrer">Full Box Score on ESPN <i class="mdi mdi-open-in-new"></i></a>` : ''}
   `;
 
   modal.hidden = false;
