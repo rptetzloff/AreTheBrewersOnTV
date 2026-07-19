@@ -69,6 +69,11 @@ function render(history, coaches, metrics, milestones) {
 		strip.addEventListener('mouseleave', () => { tooltip.hidden = true; });
 		strip.addEventListener('click', () => { window.location.href = '/managers.html'; });
 	});
+	chartEl.querySelectorAll('[data-milestone]').forEach((m) => {
+		m.addEventListener('mouseenter', () => showTooltip(m.dataset.milestone));
+		m.addEventListener('mousemove', placeTooltip);
+		m.addEventListener('mouseleave', () => { tooltip.hidden = true; });
+	});
 }
 
 async function init() {

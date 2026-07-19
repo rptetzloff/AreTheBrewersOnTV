@@ -113,21 +113,10 @@ export function buildChartSvg(history, {
 	}
 
 	if (milestones) {
-		const milestoneAnchors = milestones.map((ms) => x(seasonOfDate(ms.date)));
-		for (let i = 0; i < milestones.length; i++) {
-			const ms = milestones[i];
-			const px = milestoneAnchors[i];
+		for (const ms of milestones) {
+			const px = x(seasonOfDate(ms.date));
 			if (px < pad.l || px > width - pad.r) continue;
 			parts.push(`<line x1="${px.toFixed(1)}" y1="${pad.t}" x2="${px.toFixed(1)}" y2="${(pad.t + plotH).toFixed(1)}" stroke="${WHITE}" stroke-width="1" stroke-dasharray="2 3" opacity="0.35"/>`);
-			if (ms.label && axes) {
-				// Rotate labels vertically so adjacent milestones (e.g. 1969 & 1970)
-				// don't collide. Alternate left/right of the line to avoid overlap.
-				// Both sides rotate -90 so text always reads bottom-to-top.
-				const side = i % 2 === 0 ? 1 : -1;
-				const tx = px + side * 5;
-				const ry = pad.t + plotH - 6;
-				parts.push(`<text x="${tx.toFixed(1)}" y="${ry.toFixed(1)}" font-size="12" fill="${WHITE}" opacity="0.75" text-anchor="start" transform="rotate(-90 ${tx.toFixed(1)} ${ry.toFixed(1)})"><title>${ms.label}</title>${ms.label}</text>`);
-			}
 		}
 	}
 
@@ -188,6 +177,25 @@ export function buildChartSvg(history, {
 				if (to < from || !era.key) continue;
 				parts.push(`<rect data-era="${era.key}" x="${x(from).toFixed(1)}" y="${pad.t - stripH}" width="${(x(to) - x(from)).toFixed(1)}" height="${stripH}" fill="transparent" style="cursor:pointer"/>`);
 			}
+		}
+	}
+
+	// Milestone labels are drawn last so they render above the transparent
+	// per-season hit-areas and stay hoverable. Adjacent milestones (1969 and
+	// 1970 sit only ~17px apart) are stacked vertically so their rotated
+	// labels can't overlap regardless of horizontal spacing.
+	if (milestones && axes) {
+		let prevPx = -Infinity, prevTop = Infinity;
+		for (const ms of milestones) {
+			const px = x(seasonOfDate(ms.date));
+			if (px < pad.l || px > width - pad.r || !ms.label) continue;
+			const tx = px + 6;
+			const len = ms.label.length * 6.5;
+			let ry = pad.t + plotH - 6;
+			if (px - prevPx < 18) ry = prevTop - 10;
+			prevPx = px; prevTop = ry - len;
+			const attr = ms.label.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+			parts.push(`<text data-milestone="${attr}" x="${tx.toFixed(1)}" y="${ry.toFixed(1)}" font-size="13" fill="${WHITE}" opacity="0.8" text-anchor="start" transform="rotate(-90 ${tx.toFixed(1)} ${ry.toFixed(1)})" style="cursor:help">${attr}</text>`);
 		}
 	}
 
