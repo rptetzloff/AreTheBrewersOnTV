@@ -6,6 +6,29 @@ const GOLD = '#FFC52F';
 const WHITE = '#FFFFFF';
 const DARK = '#0d1d38';
 
+// Playoff tiers, shallowest → deepest. `marker` is the SVG glyph drawn on the
+// chart line at each playoff season; `label` is the legend / tooltip name.
+export const POSTSEASON = {
+	wsWin:        { tier: 5, color: GOLD,           label: 'World Series win',        glyph: '★' },
+	wsApp:        { tier: 4, color: '#FFD66B',      label: 'World Series appearance',  glyph: '◆' },
+	lcs:          { tier: 3, color: '#7FC4FF',      label: 'LCS appearance',           glyph: '▲' },
+	division:     { tier: 2, color: '#9BD7A3',      label: 'Division Series',          glyph: '■' },
+	wildcard:     { tier: 1, color: '#C9A8E8',      label: 'Wild Card',                glyph: '●' },
+};
+
+// Map a season's deepest `postseason` round code (F/D/L/W) + World Series
+// result to the highest applicable tier. wsWin outranks a WS appearance.
+export function postseasonTier(s) {
+	if (s.champion && s.worldseries) return 'wsWin';
+	switch (s.postseason) {
+		case 'W': return 'wsApp';
+		case 'L': return 'lcs';
+		case 'D': return 'division';
+		case 'F': return 'wildcard';
+		default: return null;
+	}
+}
+
 // Plottable per-season metrics. Metrics in the same scale group share a real
 // labeled axis; mixing groups falls back to per-series normalization (shapes
 // stay honest, tooltips carry the exact numbers).
@@ -38,6 +61,7 @@ export function buildChartSvg(history, {
 	hitAreas = false,
 	highlight = null,
 	emoji = false,
+	milestones = null,
 } = {}) {
 	const stripH = eras ? 20 : 0;
 	const pad = axes
@@ -88,6 +112,17 @@ export function buildChartSvg(history, {
 		}
 	}
 
+	if (milestones) {
+		for (const ms of milestones) {
+			const px = x(seasonOfDate(ms.date));
+			if (px < pad.l || px > width - pad.r) continue;
+			parts.push(`<line x1="${px.toFixed(1)}" y1="${pad.t}" x2="${px.toFixed(1)}" y2="${(pad.t + plotH).toFixed(1)}" stroke="${WHITE}" stroke-width="1" stroke-dasharray="2 3" opacity="0.35"/>`);
+			if (ms.label && axes) {
+				parts.push(`<text x="${(px + 3).toFixed(1)}" y="${(pad.t + 11).toFixed(1)}" font-size="10" fill="${WHITE}" opacity="0.6">${ms.label}</text>`);
+			}
+		}
+	}
+
 	if (axes) {
 		const axisMax = shared ? sharedMax : null;
 		if (axisMax != null) {
@@ -120,13 +155,17 @@ export function buildChartSvg(history, {
 	const my = yFor(markerMetric);
 	if (markers) {
 		for (const s of history) {
-			if (s.undefeated && !s.champion) {
-				parts.push(`<circle cx="${x(s.season).toFixed(1)}" cy="${my(s[markerMetric]).toFixed(1)}" r="${axes ? 6 : 3.5}" fill="none" stroke="${WHITE}" stroke-width="1.5"/>`);
+			const tier = postseasonTier(s);
+			if (!tier) continue;
+			const P = POSTSEASON[tier];
+			const cy = my(s[markerMetric]);
+			if (tier === 'wsWin') {
+				parts.push(`<circle cx="${x(s.season).toFixed(1)}" cy="${cy.toFixed(1)}" r="${axes ? 5 : 2.5}" fill="${P.color}" stroke="${DARK}" stroke-width="1.5"/>`);
+			} else {
+				parts.push(`<circle cx="${x(s.season).toFixed(1)}" cy="${cy.toFixed(1)}" r="${axes ? 4 : 2}" fill="${P.color}" stroke="${DARK}" stroke-width="1" opacity="0.9"/>`);
 			}
-			if (!s.champion) continue;
-			parts.push(`<circle cx="${x(s.season).toFixed(1)}" cy="${my(s[markerMetric]).toFixed(1)}" r="${axes ? 5 : 2.5}" fill="${GOLD}" stroke="${DARK}" stroke-width="1.5"/>`);
-			if (emoji) {
-				parts.push(`<text x="${x(s.season).toFixed(1)}" y="${(my(s[markerMetric]) - (axes ? 10 : 6)).toFixed(1)}" font-size="${axes ? 14 : 9}" text-anchor="middle">🏆</text>`);
+			if (emoji && axes) {
+				parts.push(`<text x="${x(s.season).toFixed(1)}" y="${(cy - (tier === 'wsWin' ? 12 : 9)).toFixed(1)}" font-size="${tier === 'wsWin' ? 14 : 11}" text-anchor="middle">${P.glyph}</text>`);
 			}
 		}
 	}

@@ -3,9 +3,9 @@
 // (records-core.js). Multiple metrics can be plotted at once, playoffs can be
 // folded in, manager-era strips carry each manager's record, hover shows a
 // season's numbers, and clicking a season opens its page.
-import { parseGameinfoCsv, computeSeasonHistory, historyCopy } from './records-core.js';
+import { parseGameinfoCsv, computeSeasonHistory, historyCopy, parseBallparksCsv, computeFranchiseMilestones } from './records-core.js';
 import { parseBiofile, parseTeamstatsMgr, parseManagersCsv, computeCoachesFromData } from './coaches-core.js';
-import { buildChartSvg, METRICS } from './history-chart.js';
+import { buildChartSvg, METRICS, POSTSEASON, postseasonTier } from './history-chart.js';
 import { shareButtonsHtml, wireShareRow } from './share-core.js';
 
 const chartEl = document.getElementById('history-chart');
@@ -17,7 +17,8 @@ function seasonLabel(s) {
 	const notes = [];
 	if (s.worldseries) notes.push('World Series champions');
 	else if (s.champion) notes.push('MLB champions');
-	if (s.undefeated) notes.push('perfect season');
+	const tier = postseasonTier(s);
+	if (tier && tier !== 'wsWin') notes.push(POSTSEASON[tier].label);
 	return `${s.season} · ${s.record} · RS ${s.pf} · RA ${s.pa}${notes.length ? ` · ${notes.join(', ')}` : ''}`;
 }
 
@@ -42,12 +43,12 @@ function placeTooltip(e) {
 	tooltip.style.top = `${e.clientY - box.top - 34}px`;
 }
 
-function render(history, coaches, metrics) {
+function render(history, coaches, metrics, milestones) {
 	const eras = coaches.map((c) => ({
 		label: bandLabel(c.name), from: c.fromDate, to: c.toDate, key: c.slug,
 	}));
 	chartEl.innerHTML = buildChartSvg(history, {
-		metrics, axes: true, eras, hitAreas: true, emoji: true,
+		metrics, axes: true, eras, hitAreas: true, emoji: true, milestones,
 	});
 	tooltip.hidden = true;
 	chartEl.appendChild(tooltip);
@@ -72,16 +73,18 @@ function render(history, coaches, metrics) {
 
 async function init() {
 	try {
-		const [gamesRes, namesRes, teamstatsRes, biofileRes, managersRes] = await Promise.all([
+		const [gamesRes, namesRes, teamstatsRes, biofileRes, managersRes, parksRes] = await Promise.all([
 			fetch('/data/gameinfo.csv'),
 			fetch('/data/CurrentNames.csv'),
 			fetch('/data/teamstats.csv'),
 			fetch('/data/biofile0.csv'),
 			fetch('/data/managers.csv'),
+			fetch('/data/ballparks.csv'),
 		]);
-		if (!gamesRes.ok || !namesRes.ok || !teamstatsRes.ok || !biofileRes.ok || !managersRes.ok) throw new Error('CSV fetch failed');
+		if (!gamesRes.ok || !namesRes.ok || !teamstatsRes.ok || !biofileRes.ok || !managersRes.ok || !parksRes.ok) throw new Error('CSV fetch failed');
 		const teamstatsText = await teamstatsRes.text();
-		const rows = parseGameinfoCsv(await gamesRes.text(), await namesRes.text(), teamstatsText);
+		const gameinfoText = await gamesRes.text();
+		const rows = parseGameinfoCsv(gameinfoText, await namesRes.text(), teamstatsText);
 		const gidToMgr = parseTeamstatsMgr(teamstatsText);
 		const mgrNames = parseBiofile(await biofileRes.text());
 		const histories = {
@@ -93,6 +96,13 @@ async function init() {
 		const { coaches } = computeCoachesFromData(rows, gidToMgr, mgrNames, champions, officialTenures);
 		// History timeline: official managers only — interim stints are hidden.
 		const officialCoaches = coaches.filter((c) => !c.interim);
+		// Franchise milestones (team identity + ballpark transitions) from
+		// ballparks.csv. Filter to the Brewers' own parks so we don't draw a
+		// line for every MLB stadium in the dataset.
+		const allParks = parseBallparksCsv(await parksRes.text());
+		const brewersParkIds = new Set(['MIL05', 'MIL06', 'SEA01']);
+		const brewersParks = allParks.filter((p) => brewersParkIds.has(p.id));
+		const milestones = computeFranchiseMilestones(gameinfoText, brewersParks);
 
 		const titles = histories.regular.filter((s) => s.champion).length;
 		const range = `${histories.regular[0].season}–${histories.regular[histories.regular.length - 1].season}`;
@@ -115,7 +125,7 @@ async function init() {
 				chip.setAttribute('aria-pressed', String(on));
 				chip.style.color = on ? METRICS[key].color : '';
 			}
-			render(histories[playoffsBox.checked ? 'playoffs' : 'regular'], officialCoaches, metrics);
+			render(histories[playoffsBox.checked ? 'playoffs' : 'regular'], officialCoaches, metrics, milestones);
 		};
 		for (const chip of chips) {
 			chip.addEventListener('click', () => {

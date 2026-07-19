@@ -60,6 +60,94 @@ export function parseCurrentNamesCsv(raw) {
 // SE1 = Seattle Pilots (1969); MIL = Milwaukee Brewers (1970–present).
 export const BREWERS_IDS = new Set(['MIL', 'SE1']);
 
+// Playoff round depth ordering: higher = deeper in the postseason.
+export const ROUND_ORDER = { F: 1, D: 2, L: 3, W: 4 };
+
+// Parse ballparks.csv into a park-id → {id, city, park, first, last} map.
+// `first`/`last` are 'YYYYMMDD' integers; `last` may be empty for active parks.
+export function parseBallparksCsv(raw) {
+	const lines = raw.split('\n');
+	const header = splitCsvLine(lines[0]);
+	const idI = header.indexOf('ID');
+	const cityI = header.indexOf('City');
+	const parkI = header.indexOf('Park Name');
+	const firstI = header.indexOf('First');
+	const lastI = header.indexOf('Last');
+	const parks = [];
+	for (const line of lines.slice(1)) {
+		if (!line.trim()) continue;
+		const v = splitCsvLine(line);
+		const id = v[idI]?.trim();
+		if (!id) continue;
+		parks.push({
+			id,
+			city: (v[cityI] || '').trim(),
+			park: (v[parkI] || '').trim(),
+			first: (v[firstI] || '').trim(),
+			last: (v[lastI] || '').trim(),
+		});
+	}
+	return parks;
+}
+
+// Franchise milestones for the history chart: team identity / home-ballpark
+// transitions as vertical milestone lines. Returns [{date, label, type}] sorted
+// ascending. Parses the RAW gameinfo CSV (not the Brewers-facing parsed rows)
+// because it needs hometeam/visteam/site columns that parseGameinfoCsv drops.
+// `brewersParks` maps site IDs → park name for the Brewers' home parks.
+export function computeFranchiseMilestones(rawGameinfo, brewersParks) {
+	const lines = rawGameinfo.split('\n');
+	const header = splitCsvLine(lines[0]);
+	const dateI = header.indexOf('date');
+	const visI = header.indexOf('visteam');
+	const homeI = header.indexOf('hometeam');
+	const siteI = header.indexOf('site');
+	if (dateI < 0 || homeI < 0 || siteI < 0) return [];
+	const toIso = (yyyymmdd) => {
+		const s = String(yyyymmdd);
+		return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
+	};
+	// Collect Brewers home games: {date, site, teamId} sorted ascending.
+	const homeGames = [];
+	for (const line of lines.slice(1)) {
+		if (!line.trim()) continue;
+		const v = splitCsvLine(line);
+		const home = v[homeI];
+		if (!BREWERS_IDS.has(home)) continue;
+		homeGames.push({ date: toIso(v[dateI]), site: v[siteI], teamId: home });
+	}
+	homeGames.sort((a, b) => (a.date < b.date ? -1 : 1));
+	if (!homeGames.length) return [];
+	const ms = [];
+	// Team identity transitions: first home game under each team id.
+	const teamName = { SE1: 'Seattle Pilots', MIL: 'Milwaukee Brewers' };
+	const seenTeam = new Set();
+	for (const g of homeGames) {
+		if (seenTeam.has(g.teamId)) continue;
+		seenTeam.add(g.teamId);
+		ms.push({ date: g.date, label: teamName[g.teamId] || g.teamId, type: 'team' });
+	}
+	// Ballpark transitions: first home game at each Brewers home park site.
+	const parkName = new Map(brewersParks.map((p) => [p.id, p.park]));
+	const seenPark = new Set();
+	for (const g of homeGames) {
+		if (seenPark.has(g.site)) continue;
+		seenPark.add(g.site);
+		const name = parkName.get(g.site);
+		if (name) ms.push({ date: g.date, label: name, type: 'park' });
+	}
+	// Dedup by date+label, sort ascending.
+	const seen = new Set();
+	const out = [];
+	for (const m of ms.sort((a, b) => (a.date < b.date ? -1 : 1))) {
+		const k = `${m.date}|${m.label}`;
+		if (seen.has(k)) continue;
+		seen.add(k);
+		out.push(m);
+	}
+	return out;
+}
+
 // Retrosheet teamName codes that may not appear in CurrentNames.csv or whose
 // franchiseName lookup could resolve to the wrong era. Covers all opponents
 // the Brewers have faced since 1969 (AL 1969–1997, NL 1998+, interleague).
@@ -389,10 +477,13 @@ export function computeSeasonHistory(rows, { now = new Date(), playoffs = false 
 		let w = 0, l = 0, t = 0, pf = 0, pa = 0, regLosses = 0, regWins = 0;
 		let lastPlayoff = null;
 		let wsWins = 0, wsLosses = 0;
+		let deepestRound = null, deepestOrder = 0;
 		for (const g of bySeason.get(yr)) {
 			const isReg = g.regular_season === '1';
 			if (!isReg) {
 				lastPlayoff = g;
+				const order = ROUND_ORDER[g.gametype] || 0;
+				if (order > deepestOrder) { deepestOrder = order; deepestRound = g.gametype; }
 				if (g.worldseries && g.worldseries.trim()) {
 					if (g['Brewers Win'] === 'WIN') wsWins++;
 					else if (g['Brewers Win'] === 'LOSS') wsLosses++;
@@ -419,6 +510,7 @@ export function computeSeasonHistory(rows, { now = new Date(), playoffs = false 
 			pf, pa,
 			champion: worldseries || (lastPlayoff !== null && lastPlayoff.gametype !== 'W' && lastPlayoff['Brewers Win'] === 'WIN'),
 			worldseries,
+			postseason: deepestRound,
 			undefeated: regLosses === 0 && regWins > 0 && seasonSettled(yr, now),
 		};
 	});

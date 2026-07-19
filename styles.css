@@ -1626,14 +1626,29 @@ details:not([open]) > .collapsible-summary::before {
     display: inline-block;
 }
 
-.legend-champ {
+.legend-wswin {
     background: #FFC52F;
     border: 1.5px solid #0d1d38;
 }
 
-.legend-perfect {
-    background: transparent;
-    border: 1.5px solid white;
+.legend-wsapp {
+    background: #FFD66B;
+    border: 1px solid #0d1d38;
+}
+
+.legend-lcs {
+    background: #7FC4FF;
+    border: 1px solid #0d1d38;
+}
+
+.legend-division {
+    background: #9BD7A3;
+    border: 1px solid #0d1d38;
+}
+
+.legend-wildcard {
+    background: #C9A8E8;
+    border: 1px solid #0d1d38;
 }
 
 #history-share {
