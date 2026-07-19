@@ -257,7 +257,7 @@ export function computeCoachesFromData(rows, gidToMgr, mgrNames, championSeasons
 
 	// Track slug duplicates so multi-stint managers get unique slugs.
 	const slugCounts = new Map();
-	const coaches = stintOrder.map(({ mgrId, key }) => {
+	const coaches = stintOrder.map(({ mgrId, tenureIdx, key }) => {
 		const list = gamesByStint.get(key);
 		const name = mgrNames.get(mgrId) || mgrId;
 		const isInterim = officialIds !== null ? !officialIds.has(mgrId) : (list.length < INTERIM_THRESHOLD && !seasonStarters.has(mgrId));
