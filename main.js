@@ -211,10 +211,7 @@
       updateSiteTitle() {
           const el = document.getElementById('site-title');
           if (!el) return;
-          const past = this.currentSeason && this.latestSeason && this.currentSeason < this.latestSeason;
-          el.textContent = past
-              ? `Were the Brewers On TV in ${this.currentSeason}?`
-              : 'Are the Brewers On TV?';
+          el.textContent = 'Are the Brewers On TV?';
       }
 
       // Compact franchise-history sparkline under the answer; the currently
