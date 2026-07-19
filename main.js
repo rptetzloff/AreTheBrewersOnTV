@@ -100,7 +100,7 @@
         				fetch('./data/channel_lookup.csv'),
         				fetch('./data/provider_lookup.csv'),
         				fetch('./data/teamstats.csv'),
-        				fetch('./data/allplayers.csv'),
+        				fetch('./data/biofile0.csv'),
         			]);
         			if (channelsRes.ok) {
         				const raw = await channelsRes.text();
@@ -122,7 +122,7 @@
         				this.teamNames = parseCurrentNamesCsv(namesText);
         				if (playersRes?.ok) {
         					this.playerNames = new Map(
-        						parseGamesCsv(await playersRes.text()).map(p => [p.id, `${p.first} ${p.last}`.trim()])
+        						parseGamesCsv(await playersRes.text()).map(p => [p.id, (p.fullname || `${p.usename} ${p.lastname}`.trim()).trim()])
         					);
         				}
         				this.csvBySeason = buildSeasonMap(games);
