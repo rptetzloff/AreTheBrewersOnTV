@@ -30,17 +30,19 @@ export function parseGamesCsv(raw) {
 // multiple cities and teamName codes over time (e.g. OAK covers Philadelphia,
 // Kansas City, Oakland, and Sacramento Athletics).
 //
-// Returns { teamNames, teamToFranchise, franchiseFirst }:
+// Returns { teamNames, teamToFranchise, franchiseEras }:
 //   teamNames: teamName/alternate/franchiseName -> display name ("City Nick")
+//     (first occurrence wins; used for the Brewers' own name and as a fallback)
 //   teamToFranchise: teamName/alternate -> franchiseName
-//   franchiseFirst: franchiseName -> the EARLIEST display name for that
-//     franchise (historical name — first row wins), used as the canonical key
-//     for grouping. A franchise that later relocates keeps its original name
-//     so historical games fold into one continuous opponent.
+//   franchiseEras: franchiseName -> [{start, end, display}] sorted by start,
+//     where start/end are YYYYMMDD ints (end=0 means open-ended). Used to
+//     resolve the era-correct name for a given game date, so e.g. a 2008 Rays
+//     game shows "Tampa Bay Rays" (not "Devil Rays") and a 2025 Athletics
+//     game shows "Sacramento Athletics" (not "Oakland Athletics").
 export function parseCurrentNamesCsv(raw) {
 	const teamNames = {};
 	const teamToFranchise = {};
-	const franchiseFirst = {};
+	const franchiseEras = {};
 	const lines = raw.trim().split('\n');
 	const headers = splitCsvLine(lines[0]);
 	const franIdx = headers.indexOf('franchiseName');
@@ -48,6 +50,13 @@ export function parseCurrentNamesCsv(raw) {
 	const cityIdx = headers.indexOf('city');
 	const nickIdx = headers.indexOf('team');
 	const altIdx = headers.indexOf('alternate');
+	const startIdx = headers.indexOf('startDate');
+	const endIdx = headers.indexOf('endDate');
+	const toYyyymmdd = (s) => {
+		if (!s) return 0;
+		const m = s.match(/^(\d+)\/(\d+)\/(\d+)$/);
+		return m ? parseInt(m[3]) * 10000 + parseInt(m[1]) * 100 + parseInt(m[2]) : 0;
+	};
 	for (const line of lines.slice(1)) {
 		const p = splitCsvLine(line);
 		const id = p[keyIdx]?.trim();
@@ -55,16 +64,14 @@ export function parseCurrentNamesCsv(raw) {
 		const nick = p[nickIdx]?.trim();
 		if (id && city && nick) {
 			const display = `${city} ${nick}`;
-			// teamName -> display (first occurrence wins to preserve historical name)
 			if (!teamNames[id]) teamNames[id] = display;
 			const fran = franIdx >= 0 ? p[franIdx]?.trim() : '';
 			if (fran) {
-				// franchiseName -> display (first occurrence wins)
 				if (fran !== id && !teamNames[fran]) teamNames[fran] = display;
-				// franchiseName -> earliest display name (first row wins)
-				if (!franchiseFirst[fran]) franchiseFirst[fran] = display;
+				const era = { start: toYyyymmdd(p[startIdx]?.trim()), end: toYyyymmdd(p[endIdx]?.trim()), display };
+				if (!franchiseEras[fran]) franchiseEras[fran] = [];
+				franchiseEras[fran].push(era);
 			}
-			// Index teamName and alternate -> franchiseName for grouping.
 			if (fran) teamToFranchise[id] = fran;
 			const alt = altIdx >= 0 ? p[altIdx]?.trim() : '';
 			if (alt) {
@@ -73,7 +80,20 @@ export function parseCurrentNamesCsv(raw) {
 			}
 		}
 	}
-	return { teamNames, teamToFranchise, franchiseFirst };
+	for (const k of Object.keys(franchiseEras)) franchiseEras[k].sort((a, b) => a.start - b.start);
+	return { teamNames, teamToFranchise, franchiseEras };
+}
+
+// Resolve the era-correct display name for a franchise at a given game date
+// (YYYYMMDD int). Returns null if no era matches.
+export function nameForFranchiseAt(eras, franchise, yyyymmdd) {
+	const list = eras[franchise];
+	if (!list) return null;
+	for (let i = list.length - 1; i >= 0; i--) {
+		const e = list[i];
+		if (yyyymmdd >= e.start && (e.end === 0 || yyyymmdd <= e.end)) return e.display;
+	}
+	return null;
 }
 
 // Brewers Retrosheet team IDs across all seasons.
@@ -216,7 +236,7 @@ function normalizeGametype(gt) {
 // a known playoff type (D/L/W/F/C), so that regular season games (however
 // teamstats encodes them) always default to 'R'.
 export function parseGameinfoCsv(gamesRaw, namesRaw, teamstatsRaw = null) {
-	const { teamNames, teamToFranchise, franchiseFirst } = parseCurrentNamesCsv(namesRaw);
+	const { teamNames, teamToFranchise, franchiseEras } = parseCurrentNamesCsv(namesRaw);
 
 	// Build gid→gametype from teamstats, but only retain known playoff codes.
 	// teamstats uses full-word values: 'regular' for regular season, and words
@@ -249,7 +269,6 @@ export function parseGameinfoCsv(gamesRaw, namesRaw, teamstatsRaw = null) {
 		.map((r) => {
 			const isHome = BREWERS_IDS.has(r.hometeam);
 			const opponentId = isHome ? r.visteam : r.hometeam;
-			const opponentName = teamNames[opponentId] || RETROSHEET_TEAM_NAMES[opponentId] || opponentId;
 			// Franchise code for all-time grouping (e.g. OAK covers Philadelphia,
 			// Kansas City, Oakland, and Sacramento Athletics). Falls back to the
 			// opponentId itself for codes absent from CurrentNames (defunct
@@ -272,6 +291,17 @@ export function parseGameinfoCsv(gamesRaw, namesRaw, teamstatsRaw = null) {
 			const isoDate = /^\d{8}$/.test(rawDate)
 				? `${rawDate.slice(0, 4)}-${rawDate.slice(4, 6)}-${rawDate.slice(6, 8)}`
 				: rawDate;
+
+			// Resolve the era-correct name for this game date so each row carries
+			// the name in use at the time (e.g. "Tampa Bay Devil Rays" pre-2008,
+			// "Tampa Bay Rays" from 2008). Falls back to the flat team-name map
+			// then to the Retrosheet hardcoded names.
+			const gameDateInt = parseInt(rawDate, 10) || 0;
+			const opponentName =
+				nameForFranchiseAt(franchiseEras, franchise, gameDateInt) ||
+				teamNames[opponentId] ||
+				RETROSHEET_TEAM_NAMES[opponentId] ||
+				opponentId;
 
 			// Normalize gametype to single-letter codes used throughout.
 			// teamstats uses full words: regular, wildcard, divisionseries, lcs, worldseries, playoff.
