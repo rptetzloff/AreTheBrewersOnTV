@@ -1619,36 +1619,33 @@ details:not([open]) > .collapsible-summary::before {
     gap: 0.4rem;
 }
 
-.legend-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
+.legend-glyph {
+    font-size: 14px;
+    line-height: 1;
+    text-align: center;
+    width: 12px;
     display: inline-block;
 }
 
 .legend-wswin {
-    background: #FFC52F;
-    border: 1.5px solid #0d1d38;
+    color: #FFC52F;
+    text-shadow: 0 0 1px #0d1d38;
 }
 
 .legend-wsapp {
-    background: #FFD66B;
-    border: 1px solid #0d1d38;
+    color: #FFD66B;
 }
 
 .legend-lcs {
-    background: #7FC4FF;
-    border: 1px solid #0d1d38;
+    color: #7FC4FF;
 }
 
 .legend-division {
-    background: #9BD7A3;
-    border: 1px solid #0d1d38;
+    color: #9BD7A3;
 }
 
 .legend-wildcard {
-    background: #C9A8E8;
-    border: 1px solid #0d1d38;
+    color: #C9A8E8;
 }
 
 #history-share {
