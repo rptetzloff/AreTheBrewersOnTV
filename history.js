@@ -4,7 +4,7 @@
 // folded in, manager-era strips carry each manager's record, hover shows a
 // season's numbers, and clicking a season opens its page.
 import { parseGameinfoCsv, computeSeasonHistory, historyCopy } from './records-core.js';
-import { parseBiofile, parseTeamstatsMgr, computeCoachesFromData } from './coaches-core.js';
+import { parseBiofile, parseTeamstatsMgr, parseManagersCsv, computeCoachesFromData } from './coaches-core.js';
 import { buildChartSvg, METRICS } from './history-chart.js';
 import { shareButtonsHtml, wireShareRow } from './share-core.js';
 
@@ -72,13 +72,14 @@ function render(history, coaches, metrics) {
 
 async function init() {
 	try {
-		const [gamesRes, namesRes, teamstatsRes, biofileRes] = await Promise.all([
+		const [gamesRes, namesRes, teamstatsRes, biofileRes, managersRes] = await Promise.all([
 			fetch('/data/gameinfo.csv'),
 			fetch('/data/CurrentNames.csv'),
 			fetch('/data/teamstats.csv'),
 			fetch('/data/biofile0.csv'),
+			fetch('/data/managers.csv'),
 		]);
-		if (!gamesRes.ok || !namesRes.ok || !teamstatsRes.ok || !biofileRes.ok) throw new Error('CSV fetch failed');
+		if (!gamesRes.ok || !namesRes.ok || !teamstatsRes.ok || !biofileRes.ok || !managersRes.ok) throw new Error('CSV fetch failed');
 		const teamstatsText = await teamstatsRes.text();
 		const rows = parseGameinfoCsv(await gamesRes.text(), await namesRes.text(), teamstatsText);
 		const gidToMgr = parseTeamstatsMgr(teamstatsText);
@@ -88,12 +89,15 @@ async function init() {
 			playoffs: computeSeasonHistory(rows, { playoffs: true }),
 		};
 		const champions = histories.regular.filter((s) => s.champion).map((s) => s.season);
-		const { coaches } = computeCoachesFromData(rows, gidToMgr, mgrNames, champions);
+		const officialTenures = parseManagersCsv(await managersRes.text());
+		const { coaches } = computeCoachesFromData(rows, gidToMgr, mgrNames, champions, officialTenures);
+		// History timeline: official managers only — interim stints are hidden.
+		const officialCoaches = coaches.filter((c) => !c.interim);
 
 		const titles = histories.regular.filter((s) => s.champion).length;
 		const range = `${histories.regular[0].season}–${histories.regular[histories.regular.length - 1].season}`;
 		document.getElementById('history-subtitle').textContent =
-			`Milwaukee Brewers · ${range} · ${titles} championships · ${coaches.length} managers`;
+			`Milwaukee Brewers · ${range} · ${titles} championships · ${officialCoaches.length} managers`;
 
 		let metrics;
 		try { metrics = JSON.parse(localStorage.getItem('historyMetrics') || '[]'); } catch { metrics = []; }
@@ -111,7 +115,7 @@ async function init() {
 				chip.setAttribute('aria-pressed', String(on));
 				chip.style.color = on ? METRICS[key].color : '';
 			}
-			render(histories[playoffsBox.checked ? 'playoffs' : 'regular'], coaches, metrics);
+			render(histories[playoffsBox.checked ? 'playoffs' : 'regular'], officialCoaches, metrics);
 		};
 		for (const chip of chips) {
 			chip.addEventListener('click', () => {
