@@ -70,7 +70,9 @@ function render(history, coaches, metrics, milestones) {
 		strip.addEventListener('click', () => { window.location.href = '/managers.html'; });
 	});
 	chartEl.querySelectorAll('[data-milestone]').forEach((m) => {
-		m.addEventListener('mouseenter', () => showTooltip(m.dataset.milestone));
+		const type = m.dataset.milestoneType;
+		const prefix = type === 'team' ? 'Team' : type === 'park' ? 'Ballpark' : '';
+		m.addEventListener('mouseenter', () => showTooltip(prefix ? `${prefix}: ${m.dataset.milestone}` : m.dataset.milestone));
 		m.addEventListener('mousemove', placeTooltip);
 		m.addEventListener('mouseleave', () => { tooltip.hidden = true; });
 	});

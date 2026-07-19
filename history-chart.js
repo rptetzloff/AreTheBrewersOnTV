@@ -64,9 +64,10 @@ export function buildChartSvg(history, {
 	milestones = null,
 } = {}) {
 	const stripH = eras ? 20 : 0;
+	const msTrackH = milestones ? 34 : 0; // two 17px tracks: team + park
 	const pad = axes
-		? { l: 46, r: 16, t: (emoji ? 26 : 16) + stripH, b: 30 }
-		: { l: 4, r: 4, t: (emoji ? 16 : 6) + stripH, b: 6 };
+		? { l: 46, r: 16, t: (emoji ? 26 : 16) + stripH + msTrackH, b: 30 }
+		: { l: 4, r: 4, t: (emoji ? 16 : 6) + stripH + msTrackH, b: 6 };
 	const plotW = width - pad.l - pad.r;
 	const plotH = height - pad.t - pad.b;
 	const first = history[0].season, last = history[history.length - 1].season;
@@ -113,10 +114,21 @@ export function buildChartSvg(history, {
 	}
 
 	if (milestones) {
+		// Two icon tracks above the plot: team-identity row then park row.
+		// Both sit above the manager strip when eras are present. Icons mark
+		// each transition year; hovering one shows the full name in the chart
+		// tooltip. The dashed reference line still runs the full plot height.
+		const trackTop = pad.t - msTrackH;
+		const teamY = trackTop + 8;
+		const parkY = trackTop + 25;
 		for (const ms of milestones) {
 			const px = x(seasonOfDate(ms.date));
 			if (px < pad.l || px > width - pad.r) continue;
-			parts.push(`<line x1="${px.toFixed(1)}" y1="${pad.t}" x2="${px.toFixed(1)}" y2="${(pad.t + plotH).toFixed(1)}" stroke="${WHITE}" stroke-width="1" stroke-dasharray="2 3" opacity="0.35"/>`);
+			const rowY = ms.type === 'team' ? teamY : parkY;
+			const glyph = ms.type === 'team' ? '⬡' : '⌂';
+			const attr = String(ms.label).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+			parts.push(`<line x1="${px.toFixed(1)}" y1="${(rowY + 4).toFixed(1)}" x2="${px.toFixed(1)}" y2="${(pad.t + plotH).toFixed(1)}" stroke="${WHITE}" stroke-width="1" stroke-dasharray="2 3" opacity="0.25"/>`);
+			parts.push(`<text data-milestone="${attr}" data-milestone-type="${ms.type}" x="${px.toFixed(1)}" y="${(rowY + 4).toFixed(1)}" font-size="14" fill="${GOLD}" text-anchor="middle" style="cursor:help">${glyph}</text>`);
 		}
 	}
 
@@ -177,25 +189,6 @@ export function buildChartSvg(history, {
 				if (to < from || !era.key) continue;
 				parts.push(`<rect data-era="${era.key}" x="${x(from).toFixed(1)}" y="${pad.t - stripH}" width="${(x(to) - x(from)).toFixed(1)}" height="${stripH}" fill="transparent" style="cursor:pointer"/>`);
 			}
-		}
-	}
-
-	// Milestone labels are drawn last so they render above the transparent
-	// per-season hit-areas and stay hoverable. Adjacent milestones (1969 and
-	// 1970 sit only ~17px apart) are stacked vertically so their rotated
-	// labels can't overlap regardless of horizontal spacing.
-	if (milestones && axes) {
-		let prevPx = -Infinity, prevTop = Infinity;
-		for (const ms of milestones) {
-			const px = x(seasonOfDate(ms.date));
-			if (px < pad.l || px > width - pad.r || !ms.label) continue;
-			const tx = px + 6;
-			const len = ms.label.length * 6.5;
-			let ry = pad.t + plotH - 6;
-			if (px - prevPx < 18) ry = prevTop - 10;
-			prevPx = px; prevTop = ry - len;
-			const attr = ms.label.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
-			parts.push(`<text data-milestone="${attr}" x="${tx.toFixed(1)}" y="${ry.toFixed(1)}" font-size="13" fill="${WHITE}" opacity="0.8" text-anchor="start" transform="rotate(-90 ${tx.toFixed(1)} ${ry.toFixed(1)})" style="cursor:help">${attr}</text>`);
 		}
 	}
 
