@@ -49,13 +49,15 @@ async function init() {
 		const champions = computeSeasonHistory(rows).filter((s) => s.champion).map((s) => s.season);
 		const data = computeCoachesFromData(rows, gidToMgr, mgrNames, champions, officialTenures);
 
-		document.getElementById('coaches-subtitle').textContent =
-			`Milwaukee Brewers · ${data.coaches.length} managers since ${data.coaches[0].firstSeason}`;
-
 		const interimBox = document.getElementById('coaches-interim');
 		interimBox.checked = localStorage.getItem('coachesShowInterim') !== 'false';
+		const subtitle = document.getElementById('coaches-subtitle');
 		const renderTable = () => {
-			wrap.innerHTML = tableHtml(interimBox.checked ? data.coaches : data.coaches.filter((c) => !c.interim));
+			const shown = interimBox.checked ? data.coaches : data.coaches.filter((c) => !c.interim);
+			wrap.innerHTML = tableHtml(shown);
+			const interimCount = data.coaches.length - shown.length;
+			subtitle.textContent = `Milwaukee Brewers · ${shown.length} managers since ${data.coaches[0].firstSeason}` +
+				(interimCount ? ` · ${interimCount} interim` : '');
 		};
 		interimBox.addEventListener('change', () => {
 			localStorage.setItem('coachesShowInterim', String(interimBox.checked));
