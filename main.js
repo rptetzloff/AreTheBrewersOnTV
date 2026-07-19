@@ -705,10 +705,11 @@ createCsvGameItem(g, showH2h = false) {
         			const nextScheduled = events
         				.filter(e => new Date(e.date) > now && e.competitions?.[0]?.status?.type?.name === 'STATUS_SCHEDULED')
         				.sort((a, b) => new Date(a.date) - new Date(b.date))[0];
-        			tvStatus = this.getTvStatus(liveNow || nextScheduled);
+        			const tvGame = liveNow || nextScheduled;
+        			tvStatus = this.getTvStatus(tvGame);
         		}
 
-        		this.displayResult(isUndefeated, wins, losses, ties, isPastSeason, worldSeriesName, postRecord, preRecord, tvStatus);
+        		this.displayResult(isUndefeated, wins, losses, ties, isPastSeason, worldSeriesName, postRecord, preRecord, tvStatus, tvGame);
         		this.displaySchedule(events, isPastSeason);
         		this.showLastUpdated();
         		this.setDataCredit(false);
@@ -769,7 +770,7 @@ createCsvGameItem(g, showH2h = false) {
         		return `<div class="emoji-row">${spans}</div>`;
         	}
 
-        	displayResult(isUndefeated, wins, losses, ties, isPastSeason = false, worldSeriesName = null, postRecord = null, preRecord = null, tvStatus = null) {
+        	displayResult(isUndefeated, wins, losses, ties, isPastSeason = false, worldSeriesName = null, postRecord = null, preRecord = null, tvStatus = null, tvGame = null) {
         		const answerEl = document.getElementById('answer');
         		const recordEl = document.getElementById('record');
 
@@ -781,7 +782,11 @@ createCsvGameItem(g, showH2h = false) {
         			answerEl.className = 'answer champions';
         			document.body.classList.remove('undefeated');
         		} else if (!isPastSeason && tvStatus !== null) {
-        			// Current season: answer based on whether today's game is on TV
+        			// Current season: answer based on whether today's game is on TV.
+        			// The badge is clickable when we have broadcast data for the
+        			// game it refers to, opening the same Where-to-watch modal the
+        			// schedule's watch button uses.
+        			const hasBroadcasts = tvGame && (tvGame.competitions?.[0]?.broadcasts || []).some(b => b.media?.shortName);
         			if (tvStatus === 'yes') {
         				answerEl.innerHTML = `YES!!!`;
         				answerEl.className = 'answer yes';
@@ -794,6 +799,15 @@ createCsvGameItem(g, showH2h = false) {
         				answerEl.innerHTML = `NO`;
         				answerEl.className = 'answer no';
         				document.body.classList.remove('undefeated');
+        			}
+        			if (hasBroadcasts) {
+        				answerEl.style.cursor = 'pointer';
+        				answerEl.title = 'Click to see where to watch';
+        				answerEl.onclick = () => this.openWatchModal(tvGame);
+        			} else {
+        				answerEl.style.cursor = '';
+        				answerEl.title = '';
+        				answerEl.onclick = null;
         			}
         		} else if (isUndefeated) {
         			const beerHtml = !isPastSeason ? this.emojiRowHtml('🍺', 1) : '';
