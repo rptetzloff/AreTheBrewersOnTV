@@ -1539,6 +1539,26 @@ _loadTvLookup(channelLookupRaw, providerLookupRaw) {
     }
   }
 
+  // channel_lookup carries the canonical website_url + description; override
+  // the broadcast_channels entries, which can drift to dead pages.
+  const urlByKey = {};
+  const urlByDisplay = {};
+  for (const ch of channels) {
+    const url = (ch.website_url || '').trim();
+    const desc = (ch.description || '').trim();
+    if (!url && !desc) continue;
+    const entry = { website_url: url || null, description: desc || null };
+    urlByKey[ch.key] = entry;
+    if (ch.alias) urlByKey[ch.alias] = entry;
+    if (ch.display_name) urlByDisplay[ch.display_name] = entry;
+  }
+  for (const [key, meta] of Object.entries(this.channelMeta)) {
+    const hit = urlByKey[key] || urlByDisplay[meta.display_name];
+    if (!hit) continue;
+    if (hit.website_url) meta.website_url = hit.website_url;
+    if (hit.description) meta.description = hit.description;
+  }
+
   // channel_lookup columns: key,alias,display_name,type,...<provider keys>
   const providerKeys = Object.keys(this.providerMeta);
   for (const ch of channels) {
