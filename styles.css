@@ -2009,6 +2009,50 @@ details:not([open]) > .collapsible-summary::before {
     text-underline-offset: 3px;
 }
 
+.linescore-box-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: #FFC52F;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-decoration: none;
+    padding: 0.5rem 0.1rem;
+    border-bottom: 1px solid rgba(255, 197, 47, 0.4);
+    transition: border-color 0.15s, color 0.15s;
+    align-self: flex-start;
+}
+
+.linescore-box-link:hover {
+    color: #FFD45E;
+    border-bottom-color: #FFD45E;
+}
+
+.linescore-pitchers {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.25rem;
+    padding: 0.6rem 0 0.1rem;
+    font-size: 0.82rem;
+}
+
+.linescore-pitcher {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.4rem;
+}
+
+.linescore-pitcher-label {
+    font-weight: 700;
+    color: #FFC52F;
+    letter-spacing: 0.04em;
+    min-width: 1.5em;
+}
+
+.linescore-pitcher-name {
+    color: rgba(255, 255, 255, 0.85);
+}
+
 /* ── Record standings link ── */
 .record-standings-link {
     cursor: pointer;
