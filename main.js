@@ -694,6 +694,7 @@ createCsvGameItem(g, showH2h = false) {
 
         		// Determine TV status for today's game (current season only)
         		let tvStatus = null;
+        		let tvGame = null;
         		if (!isPastSeason) {
         			const now = new Date();
         			const liveNow = events.find(e => {
@@ -705,7 +706,7 @@ createCsvGameItem(g, showH2h = false) {
         			const nextScheduled = events
         				.filter(e => new Date(e.date) > now && e.competitions?.[0]?.status?.type?.name === 'STATUS_SCHEDULED')
         				.sort((a, b) => new Date(a.date) - new Date(b.date))[0];
-        			const tvGame = liveNow || nextScheduled;
+        			tvGame = liveNow || nextScheduled;
         			tvStatus = this.getTvStatus(tvGame);
         		}
 
