@@ -874,6 +874,11 @@ details:not([open]) > .collapsible-summary::before {
     background: rgba(255, 197, 47, 0.08);
 }
 
+.watch-service-area-select option {
+    color: #15161e;
+    background: #fff;
+}
+
 .game-result {
     text-align: center;
     width: 100%;
