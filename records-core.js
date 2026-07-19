@@ -92,8 +92,8 @@ const RETROSHEET_TEAM_NAMES = {
 };
 
 // Maps any gametype string to a canonical single-letter code:
-//   R = regular season, F = wild card, D = division series,
-//   L = league championship, W = world series
+//   R = regular season, T = tiebreaker (game 163), F = wild card,
+//   D = division series, L = league championship, W = world series
 function normalizeGametype(gt) {
 	if (!gt) return '';
 	const u = gt.toUpperCase().replace(/[\s_-]/g, '');
@@ -102,7 +102,7 @@ function normalizeGametype(gt) {
 	if (u === 'L' || u === 'LCS' || u === 'ALCS' || u === 'NLCS' || u === 'C') return 'L';
 	if (u === 'D' || u === 'DS' || u === 'DIVISIONSERIES' || u === 'DIVISION') return 'D';
 	if (u === 'F' || u === 'WILDCARD' || u === 'WILDCARDGAME') return 'F';
-	if (u === 'PLAYOFF' || u === 'PLAYOFFS' || u === 'P') return 'D';
+	if (u === 'PLAYOFF' || u === 'PLAYOFFS' || u === 'P') return 'T';
 	return '';
 }
 
@@ -262,8 +262,8 @@ export function computeSuperlatives(rows, { top = 5, now = new Date() } = {}) {
 
 	// Postseason series results. Each series is grouped by (season, gametype,
 	// opponent); gametype codes: F=Wild Card, D=Division Series, L=LCS, W=World Series.
-	const ROUND_LABEL = { F: 'Wild Card', D: 'Division Series', L: 'LCS', W: 'World Series' };
-	const ROUND_ORDER = { F: 0, D: 1, L: 2, W: 3 };
+	const ROUND_LABEL = { T: 'Tiebreaker', F: 'Wild Card', D: 'Division Series', L: 'LCS', W: 'World Series' };
+	const ROUND_ORDER = { T: 0, F: 1, D: 2, L: 3, W: 4 };
 	const seriesMap = new Map(); // key -> { season, round, opponent, wins, losses }
 	for (const g of games) {
 		if (g.regular_season === '1') continue;
