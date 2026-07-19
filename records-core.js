@@ -186,6 +186,9 @@ export function parseGameinfoCsv(gamesRaw, namesRaw, teamstatsRaw = null) {
 				brewers_score: isNaN(brewersScore) ? '' : String(brewersScore),
 				opponent_score: isNaN(opponentScore) ? '' : String(opponentScore),
 				location: isHome ? 'home' : 'away',
+				wp: r.wp || '',
+				lp: r.lp || '',
+				save: r.save || '',
 			};
 		});
 }

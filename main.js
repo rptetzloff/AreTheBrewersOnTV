@@ -92,7 +92,7 @@
         				});
         			});
 
-        			const [gamesRes, namesRes, photosRes, channelsRes, channelLookupRes, providerLookupRes, teamstatsRes] = await Promise.all([
+        			const [gamesRes, namesRes, photosRes, channelsRes, channelLookupRes, providerLookupRes, teamstatsRes, playersRes] = await Promise.all([
         				fetch('./data/gameinfo.csv'),
         				fetch('./data/CurrentNames.csv'),
         				fetch('./data/photos.csv').catch(() => null),
@@ -100,6 +100,7 @@
         				fetch('./data/channel_lookup.csv'),
         				fetch('./data/provider_lookup.csv'),
         				fetch('./data/teamstats.csv'),
+        				fetch('./data/allplayers.csv'),
         			]);
         			if (channelsRes.ok) {
         				const raw = await channelsRes.text();
@@ -119,6 +120,11 @@
         				const namesText = await namesRes.text();
         				const games = parseGameinfoCsv(await gamesRes.text(), namesText, teamstatsText);
         				this.teamNames = parseCurrentNamesCsv(namesText);
+        				if (playersRes?.ok) {
+        					this.playerNames = new Map(
+        						parseGamesCsv(await playersRes.text()).map(p => [p.id, `${p.first} ${p.last}`.trim()])
+        					);
+        				}
         				this.csvBySeason = buildSeasonMap(games);
         				if (teamstatsText) this.lineScores = parseTeamstatsLineScores(teamstatsText);
         				// name -> all-time head-to-head entry, for schedule annotations
@@ -2111,7 +2117,13 @@ openLinescoreModal(g) {
 
   const date = new Date(g.date);
   const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-  this._renderLinescore(`${visLabel} @ ${homLabel} — ${dateStr}`, visitor, home, visLabel, homLabel, !brewersIsHome);
+  const playerName = (id) => (id && this.playerNames?.get(id)) || null;
+  const pitchers = {
+    wp: playerName(g.wp),
+    lp: playerName(g.lp),
+    save: playerName(g.save),
+  };
+  this._renderLinescore(`${visLabel} @ ${homLabel} — ${dateStr}`, visitor, home, visLabel, homLabel, !brewersIsHome, '', false, pitchers);
 }
 
 openLinescoreFromEvent(event) {
