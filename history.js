@@ -6,7 +6,7 @@
 import { parseGameinfoCsv, computeSeasonHistory, historyCopy, parseBallparksCsv, computeFranchiseMilestones } from './records-core.js';
 import { parseBiofile, parseTeamstatsMgr, parseManagersCsv, computeCoachesFromData } from './coaches-core.js';
 import { buildChartSvg, METRICS, POSTSEASON, postseasonTier } from './history-chart.js';
-import { shareButtonsHtml, wireShareRow } from './share-core.js';
+import { shareButtonsHtml, labeledShareButtonsHtml, wireShareRow, wireShareDropdown } from './share-core.js';
 
 const chartEl = document.getElementById('history-chart');
 const tooltip = document.getElementById('history-tooltip');
@@ -151,8 +151,9 @@ async function init() {
 		apply();
 
 		const share = document.getElementById('history-share');
-		share.innerHTML = shareButtonsHtml('share-btn record-share-btn');
+		share.innerHTML = labeledShareButtonsHtml('footer-share-item');
 		wireShareRow(share, historyCopy(histories.regular).desc, `${window.location.origin}/history`);
+		wireShareDropdown();
 	} catch (e) {
 		chartEl.innerHTML = '<p class="record-empty">Could not load the game data. Try again later.</p>';
 		console.error(e);

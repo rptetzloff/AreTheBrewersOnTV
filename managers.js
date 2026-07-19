@@ -2,7 +2,7 @@
 // record, derived from gameinfo.csv + teamstats.csv + biofile0.csv.
 import { parseGameinfoCsv, computeSeasonHistory, esc } from './records-core.js';
 import { parseBiofile, parseTeamstatsMgr, parseManagersCsv, computeCoachesFromData, coachesCopy } from './coaches-core.js';
-import { shareButtonsHtml, wireShareRow } from './share-core.js';
+import { shareButtonsHtml, labeledShareButtonsHtml, wireShareRow, wireShareDropdown } from './share-core.js';
 
 const pct = (p) => (p >= 1 ? '1.000' : p.toFixed(3).replace(/^0/, ''));
 
@@ -64,8 +64,9 @@ async function init() {
 		renderTable();
 
 		const share = document.getElementById('managers-share');
-		share.innerHTML = shareButtonsHtml('share-btn record-share-btn');
+		share.innerHTML = labeledShareButtonsHtml('footer-share-item');
 		wireShareRow(share, coachesCopy(data).desc, `${window.location.origin}/managers`);
+		wireShareDropdown();
 	} catch (e) {
 		wrap.innerHTML = '<p class="record-empty">Could not load the game data. Try again later.</p>';
 		console.error(e);

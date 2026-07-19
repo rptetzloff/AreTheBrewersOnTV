@@ -15,16 +15,46 @@ export function intentUrls(message, url) {
 // supported, otherwise the per-platform intent links, plus copy. Pair with
 // wireShareRow() after inserting into the DOM.
 export function shareButtonsHtml(btnClass) {
-	const native = !!navigator.share;
-	const alts = native ? '' : `
-		<a class="${btnClass}" data-share="x" href="#" target="_blank" rel="noopener noreferrer" aria-label="Post on X"><i class="mdi mdi-twitter"></i></a>
-		<a class="${btnClass}" data-share="bsky" href="#" target="_blank" rel="noopener noreferrer" aria-label="Post on Bluesky"><i class="mdi mdi-butterfly"></i></a>
-		<a class="${btnClass}" data-share="fb" href="#" target="_blank" rel="noopener noreferrer" aria-label="Share on Facebook"><i class="mdi mdi-facebook"></i></a>
-		<a class="${btnClass}" data-share="reddit" href="#" target="_blank" rel="noopener noreferrer" aria-label="Post on Reddit"><i class="mdi mdi-reddit"></i></a>`;
-	return `${native ? `<button class="${btnClass}" data-share="native" aria-label="Share"><i class="mdi mdi-share-variant"></i></button>` : ''}
-		${alts}
-		<button class="${btnClass}" data-share="copy" aria-label="Copy link"><i class="mdi mdi-clipboard-outline"></i></button>`;
+	const items = labeledShareItems();
+	return items.map((it) => it.html(btnClass, false)).join('');
 }
+
+// Labeled share buttons for the footer dropdown menu.
+export function labeledShareButtonsHtml(btnClass) {
+	const items = labeledShareItems();
+	return items.map((it) => it.html(btnClass, true)).join('');
+}
+
+function labeledShareItems() {
+	const native = !!navigator.share;
+	const items = [];
+	if (native) {
+		items.push({
+			share: 'native',
+			icon: 'mdi-share-variant',
+			label: 'Share',
+			html: (c, labeled) => `<button class="${c}" data-share="native" type="button" aria-label="Share">${iconHtml('mdi-share-variant', labeled)}${labeled ? 'Share' : ''}</button>`,
+		});
+	} else {
+		for (const [share, icon, label] of [['x', 'mdi-twitter', 'Post on X'], ['bsky', 'mdi-butterfly', 'Post on Bluesky'], ['fb', 'mdi-facebook', 'Share on Facebook'], ['reddit', 'mdi-reddit', 'Post on Reddit']]) {
+			items.push({
+				share,
+				icon,
+				label,
+				html: (c, labeled) => `<a class="${c}" data-share="${share}" href="#" target="_blank" rel="noopener noreferrer" aria-label="${label}">${iconHtml(icon, labeled)}${labeled ? label : ''}</a>`,
+			});
+		}
+	}
+	items.push({
+		share: 'copy',
+		icon: 'mdi-clipboard-outline',
+		label: 'Copy link',
+		html: (c, labeled) => `<button class="${c}" data-share="copy" type="button" aria-label="Copy link">${iconHtml('mdi-clipboard-outline', labeled)}${labeled ? 'Copy link' : ''}</button>`,
+	});
+	return items;
+}
+
+const iconHtml = (icon, labeled) => `<i class="mdi ${icon}${labeled ? ' footer-share-item-icon' : ' share-icon'}"></i>`;
 
 // Wire the [data-share] buttons inside `row` to share `message` + `url`.
 export function wireShareRow(row, message, url) {
@@ -48,6 +78,28 @@ export function wireShareRow(row, message, url) {
 				break;
 		}
 	});
+}
+
+// Wire the footer Share dropdown toggle: click the trigger to show/hide the
+// menu, click outside or Escape to close. Call once per page after the menu
+// is populated.
+export function wireShareDropdown() {
+	const trigger = document.getElementById('footer-share-trigger');
+	const menu = document.getElementById('footer-share');
+	if (!trigger || !menu || trigger.dataset.wired) return;
+	trigger.dataset.wired = '1';
+
+	const open = (on) => {
+		menu.hidden = !on;
+		trigger.setAttribute('aria-expanded', String(on));
+	};
+	const toggle = (e) => { e.stopPropagation(); open(menu.hidden); };
+	const close = () => open(false);
+
+	trigger.addEventListener('click', toggle);
+	document.addEventListener('click', (e) => { if (!menu.hidden && !menu.contains(e.target) && e.target !== trigger) close(); });
+	document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !menu.hidden) { close(); trigger.focus(); } });
+	menu.addEventListener('click', close);
 }
 
 // Flash a button into its "copied" state for 2s, restoring its original

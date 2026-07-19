@@ -1,7 +1,7 @@
 // Records & Superlatives page: computes superlatives from the games CSV
 // (records-core.js, shared with the server) and renders one shareable card each.
 import { parseGameinfoCsv, computeSuperlatives, recordsCopy, formatDate, RECORD_SLUGS, esc } from './records-core.js';
-import { shareButtonsHtml, wireShareRow } from './share-core.js';
+import { shareButtonsHtml, labeledShareButtonsHtml, wireShareRow, wireShareDropdown } from './share-core.js';
 
 const yearLink = (yr) => `<a href="/${yr}">${yr}</a>`;
 const gameLink = (season, gid, label) => `<a href="/${season}#g-${esc(gid)}">${label}</a>`;
@@ -122,8 +122,9 @@ async function init() {
 		wireShares(grid, data);
 
 		const footerShare = document.getElementById('records-share');
-		footerShare.innerHTML = shareButtonsHtml('share-btn record-share-btn');
+		footerShare.innerHTML = labeledShareButtonsHtml('footer-share-item');
 		wireShareRow(footerShare, recordsCopy('overview', data).desc, `${window.location.origin}/records`);
+		wireShareDropdown();
 
 		const slug = requestedSlug();
 		if (slug) {

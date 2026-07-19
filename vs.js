@@ -3,7 +3,7 @@
 // opponent at /vs/<slug>.
 import { parseGameinfoCsv, formatDate, esc } from './records-core.js';
 import { computeHeadToHead, h2hCopy, streakSentence } from './h2h-core.js';
-import { shareButtonsHtml, wireShareRow } from './share-core.js';
+import { shareButtonsHtml, labeledShareButtonsHtml, wireShareRow, wireShareDropdown } from './share-core.js';
 
 const pct = (p) => (p >= 1 ? '1.000' : p.toFixed(3).replace(/^0/, ''));
 
@@ -108,8 +108,9 @@ async function init() {
 			renderTable();
 
 		const footerShare = document.getElementById('h2h-share');
-		footerShare.innerHTML = shareButtonsHtml('share-btn record-share-btn');
+		footerShare.innerHTML = labeledShareButtonsHtml('footer-share-item');
 		wireShareRow(footerShare, h2hCopy(null, allTime).desc, `${window.location.origin}/vs`);
+		wireShareDropdown();
 
 		const slug = requestedSlug(allTime);
 		if (slug) {

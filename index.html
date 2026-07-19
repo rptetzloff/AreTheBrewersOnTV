@@ -58,38 +58,37 @@
 
     <footer class="site-footer">
         <nav class="footer-nav">
-            <a href="/" class="share-btn records-link"><i class="mdi mdi-home-outline"></i> Home</a>
-            <a href="/records.html" class="share-btn records-link"><i class="mdi mdi-trophy-outline"></i> Records &amp; Superlatives</a>
-            <a href="/vs.html" class="share-btn records-link"><i class="mdi mdi-sword-cross"></i> Head-to-Head</a>
-            <a href="/history.html" class="share-btn records-link"><i class="mdi mdi-chart-line"></i> History</a>
-            <a href="/managers.html" class="share-btn records-link"><i class="mdi mdi-whistle-outline"></i> Managers</a>
+            <a href="/" class="footer-nav-link"><i class="mdi mdi-home-outline"></i> Home</a>
+            <a href="/records.html" class="footer-nav-link"><i class="mdi mdi-trophy-outline"></i> Records</a>
+            <a href="/vs.html" class="footer-nav-link"><i class="mdi mdi-sword-cross"></i> Head-to-Head</a>
+            <a href="/history.html" class="footer-nav-link"><i class="mdi mdi-chart-line"></i> History</a>
+            <a href="/managers.html" class="footer-nav-link"><i class="mdi mdi-whistle-outline"></i> Managers</a>
+            <div class="footer-share-wrap">
+                <button id="footer-share-trigger" class="footer-nav-link footer-share-trigger" type="button" aria-haspopup="true" aria-expanded="false">
+                    <i class="mdi mdi-share-variant"></i> Share <i class="mdi mdi-chevron-down footer-share-caret"></i>
+                </button>
+                <div class="footer-share" id="footer-share" role="menu" hidden>
+                    <button id="share-native" class="footer-share-item" type="button" role="menuitem" hidden>
+                        <i class="mdi mdi-share-variant"></i> Share
+                    </button>
+                    <a id="share-x" class="footer-share-item" href="#" target="_blank" rel="noopener noreferrer" role="menuitem" hidden>
+                        <i class="mdi mdi-twitter"></i> Post on X
+                    </a>
+                    <a id="share-bsky" class="footer-share-item" href="#" target="_blank" rel="noopener noreferrer" role="menuitem" hidden>
+                        <i class="mdi mdi-butterfly"></i> Post on Bluesky
+                    </a>
+                    <a id="share-fb" class="footer-share-item" href="#" target="_blank" rel="noopener noreferrer" role="menuitem" hidden>
+                        <i class="mdi mdi-facebook"></i> Share on Facebook
+                    </a>
+                    <a id="share-reddit" class="footer-share-item" href="#" target="_blank" rel="noopener noreferrer" role="menuitem" hidden>
+                        <i class="mdi mdi-reddit"></i> Post on Reddit
+                    </a>
+                    <button id="share-copy" class="footer-share-item" type="button" role="menuitem" hidden>
+                        <i class="mdi mdi-clipboard-outline"></i> Copy link
+                    </button>
+                </div>
+            </div>
         </nav>
-        <div class="footer-share share-section">
-            <button id="share-native" class="share-btn" hidden>
-                <i class="mdi mdi-share-variant share-icon"></i>
-                Share
-            </button>
-            <a id="share-x" class="share-btn" href="#" target="_blank" rel="noopener noreferrer" hidden>
-                <i class="mdi mdi-twitter share-icon"></i>
-                Post on X
-            </a>
-            <a id="share-bsky" class="share-btn" href="#" target="_blank" rel="noopener noreferrer" hidden>
-                <i class="mdi mdi-butterfly share-icon"></i>
-                Post on Bluesky
-            </a>
-            <a id="share-fb" class="share-btn" href="#" target="_blank" rel="noopener noreferrer" hidden>
-                <i class="mdi mdi-facebook share-icon"></i>
-                Share on Facebook
-            </a>
-            <a id="share-reddit" class="share-btn" href="#" target="_blank" rel="noopener noreferrer" hidden>
-                <i class="mdi mdi-reddit share-icon"></i>
-                Post on Reddit
-            </a>
-            <button id="share-copy" class="share-btn" hidden>
-                <i class="mdi mdi-clipboard-outline share-icon"></i>
-                Copy
-            </button>
-        </div>
         <p class="footer-disclaimer">Channel information is based on publicly available channel listings. Please check your local channel guide for the most accurate broadcast information.</p>
         <a href="https://github.com/rptetzloff/AreTheBrewersUndefeated" target="_blank" rel="noopener noreferrer" class="github-link">
             <i class="mdi mdi-github"></i>
