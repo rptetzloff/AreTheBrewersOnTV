@@ -2128,20 +2128,81 @@ openLinescoreFromEvent(event) {
   const milIsHome = milC.homeAway === 'home';
   const visC = milIsHome ? oppC : milC;
   const homC = milIsHome ? milC : oppC;
-  const visLabel = visC.team.shortDisplayName || visC.team.displayName || visC.team.abbreviation;
-  const homLabel = homC.team.shortDisplayName || homC.team.displayName || homC.team.abbreviation;
+  const visLabel = visC.team.displayName || visC.team.shortDisplayName || visC.team.abbreviation;
+  const homLabel = homC.team.displayName || homC.team.shortDisplayName || homC.team.abbreviation;
 
-  // Build inning arrays from linescores — ESPN puts them on each competitor
+  const date = new Date(event.date);
+  const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  const title = `${visLabel} @ ${homLabel} — ${dateStr}`;
+  const boxScoreUrl = event.id ? `https://www.espn.com/mlb/game/_/gameId/${event.id}` : '';
+
+  // Show a loading state while we fetch the full linescore from the summary endpoint.
+  // The schedule endpoint omits inning-by-inning runs and H/E; the summary endpoint has them.
+  this._renderLinescore(title, { inns: [], r: 0, h: 0, e: 0 }, { inns: [], r: 0, h: 0, e: 0 }, visLabel, homLabel, milIsHome, boxScoreUrl, true);
+
+  fetch(`https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/summary?event=${event.id}`)
+    .then(r => r.json())
+    .then(data => {
+      const comp = data.header?.competitions?.[0];
+      if (!comp?.competitors) {
+        this._renderLinescoreFromSchedule(title, visC, homC, visLabel, homLabel, milIsHome, boxScoreUrl);
+        return;
+      }
+      let milS = null, oppS = null;
+      comp.competitors.forEach(c => {
+        if (c.team.abbreviation === 'MIL') milS = c;
+        else oppS = c;
+      });
+      if (!milS || !oppS) {
+        this._renderLinescoreFromSchedule(title, visC, homC, visLabel, homLabel, milIsHome, boxScoreUrl);
+        return;
+      }
+      const visS = milIsHome ? oppS : milS;
+      const homS = milIsHome ? milS : oppS;
+
+      const toInns = (c) => {
+        const ls = c.linescores || [];
+        return ls.map(e => {
+          const v = e.value ?? e.displayValue;
+          return v === null || v === undefined ? '' : String(v);
+        });
+      };
+      const statVal = (c, name) => {
+        const s = (c.statistics || []).find(st => st.name === name || st.abbreviation === name);
+        return s ? (parseInt(s.displayValue) || 0) : 0;
+      };
+
+      const visitor = {
+        inns: toInns(visS),
+        r: parseInt(visS.score?.value ?? visS.score ?? 0),
+        h: statVal(visS, 'hits'),
+        e: statVal(visS, 'errors'),
+      };
+      const home = {
+        inns: toInns(homS),
+        r: parseInt(homS.score?.value ?? homS.score ?? 0),
+        h: statVal(homS, 'hits'),
+        e: statVal(homS, 'errors'),
+      };
+      this._renderLinescore(title, visitor, home, visLabel, homLabel, milIsHome, boxScoreUrl);
+    })
+    .catch(() => {
+      this._renderLinescoreFromSchedule(title, visC, homC, visLabel, homLabel, milIsHome, boxScoreUrl);
+    });
+}
+
+_renderLinescoreFromSchedule(title, visC, homC, visLabel, homLabel, milIsHome, boxScoreUrl) {
   const toInns = (c) => {
     const ls = c.linescores || [];
-    return ls.map(e => String(e.value ?? e.displayValue ?? ''));
+    return ls.map(e => {
+      const v = e.value ?? e.displayValue;
+      return v === null || v === undefined ? '' : String(v);
+    });
   };
-
   const statVal = (c, name) => {
     const s = (c.statistics || []).find(st => st.name === name || st.abbreviation === name);
     return s ? (parseInt(s.displayValue) || 0) : 0;
   };
-
   const visitor = {
     inns: toInns(visC),
     r: parseInt(visC.score?.value ?? visC.score ?? 0),
@@ -2154,38 +2215,36 @@ openLinescoreFromEvent(event) {
     h: statVal(homC, 'hits'),
     e: statVal(homC, 'errors'),
   };
-
-  const date = new Date(event.date);
-  const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-  const boxScoreUrl = event.id ? `https://www.espn.com/mlb/game/_/gameId/${event.id}` : '';
-  this._renderLinescore(`${visLabel} @ ${homLabel} — ${dateStr}`, visitor, home, visLabel, homLabel, milIsHome, boxScoreUrl);
+  this._renderLinescore(title, visitor, home, visLabel, homLabel, milIsHome, boxScoreUrl);
 }
 
-_renderLinescore(title, visitor, home, visLabel, homLabel, milIsHome, boxScoreUrl = '') {
+_renderLinescore(title, visitor, home, visLabel, homLabel, milIsHome, boxScoreUrl = '', loading = false) {
+  const modal = document.getElementById('linescore-modal');
+  document.getElementById('linescore-title').textContent = title;
+  const body = document.getElementById('linescore-body');
+
+  if (loading) {
+    body.innerHTML = `<div class="loading">Loading line score…</div>`;
+    modal.hidden = false;
+    document.body.style.overflow = 'hidden';
+    return;
+  }
+
   const maxInns = Math.max(
     ...visitor.inns.map((v, i) => (v !== '' ? i + 1 : 0)),
     ...home.inns.map((v, i) => (v !== '' ? i + 1 : 0)),
     9
   );
 
-  const formatCell = (val) => (val === '' ? 'x' : val);
-
-  const modal = document.getElementById('linescore-modal');
-  document.getElementById('linescore-title').textContent = title;
-  const body = document.getElementById('linescore-body');
+  const formatCell = (val) => (val === '' || val === undefined || val === null ? 'x' : val);
 
   const innHeaders = Array.from({ length: maxInns }, (_, i) => `<th>${i + 1}</th>`).join('');
-  const visInns = Array.from({ length: maxInns }, (_, i) => `<td>${formatCell(visitor.inns[i] ?? '')}</td>`).join('');
-  const homInns = Array.from({ length: maxInns }, (_, i) => `<td>${formatCell(home.inns[i] ?? '')}</td>`).join('');
+  const visInns = Array.from({ length: maxInns }, (_, i) => `<td>${formatCell(visitor.inns[i])}</td>`).join('');
+  const homInns = Array.from({ length: maxInns }, (_, i) => `<td>${formatCell(home.inns[i])}</td>`).join('');
 
-  const showRHE = visitor.h > 0 || home.h > 0 || visitor.e > 0 || home.e > 0;
-  const rheHeaders = showRHE ? `<th class="linescore-rhe">R</th><th class="linescore-rhe">H</th><th class="linescore-rhe">E</th>` : `<th class="linescore-rhe">R</th>`;
-  const visRhe = showRHE
-    ? `<td class="linescore-rhe linescore-total">${visitor.r}</td><td class="linescore-rhe">${visitor.h}</td><td class="linescore-rhe">${visitor.e}</td>`
-    : `<td class="linescore-rhe linescore-total">${visitor.r}</td>`;
-  const homRhe = showRHE
-    ? `<td class="linescore-rhe linescore-total">${home.r}</td><td class="linescore-rhe">${home.h}</td><td class="linescore-rhe">${home.e}</td>`
-    : `<td class="linescore-rhe linescore-total">${home.r}</td>`;
+  const rheHeaders = `<th class="linescore-rhe">R</th><th class="linescore-rhe">H</th><th class="linescore-rhe">E</th>`;
+  const visRhe = `<td class="linescore-rhe linescore-total">${visitor.r}</td><td class="linescore-rhe">${visitor.h}</td><td class="linescore-rhe">${visitor.e}</td>`;
+  const homRhe = `<td class="linescore-rhe linescore-total">${home.r}</td><td class="linescore-rhe">${home.h}</td><td class="linescore-rhe">${home.e}</td>`;
 
   body.innerHTML = `
     <div class="linescore-wrap">
