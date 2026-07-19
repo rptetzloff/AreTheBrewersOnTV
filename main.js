@@ -16,7 +16,6 @@
         class BrewersTracker {
         	constructor() {
         		this.apiUrl = 'https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/teams/mil/schedule';
-        		this.mlbStatsUrl = 'https://statsapi.mlb.com/api/v1/schedule';
         		this.countdownInterval = null;
         		this.liveUpdateInterval = null;
         		this.currentSeason = null;
@@ -27,6 +26,9 @@
         		this.seasonRecords = {};
         		this.photosBySeason = {};
         		this.channelMeta = {};
+        		this.providerMeta = {};
+        		this.providerAliasIndex = new Map();
+        		this.selectedProvider = localStorage.getItem('tvProvider') || null;
         		this.lineScores = null;
         		this.init();
         	}
@@ -34,46 +36,52 @@
         	getTvStatus(game) {
         		if (!game) return 'no';
         		const broadcasts = game.competitions?.[0]?.broadcasts || [];
-        		const networks = broadcasts.flatMap(b => {
-        			const names = [];
-        			if (b.media?.shortName) names.push(b.media.shortName.toLowerCase());
-        			if (b.names) names.push(...b.names.map(n => n.toLowerCase()));
-        			return names;
-        		});
-        		const streamingOnly = [
-        			'mlb.tv', 'brewers.tv', 'mlbtv',
-        			'apple tv', 'apple tv+', 'appletv+',
-        			'peacock', 'espn+', 'espnplus',
-        			'paramount+', 'fubo', 'sling',
-        		];
-        		const onTv = [
-        			'fox', 'fs1', 'fs2', 'espn', 'espn2', 'abc',
-        			'tbs', 'tnt', 'mlb network', 'mlbn',
-        			'bally', 'bsmi', 'bswi', 'nbcs', 'nbc sports',
-        		];
-        		if (networks.length === 0) return 'no';
-        		const hasTV = networks.some(n => onTv.some(tv => n.includes(tv)));
+        		if (broadcasts.length === 0) return 'no';
+        		// Use our channel_lookup/broadcast_channels metadata to classify each
+        		// broadcast: a channel typed broadcast/cable/regional counts as "on TV"
+        		// even when ESPN labels it "Streaming" (e.g. Brewers.TV is carried on
+        		// DirecTV, Spectrum, Xfinity, etc.). Only fall back to ESPN's type when
+        		// the network isn't in our metadata at all.
+        		const tvTypes = new Set(['broadcast', 'cable', 'regional']);
+        		let hasTV = false;
+        		let hasStreaming = false;
+        		for (const b of broadcasts) {
+        			if (!b.media?.shortName) continue;
+        			const ch = this.resolveChannel(b.media.shortName);
+        			if (ch) {
+        				if (tvTypes.has(ch.type)) { hasTV = true; continue; }
+        				if (ch.type === 'streaming') { hasStreaming = true; continue; }
+        			}
+        			// Unknown to our metadata — trust ESPN's type label.
+        			const t = b.type?.shortName || '';
+        			if (t === 'TV') hasTV = true;
+        			else if (t === 'Streaming') hasStreaming = true;
+        		}
         		if (hasTV) return 'yes';
-        		const hasStreaming = networks.some(n => streamingOnly.some(s => n.includes(s)));
         		if (hasStreaming) return 'streaming';
-        		// unknown network — treat as on TV
-        		return 'yes';
+        		return 'no';
+        	}
+
+        	// Choose the broadcast to show next to the game date in the schedule
+        	// listing. Prefer TV-type channels (broadcast > cable > regional) over
+        	// streaming/radio, since ESPN often lists MLB.TV first even when a
+        	// linear TV channel is available. Uses the same channel metadata
+        	// classification as getTvStatus.
+        	pickPrimaryBroadcast(game) {
+        		const broadcasts = game?.competitions?.[0]?.broadcasts || [];
+        		if (broadcasts.length === 0) return null;
+        		const rank = (b) => {
+        			const name = b.media?.shortName;
+        			if (!name) return 99;
+        			const ch = this.resolveChannel(name);
+        			const type = ch?.type || (b.type?.shortName === 'Streaming' ? 'streaming' : b.type?.shortName === 'Radio' ? 'radio' : 'cable');
+        			return { broadcast: 0, regional: 1, cable: 2, streaming: 3, radio: 4 }[type] ?? 5;
+        		};
+        		return broadcasts.slice().sort((a, b) => rank(a) - rank(b))[0] || null;
         	}
 
         	async init() {
         		try {
-        			const toggle = document.getElementById('emoji-toggle');
-        			toggle.checked = this.showEmojis;
-        			toggle.addEventListener('change', () => {
-        				localStorage.setItem('showEmojis', toggle.checked ? 'true' : 'false');
-        				if (this._isOffseason) {
-        					this.displayOffseasonMessage();
-        				} else if (this._lastResult) {
-        					const { isUndefeated, wins, losses, ties, isPastSeason, superBowlName, postRecord, preRecord, tvStatus } = this._lastResult;
-        					this.displayResult(isUndefeated, wins, losses, ties, isPastSeason, superBowlName, postRecord, preRecord, tvStatus);
-        				}
-        			});
-
         			['streak-details', 'otd-details'].forEach(id => {
         				const details = document.getElementById(id);
         				if (!details) return;
@@ -84,11 +92,13 @@
         				});
         			});
 
-        			const [gamesRes, namesRes, photosRes, channelsRes, teamstatsRes] = await Promise.all([
+        			const [gamesRes, namesRes, photosRes, channelsRes, channelLookupRes, providerLookupRes, teamstatsRes] = await Promise.all([
         				fetch('./data/gameinfo.csv'),
         				fetch('./data/CurrentNames.csv'),
         				fetch('./data/photos.csv').catch(() => null),
         				fetch('./data/broadcast_channels.csv'),
+        				fetch('./data/channel_lookup.csv'),
+        				fetch('./data/provider_lookup.csv'),
         				fetch('./data/teamstats.csv'),
         			]);
         			if (channelsRes.ok) {
@@ -100,6 +110,9 @@
         						sort_order: parseInt(ch.sort_order) || 99,
         					};
         				});
+        			}
+        			if (channelLookupRes.ok && providerLookupRes.ok) {
+        				this._loadTvLookup(await channelLookupRes.text(), await providerLookupRes.text());
         			}
         			if (gamesRes.ok && namesRes.ok) {
         				const teamstatsText = teamstatsRes?.ok ? await teamstatsRes.text() : null;
@@ -681,6 +694,7 @@ createCsvGameItem(g, showH2h = false) {
 
         		// Determine TV status for today's game (current season only)
         		let tvStatus = null;
+        		let tvGame = null;
         		if (!isPastSeason) {
         			const now = new Date();
         			const liveNow = events.find(e => {
@@ -692,10 +706,11 @@ createCsvGameItem(g, showH2h = false) {
         			const nextScheduled = events
         				.filter(e => new Date(e.date) > now && e.competitions?.[0]?.status?.type?.name === 'STATUS_SCHEDULED')
         				.sort((a, b) => new Date(a.date) - new Date(b.date))[0];
-        			tvStatus = this.getTvStatus(liveNow || nextScheduled);
+        			tvGame = liveNow || nextScheduled;
+        			tvStatus = this.getTvStatus(tvGame);
         		}
 
-        		this.displayResult(isUndefeated, wins, losses, ties, isPastSeason, worldSeriesName, postRecord, preRecord, tvStatus);
+        		this.displayResult(isUndefeated, wins, losses, ties, isPastSeason, worldSeriesName, postRecord, preRecord, tvStatus, tvGame);
         		this.displaySchedule(events, isPastSeason);
         		this.showLastUpdated();
         		this.setDataCredit(false);
@@ -740,19 +755,14 @@ createCsvGameItem(g, showH2h = false) {
         		const answerEl = document.getElementById('answer');
         		const recordEl = document.getElementById('record');
 
-        		const baseballHtml = this.showEmojis ? '⚾<br>' : '';
         		this._lastResult = null;
         		this._isOffseason = true;
-        		answerEl.innerHTML = `${baseballHtml}OFFSEASON`;
+        		answerEl.innerHTML = `OFFSEASON`;
         		answerEl.className = 'answer offseason';
         		document.body.classList.remove('undefeated');
         		document.body.classList.add('offseason');
 
         		recordEl.textContent = 'The season hasn\'t started yet!';
-        	}
-
-        	get showEmojis() {
-        		return localStorage.getItem('showEmojis') !== 'false';
         	}
 
         	emojiRowHtml(emoji, count) {
@@ -761,48 +771,58 @@ createCsvGameItem(g, showH2h = false) {
         		return `<div class="emoji-row">${spans}</div>`;
         	}
 
-        	displayResult(isUndefeated, wins, losses, ties, isPastSeason = false, worldSeriesName = null, postRecord = null, preRecord = null, tvStatus = null) {
+        	displayResult(isUndefeated, wins, losses, ties, isPastSeason = false, worldSeriesName = null, postRecord = null, preRecord = null, tvStatus = null, tvGame = null) {
         		const answerEl = document.getElementById('answer');
         		const recordEl = document.getElementById('record');
 
         		this._lastResult = { isUndefeated, wins, losses, ties, isPastSeason, worldSeriesName, postRecord, preRecord, tvStatus };
         		this._isOffseason = false;
 
-        		const emojis = this.showEmojis;
-
         		if (worldSeriesName) {
-        			answerEl.innerHTML = `🏆⚾🍺<br>${worldSeriesName.toUpperCase()}<br>CHAMPIONS!<br>🎉🎊🎉`;
+        			answerEl.innerHTML = `🏆🍺<br>${worldSeriesName.toUpperCase()}<br>CHAMPIONS!<br>🎉`;
         			answerEl.className = 'answer champions';
         			document.body.classList.remove('undefeated');
         		} else if (!isPastSeason && tvStatus !== null) {
-        			// Current season: answer based on whether today's game is on TV
+        			// Current season: answer based on whether today's game is on TV.
+        			// The badge is clickable when we have broadcast data for the
+        			// game it refers to, opening the same Where-to-watch modal the
+        			// schedule's watch button uses.
+        			const hasBroadcasts = tvGame && (tvGame.competitions?.[0]?.broadcasts || []).some(b => b.media?.shortName);
         			if (tvStatus === 'yes') {
-        				const tvHtml = emojis ? this.emojiRowHtml('📺', 1) : '';
-        				answerEl.innerHTML = `${tvHtml}YES!!!`;
+        				answerEl.innerHTML = `YES!!!`;
         				answerEl.className = 'answer yes';
         				document.body.classList.add('undefeated');
         			} else if (tvStatus === 'streaming') {
-        				const streamHtml = emojis ? this.emojiRowHtml('📱', 1) : '';
-        				answerEl.innerHTML = `${streamHtml}STREAMING ONLY`;
+        				answerEl.innerHTML = `STREAMING ONLY`;
         				answerEl.className = 'answer streaming';
         				document.body.classList.remove('undefeated');
         			} else {
-        				const baseballHtml = emojis ? this.emojiRowHtml('⚾', 1) : '';
-        				answerEl.innerHTML = `${baseballHtml}NO`;
+        				answerEl.innerHTML = `NO`;
         				answerEl.className = 'answer no';
         				document.body.classList.remove('undefeated');
         			}
+        			if (hasBroadcasts) {
+        				answerEl.style.cursor = 'pointer';
+        				answerEl.title = 'Click to see where to watch';
+        				answerEl.onclick = () => this.openWatchModal(tvGame);
+        			} else {
+        				answerEl.style.cursor = '';
+        				answerEl.title = '';
+        				answerEl.onclick = null;
+        			}
         		} else if (isUndefeated) {
-        			const baseballHtml = emojis && wins > 0 ? this.emojiRowHtml('⚾', wins) : '';
-        			const beerHtml = emojis && !isPastSeason ? this.emojiRowHtml('🍺', 1) : '';
-        			answerEl.innerHTML = `${baseballHtml}YES!!!${beerHtml}`;
+        			const beerHtml = !isPastSeason ? this.emojiRowHtml('🍺', 1) : '';
+        			answerEl.innerHTML = `YES!!!${beerHtml}`;
         			answerEl.className = 'answer yes';
         			document.body.classList.add('undefeated');
+        		} else if (isPastSeason) {
+        			// Past seasons: show no YES/NO/streaming answer, just the record.
+        			answerEl.innerHTML = '';
+        			answerEl.className = 'answer past';
+        			document.body.classList.remove('undefeated');
         		} else {
-        			const baseballHtml = emojis && wins > 0 ? this.emojiRowHtml('⚾', wins) : '';
-        			const beerHtml = emojis && !isPastSeason ? this.emojiRowHtml('🍺', 1) : '';
-        			const frownHtml = emojis && losses > 0 ? this.emojiRowHtml('😢', losses) : '';
-        			answerEl.innerHTML = `${baseballHtml}NO${beerHtml}${frownHtml}`;
+        			const beerHtml = this.emojiRowHtml('🍺', 1);
+        			answerEl.innerHTML = `NO${beerHtml}`;
         			answerEl.className = 'answer no';
         			document.body.classList.remove('undefeated');
         		}
@@ -999,7 +1019,8 @@ opponentDiv.textContent = `${isHome ? 'vs' : '@'} ${opponent}`;
 const dateDiv = document.createElement('div');
 dateDiv.className = 'game-date';
 
-const network = competition.broadcasts?.[0]?.media?.shortName || '';
+const primaryBroadcast = this.pickPrimaryBroadcast(event) || {};
+ const network = primaryBroadcast.media?.shortName || '';
 
 if (isLive || isInProgress) {
  dateDiv.innerHTML = `<span class="live-indicator-small"></span>LIVE NOW${network ? ` · <span class="game-network">${network}</span>` : ''}`;
@@ -1088,8 +1109,11 @@ if (isNext) {
 gameDetails.appendChild(countdownDiv);
 }
 
-// Watch button for next or live games
-if ((isNext || isLive) && this.currentSeason === this.latestSeason) {
+// Watch button — current and future games in the current/latest season
+// that have broadcast data attached to the ESPN event.
+const hasBroadcasts = (competition?.broadcasts || []).some(b => b.media?.shortName);
+const gameIsCompleted = status.type.name === 'STATUS_FINAL';
+if (hasBroadcasts && !gameIsCompleted && this.currentSeason === this.latestSeason) {
   const watchBtn = document.createElement('button');
   watchBtn.className = 'watch-btn';
   watchBtn.innerHTML = '<i class="mdi mdi-television-play"></i> Where to watch';
@@ -1478,24 +1502,6 @@ if (currentIsUndefeated && this.currentSeason === this.latestSeason) {
 }
 }
 
-async fetchMlbBroadcasts(gameDate) {
-  // gameDate: Date object. Fetch Brewers (teamId=158) games on that date.
-  const pad = n => String(n).padStart(2, '0');
-  const d = gameDate;
-  const ds = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-  try {
-    const res = await fetch(
-      `${this.mlbStatsUrl}?sportId=1&teamId=158&hydrate=broadcasts(all)&startDate=${ds}&endDate=${ds}`
-    );
-    if (!res.ok) return [];
-    const data = await res.json();
-    const games = (data.dates || []).flatMap(d => d.games || []);
-    return games.flatMap(g => g.broadcasts || []);
-  } catch {
-    return [];
-  }
-}
-
 resolveChannel(networkName) {
   if (!networkName) return null;
   const key = networkName.trim();
@@ -1509,6 +1515,82 @@ resolveChannel(networkName) {
   return null;
 }
 
+_loadTvLookup(channelLookupRaw, providerLookupRaw) {
+  const channels = parseGamesCsv(channelLookupRaw);
+  const providers = parseGamesCsv(providerLookupRaw);
+
+  // provider key -> metadata + channel map (key -> channel number string)
+  this.providerMeta = {};
+  this.providerAliasIndex = new Map();
+  for (const p of providers) {
+    const key = p.provider;
+    this.providerMeta[key] = {
+      key,
+      display_name: p.display_name,
+      alternate_name: p.alternate_name || '',
+      website_url: p.website_url || '',
+      channel_lineup: p.channel_lineup || '',
+      channels: {},
+    };
+    // index display name + each comma-separated alternate name
+    const names = [p.display_name, ...(p.alternate_name || '').split(',').map(s => s.trim()).filter(Boolean)];
+    for (const n of names) {
+      this.providerAliasIndex.set(n.toLowerCase(), key);
+    }
+  }
+
+  // channel_lookup columns: key,alias,display_name,type,...<provider keys>
+  const providerKeys = Object.keys(this.providerMeta);
+  for (const ch of channels) {
+    const channelKey = ch.key;
+    const alias = ch.alias || '';
+    for (const pk of providerKeys) {
+      const v = (ch[pk] || '').trim();
+      if (v && v.toLowerCase() !== 'varies by market') {
+        // Map both the primary key and alias so both resolve to the same channel.
+        this.providerMeta[pk].channels[channelKey] = v;
+        if (alias) this.providerMeta[pk].channels[alias] = v;
+      }
+    }
+  }
+}
+
+resolveProviderByName(query) {
+  if (!query) return null;
+  const q = query.trim().toLowerCase();
+  if (!q) return null;
+  // exact alias match
+  const hit = this.providerAliasIndex.get(q);
+  if (hit) return this.providerMeta[hit];
+  // partial match (starts-with then includes)
+  for (const [alias, key] of this.providerAliasIndex) {
+    if (alias.startsWith(q)) return this.providerMeta[key];
+  }
+  for (const [alias, key] of this.providerAliasIndex) {
+    if (alias.includes(q)) return this.providerMeta[key];
+  }
+  return null;
+}
+
+resolveProviderChannel(providerKey, networkName) {
+  if (!providerKey || !networkName) return null;
+  const p = this.providerMeta[providerKey];
+  if (!p) return null;
+  const key = networkName.trim();
+  // direct hit on channel key or alias
+  if (p.channels[key]) return p.channels[key];
+  const lower = key.toLowerCase();
+  for (const [k, v] of Object.entries(p.channels)) {
+    if (k.toLowerCase() === lower) return v;
+  }
+  return null;
+}
+
+providerOptions() {
+  return Object.values(this.providerMeta)
+    .sort((a, b) => a.display_name.localeCompare(b.display_name));
+}
+
 initWatchModal() {
   const modal = document.getElementById('watch-modal');
   const backdrop = modal.querySelector('.watch-backdrop');
@@ -1520,69 +1602,143 @@ initWatchModal() {
   });
 }
 
-async openWatchModal(game) {
-  const modal = document.getElementById('watch-modal');
-  const gameInfoEl = document.getElementById('watch-game-info');
-  const channelsEl = document.getElementById('watch-channels');
+_renderProviderPicker(channelsEl) {
+  const wrap = document.createElement('div');
+  wrap.className = 'watch-provider-picker';
 
-  channelsEl.innerHTML = '<p class="watch-no-data">Loading channels…</p>';
-  modal.hidden = false;
-  document.body.style.overflow = 'hidden';
+  const label = document.createElement('label');
+  label.className = 'watch-provider-label';
+  label.htmlFor = 'watch-provider-input';
+  label.textContent = 'Your TV provider';
+  wrap.appendChild(label);
 
-  // Game info line
-  const competition = game.competitions?.[0];
-  const date = new Date(game.date);
-  const dateStr = date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-  const competitors = competition?.competitors || [];
-  let opponent = '';
-  let isHome = false;
-  competitors.forEach(c => {
-    if (c.team.abbreviation === 'MIL') isHome = c.homeAway === 'home';
-    else opponent = c.team.displayName;
+  const inputWrap = document.createElement('div');
+  inputWrap.className = 'watch-provider-input-wrap';
+
+  const input = document.createElement('input');
+  input.type = 'search';
+  input.id = 'watch-provider-input';
+  input.className = 'watch-provider-input';
+  input.placeholder = 'Search providers (e.g. Xfinity, Spectrum, TDS)…';
+  input.setAttribute('list', 'watch-provider-list');
+  input.autocomplete = 'off';
+  input.spellcheck = false;
+  if (this.selectedProvider && this.providerMeta[this.selectedProvider]) {
+    input.value = this.providerMeta[this.selectedProvider].display_name;
+  }
+  inputWrap.appendChild(input);
+
+  const clearBtn = document.createElement('button');
+  clearBtn.type = 'button';
+  clearBtn.className = 'watch-provider-clear';
+  clearBtn.setAttribute('aria-label', 'Clear provider');
+  clearBtn.innerHTML = '<i class="mdi mdi-close"></i>';
+  clearBtn.hidden = !input.value;
+  inputWrap.appendChild(clearBtn);
+
+  const list = document.createElement('datalist');
+  list.id = 'watch-provider-list';
+  this.providerOptions().forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.display_name;
+    list.appendChild(opt);
   });
-  gameInfoEl.textContent = `${isHome ? 'vs' : '@'} ${opponent} · ${dateStr}`;
+  inputWrap.appendChild(list);
 
-  // Fetch MLB Stats API broadcast data for this game's date
-  const mlbBroadcasts = await this.fetchMlbBroadcasts(date);
+  wrap.appendChild(inputWrap);
 
-  // Merge: prefer MLB Stats API; fall back to ESPN broadcasts
-  const espnNetworks = (competition?.broadcasts || [])
-    .map(b => b.media?.shortName || '').filter(Boolean);
+  const hint = document.createElement('div');
+  hint.className = 'watch-provider-hint';
+  hint.hidden = true;
+  wrap.appendChild(hint);
 
-  const allNetworkNames = mlbBroadcasts.length > 0
-    ? mlbBroadcasts.map(b => b.name).filter(Boolean)
-    : espnNetworks;
-
-  if (allNetworkNames.length === 0) {
-    channelsEl.innerHTML = '<p class="watch-no-data">No broadcast information available for this game.</p>';
-    return;
-  }
-
-  // Deduplicate + resolve
-  const seen = new Set();
-  const resolved = [];
-  for (const name of allNetworkNames) {
-    const ch = this.resolveChannel(name) || { key: name, display_name: name, type: 'cable', providers: [], description: null, website_url: null };
-    if (!seen.has(ch.display_name + ch.type)) {
-      seen.add(ch.display_name + ch.type);
-      resolved.push(ch);
+  const applyMatch = (match, { persistInput = true } = {}) => {
+    if (match) {
+      this.selectedProvider = match.key;
+      localStorage.setItem('tvProvider', match.key);
+      if (persistInput) input.value = match.display_name;
+      hint.hidden = true;
+    } else {
+      this.selectedProvider = null;
+      localStorage.removeItem('tvProvider');
+      hint.hidden = !input.value.trim();
+      hint.textContent = input.value.trim() ? `No provider matching "${input.value.trim()}".` : '';
     }
+    clearBtn.hidden = !input.value;
+    this._renderWatchChannels(channelsEl, channelsEl._resolved, channelsEl._radioResolved);
+  };
+
+  // input: only auto-apply when the typed text is an exact (case-insensitive)
+  // match for a known provider's display name or alias — this lets the user
+  // freely erase/edit partial text without the field fighting them. Datalist
+  // selections also fire input and will match here.
+  input.addEventListener('input', () => {
+    clearBtn.hidden = !input.value;
+    const v = input.value.trim();
+    if (!v) {
+      applyMatch(null);
+      return;
+    }
+    const exact = this.providerAliasIndex.get(v.toLowerCase());
+    if (exact) {
+      applyMatch(this.providerMeta[exact]);
+    } else {
+      // keep current selection (if any) but don't clobber; hide hint
+      hint.hidden = true;
+    }
+  });
+
+  // change fires on blur and on datalist selection — final validation.
+  input.addEventListener('change', () => {
+    const match = this.resolveProviderByName(input.value);
+    applyMatch(match, { persistInput: !!match });
+  });
+
+  clearBtn.addEventListener('click', () => {
+    input.value = '';
+    clearBtn.hidden = true;
+    applyMatch(null);
+    input.focus();
+  });
+
+  channelsEl.innerHTML = '';
+  channelsEl.appendChild(wrap);
+}
+
+_renderWatchChannels(channelsEl, resolved, radioResolved) {
+  // Remove previously rendered channel sections (keep the picker).
+  [...channelsEl.querySelectorAll('.watch-channel-section')].forEach(el => el.remove());
+
+  if ((!resolved || resolved.length === 0) && (!radioResolved || radioResolved.length === 0)) {
+    const empty = document.createElement('p');
+  empty.className = 'watch-no-data watch-channel-section';
+  empty.textContent = 'No broadcast information available for this game.';
+  channelsEl.appendChild(empty);
+  return;
   }
 
-  // Group by type
-  const typeOrder = ['broadcast', 'cable', 'regional', 'streaming'];
-  const typeLabels = { broadcast: 'On TV — Broadcast', cable: 'On TV — Cable', regional: 'Regional TV', streaming: 'Streaming' };
+  const typeOrder = ['broadcast', 'cable', 'regional', 'streaming', 'radio'];
+  const typeLabels = { broadcast: 'On TV — Broadcast', cable: 'On TV — Cable', regional: 'Regional TV', streaming: 'Streaming', radio: 'Radio' };
   const groups = {};
   resolved.forEach(ch => {
     const t = typeOrder.includes(ch.type) ? ch.type : 'cable';
     if (!groups[t]) groups[t] = [];
     groups[t].push(ch);
   });
+  (radioResolved || []).forEach(ch => {
+    if (!groups['radio']) groups['radio'] = [];
+    groups['radio'].push(ch);
+  });
 
-  channelsEl.innerHTML = '';
+  const provider = this.selectedProvider && this.providerMeta[this.selectedProvider] ? this.providerMeta[this.selectedProvider] : null;
+  const showChannelNum = Boolean(provider);
+  // Only show channel numbers for broadcast/cable/regional — never streaming or radio.
+  const numTypes = new Set(['broadcast', 'cable', 'regional']);
+
   typeOrder.forEach(type => {
     if (!groups[type]) return;
     const section = document.createElement('div');
+    section.className = 'watch-channel-section';
 
     const label = document.createElement('div');
     label.className = 'watch-group-label';
@@ -1612,11 +1768,38 @@ async openWatchModal(game) {
         item.appendChild(desc);
       }
 
+      if (showChannelNum && numTypes.has(type)) {
+        const num = this.resolveProviderChannel(provider.key, ch.key);
+        const numDiv = document.createElement('div');
+        numDiv.className = 'watch-channel-num';
+        if (num) {
+          numDiv.innerHTML = `<span class="watch-channel-num-label">${provider.display_name}</span> <span class="watch-channel-num-value">Ch. ${num}</span>`;
+        } else {
+          numDiv.innerHTML = `<span class="watch-channel-num-label watch-channel-num-none">Not listed for ${provider.display_name}</span>`;
+        }
+        item.appendChild(numDiv);
+      }
+
       const providers = Array.isArray(ch.providers) ? ch.providers : [];
-      if (providers.length > 0) {
+      // Merge in local providers from our lookup that carry this channel
+      const localProviders = [];
+      for (const pk of Object.keys(this.providerMeta)) {
+        const p = this.providerMeta[pk];
+        if (p.channels && p.channels[ch.key]) {
+          localProviders.push(p.display_name);
+        }
+      }
+      const norm = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const seenProviders = new Set();
+      const merged = [];
+      for (const name of [...providers, ...localProviders]) {
+        const k = norm(name);
+        if (!seenProviders.has(k)) { seenProviders.add(k); merged.push(name); }
+      }
+      if (merged.length > 0) {
         const pDiv = document.createElement('div');
         pDiv.className = 'watch-providers';
-        pDiv.textContent = 'Available on: ' + providers.join(', ');
+        pDiv.textContent = 'Available on: ' + merged.join(', ');
         item.appendChild(pDiv);
       }
 
@@ -1626,6 +1809,65 @@ async openWatchModal(game) {
     section.appendChild(list);
     channelsEl.appendChild(section);
   });
+}
+
+async openWatchModal(event) {
+  const modal = document.getElementById('watch-modal');
+  const gameInfoEl = document.getElementById('watch-game-info');
+  const channelsEl = document.getElementById('watch-channels');
+
+  channelsEl.innerHTML = '<p class="watch-no-data">Loading channels…</p>';
+  modal.hidden = false;
+  document.body.style.overflow = 'hidden';
+
+  // Game info line
+  const competition = event.competitions?.[0];
+  const date = new Date(event.date);
+  const dateStr = date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  const competitors = competition?.competitors || [];
+  let opponent = '';
+  let isHome = false;
+  competitors.forEach(c => {
+    if (c.team.abbreviation === 'MIL') isHome = c.homeAway === 'home';
+    else opponent = c.team.displayName;
+  });
+  gameInfoEl.textContent = `${isHome ? 'vs' : '@'} ${opponent} · ${dateStr}`;
+
+  // Extract broadcasts from the ESPN event we already have.
+  // Each broadcast: { type: { shortName: 'TV'|'Streaming'|'Radio' },
+  //                   market: { type: 'National'|'Home'|'Away' },
+  //                   media: { shortName: 'FOX' } }
+  const raw = (competition?.broadcasts || []).filter(b => b.media?.shortName);
+  const tv = raw.filter(b => (b.type?.shortName || '') === 'TV');
+  const streaming = raw.filter(b => (b.type?.shortName || '') === 'Streaming');
+  const radio = raw.filter(b => (b.type?.shortName || '') === 'Radio');
+
+  // Resolve each to our channel metadata; dedupe by display name + type.
+  const resolve = (list) => {
+    const seen = new Set();
+    const out = [];
+    for (const b of list) {
+      const name = b.media.shortName;
+      const ch = this.resolveChannel(name) || {
+        key: name, display_name: name,
+        type: b.type?.shortName === 'Streaming' ? 'streaming'
+          : b.type?.shortName === 'Radio' ? 'radio' : 'cable',
+        providers: [], description: null, website_url: null,
+      };
+      const sig = ch.display_name + '|' + ch.type;
+      if (!seen.has(sig)) { seen.add(sig); out.push(ch); }
+    }
+    return out;
+  };
+
+  const resolved = [...resolve(tv), ...resolve(streaming)];
+  const radioResolved = resolve(radio);
+
+  // Picker (session-persistent provider) + channel sections.
+  this._renderProviderPicker(channelsEl);
+  channelsEl._resolved = resolved;
+  channelsEl._radioResolved = radioResolved;
+  this._renderWatchChannels(channelsEl, resolved, radioResolved);
 }
 
 closeWatchModal() {
