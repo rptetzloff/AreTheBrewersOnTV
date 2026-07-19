@@ -389,13 +389,17 @@ processCsvSeasonData(season) {
     }
 });
 
-        		// Check for World Series win (worldseries column is non-empty)
- let worldSeriesName = null;
+        		// World Series champions only if the Brewers won the series
+        		// (more WS game wins than losses), not just a single WS game.
+ let wsWins = 0, wsLosses = 0, wsName = '';
  games.forEach(g => {
-     if (g.worldseries && g.worldseries.trim() !== '' && g['Brewers Win'] === 'WIN') {
-        worldSeriesName = `World Series ${g.worldseries.toUpperCase()}`;
+     if (g.worldseries && g.worldseries.trim() !== '') {
+        wsName = `World Series ${g.worldseries.toUpperCase()}`;
+        if (g['Brewers Win'] === 'WIN') wsWins++;
+        else if (g['Brewers Win'] === 'LOSS') wsLosses++;
     }
 });
+ const worldSeriesName = wsWins > wsLosses ? wsName : null;
 
  const isUndefeated = losses === 0 && wins > 0;
  const postRecord = (postWins > 0 || postLosses > 0) ? { w: postWins, l: postLosses, t: postTies } : null;
@@ -695,7 +699,10 @@ createCsvGameItem(g, showH2h = false) {
         		const { w: wins, l: losses, t: ties } = countRecord(completedRegular);
         		const postRecord = countRecord(completedPost);
 
-        		let worldSeriesName = null;
+        		// World Series champions only if the Brewers won the series,
+        		// not just a single WS game. Tally wins vs losses across all
+        		// WS competitions in the schedule.
+        		let wsWins = 0, wsLosses = 0, wsName = null;
         		completedPost.forEach(event => {
         			const notes = event.competitions?.[0]?.notes || [];
         			const sbNote = notes.find(n => /world series/i.test(n.headline || ''));
@@ -706,8 +713,11 @@ createCsvGameItem(g, showH2h = false) {
         				if (c.team.abbreviation === 'MIL') brewersScore = parseInt(c.score?.value) || 0;
         				else opponentScore = parseInt(c.score?.value) || 0;
         			});
-        			if (brewersScore > opponentScore) worldSeriesName = sbNote.headline;
+        			wsName = wsName || sbNote.headline;
+        			if (brewersScore > opponentScore) wsWins++;
+        			else if (brewersScore < opponentScore) wsLosses++;
         		});
+        		const worldSeriesName = wsWins > wsLosses ? wsName : null;
 
         		const isUndefeated = losses === 0 && wins > 0;
 
@@ -1555,6 +1565,25 @@ _loadTvLookup(channelLookupRaw, providerLookupRaw) {
 
   // channel_lookup carries the canonical website_url + description; override
   // the broadcast_channels entries, which can drift to dead pages.
+  // When broadcast_channels.csv is unavailable (404), channelMeta is empty —
+  // seed it from channel_lookup so resolveChannel still classifies channels
+  // by type (e.g. Brewers.TV as 'regional', not ESPN's 'Streaming' label).
+  for (const ch of channels) {
+    const key = ch.key;
+    if (!key || this.channelMeta[key]) continue;
+    this.channelMeta[key] = {
+      key,
+      display_name: ch.display_name || key,
+      type: ch.type || 'cable',
+      providers: [],
+      description: (ch.description || '').trim() || null,
+      website_url: (ch.website_url || '').trim() || null,
+      sort_order: 99,
+    };
+    if (ch.alias && !this.channelMeta[ch.alias]) {
+      this.channelMeta[ch.alias] = this.channelMeta[key];
+    }
+  }
   const urlByKey = {};
   const urlByDisplay = {};
   for (const ch of channels) {

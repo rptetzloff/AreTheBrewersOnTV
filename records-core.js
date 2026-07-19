@@ -388,12 +388,15 @@ export function computeSeasonHistory(rows, { now = new Date(), playoffs = false 
 	return [...bySeason.keys()].sort((a, b) => a - b).map((yr) => {
 		let w = 0, l = 0, t = 0, pf = 0, pa = 0, regLosses = 0, regWins = 0;
 		let lastPlayoff = null;
-		let worldseries = false;
+		let wsWins = 0, wsLosses = 0;
 		for (const g of bySeason.get(yr)) {
 			const isReg = g.regular_season === '1';
 			if (!isReg) {
 				lastPlayoff = g;
-				if (g.worldseries && g.worldseries.trim() && g['Brewers Win'] === 'WIN') worldseries = true;
+				if (g.worldseries && g.worldseries.trim()) {
+					if (g['Brewers Win'] === 'WIN') wsWins++;
+					else if (g['Brewers Win'] === 'LOSS') wsLosses++;
+				}
 			}
 			if (isReg) {
 				if (g['Brewers Win'] === 'WIN') regWins++;
@@ -406,6 +409,7 @@ export function computeSeasonHistory(rows, { now = new Date(), playoffs = false 
 			pf += parseInt(g.brewers_score, 10) || 0;
 			pa += parseInt(g.opponent_score, 10) || 0;
 		}
+		const worldseries = wsWins > wsLosses;
 		const gamesPlayed = w + l + t;
 		return {
 			season: yr,
@@ -413,7 +417,7 @@ export function computeSeasonHistory(rows, { now = new Date(), playoffs = false 
 			record: rec(w, l, t),
 			winPct: gamesPlayed ? (w + t / 2) / gamesPlayed : 0,
 			pf, pa,
-			champion: lastPlayoff !== null && lastPlayoff['Brewers Win'] === 'WIN',
+			champion: worldseries || (lastPlayoff !== null && lastPlayoff.gametype !== 'W' && lastPlayoff['Brewers Win'] === 'WIN'),
 			worldseries,
 			undefeated: regLosses === 0 && regWins > 0 && seasonSettled(yr, now),
 		};
