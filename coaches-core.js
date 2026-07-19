@@ -210,9 +210,12 @@ export function computeCoachesFromData(rows, gidToMgr, mgrNames, championSeasons
 		const yr = parseInt(g.season, 10);
 		let tenureIdx = 0;
 		const tenures = tenuresByMgr.get(mgrId);
-		if (tenures && tenures.length > 1) {
+		if (tenures) {
+			// Official manager: only keep games within a managers.csv tenure.
+			// Fill-in games outside the tenure (e.g. Murphy 2021 before his
+			// 2024 appointment) are skipped so they don't extend the era band.
 			tenureIdx = tenures.findIndex((t) => yr >= t.startYear && yr <= t.endYear);
-			if (tenureIdx === -1) tenureIdx = 0;
+			if (tenureIdx === -1) continue;
 		}
 		const key = `${mgrId}:${tenureIdx}`;
 		if (!gamesByStint.has(key)) {
