@@ -1674,6 +1674,108 @@ details:not([open]) > .collapsible-summary::before {
     text-decoration-color: #FFC52F;
 }
 
+/* --- Head-to-Head breakdown card --- */
+
+.h2h-breakdown {
+    margin-top: 0.75rem;
+    border-top: 1px solid rgba(255, 197, 47, 0.25);
+    padding-top: 0.75rem;
+}
+
+.h2h-breakdown-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: 0.5rem 1.25rem;
+    margin-bottom: 0.75rem;
+}
+
+.h2h-breakdown-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.4rem 0.6rem;
+    background: rgba(18, 40, 75, 0.6);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.h2h-breakdown-val {
+    color: white;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.h2h-breakdown-meta {
+    color: rgba(255, 255, 255, 0.55);
+    font-weight: 400;
+    font-size: 0.85rem;
+}
+
+.h2h-breakdown-extra {
+    margin-bottom: 0.75rem;
+}
+
+.h2h-breakdown-section {
+    margin-top: 0.5rem;
+}
+
+.h2h-breakdown-heading {
+    color: #FFC52F;
+    font-size: 0.85rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin: 0 0 0.4rem;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.h2h-breakdown-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.h2h-breakdown-table td {
+    padding: 0.3rem 0.6rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.h2h-breakdown-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* Clickable table rows */
+.h2h-row {
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.h2h-row:hover,
+.h2h-row:focus-visible {
+    background: rgba(255, 197, 47, 0.12);
+    outline: none;
+}
+
+.h2h-row:focus-visible {
+    box-shadow: inset 0 0 0 2px rgba(255, 197, 47, 0.6);
+}
+
+.h2h-row-name {
+    font-weight: 600;
+}
+
+@media (max-width: 600px) {
+    .h2h-breakdown-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 0.4rem 0.6rem;
+    }
+
+    .h2h-breakdown-stat {
+        padding: 0.3rem 0.45rem;
+    }
+}
+
 .h2h-controls {
     margin-bottom: 0.35rem;
     display: flex;

@@ -1,12 +1,13 @@
 // Head-to-Head page: all-time record vs every opponent (h2h-core.js, shared
 // with the server), with a filterable table and a shareable focus card per
 // opponent at /vs/<slug>.
-import { parseGameinfoCsv, formatDate, esc } from './records-core.js';
-import { computeHeadToHead, h2hCopy, streakSentence } from './h2h-core.js';
+import { parseGameinfoCsv, formatDate, esc, rec } from './records-core.js';
+import { computeHeadToHead, computeOpponentDetail, h2hCopy, streakSentence } from './h2h-core.js';
 import { shareButtonsHtml, labeledShareButtonsHtml, wireShareRow, wireShareDropdown } from './share-core.js';
 import { sortableHeadHtml, sortRows, wireSortable } from './sortable.js';
 
 const pct = (p) => (p >= 1 ? '1.000' : p.toFixed(3).replace(/^0/, ''));
+const rd = (n) => (n > 0 ? `+${n}` : `${n}`);
 
 const resultLetter = { WIN: 'W', LOSS: 'L', TIE: 'T' };
 const meeting = (m) =>
@@ -20,7 +21,14 @@ const H2H_COLUMNS = [
 ];
 let h2hSort = { key: 'games', dir: -1 };
 
-function focusCardHtml(o) {
+function splitRow(label, s) {
+	return `<div class="h2h-breakdown-stat">
+		<span class="h2h-stat-label">${esc(label)}</span>
+		<span class="h2h-breakdown-val">${esc(s.record)} <span class="h2h-breakdown-meta">(${s.games}g · ${pct(s.winPct)})</span></span>
+	</div>`;
+}
+
+function focusCardHtml(o, detail) {
 	const stats = [
 		`<span class="h2h-stat-label">Meetings</span><span>${o.games}${o.playoffGames ? ` (${o.playoffGames} playoff)` : ''}</span>`,
 		`<span class="h2h-stat-label">First meeting</span><span>${meeting(o.first)}</span>`,
@@ -28,11 +36,53 @@ function focusCardHtml(o) {
 		o.playoffRecord ? `<span class="h2h-stat-label">Playoffs</span><span>${esc(o.playoffRecord)}</span>` : null,
 		o.biggestWin ? `<span class="h2h-stat-label">Biggest win</span><span>${o.biggestWin.pf}–${o.biggestWin.pa} · <a href="/${o.biggestWin.season}">${o.biggestWin.season}</a></span>` : null,
 	].filter(Boolean);
+
+	const d = detail;
+	let breakdown = '';
+	if (d) {
+		const eraRows = d.eras.map((e) => `
+			<tr>
+				<td>${esc(e.name)}</td>
+				<td class="h2h-num">${esc(e.record)}</td>
+				<td class="h2h-num">${e.games}</td>
+				<td class="h2h-num">${pct(e.winPct)}</td>
+			</tr>`).join('');
+		const eraTable = d.eras.length > 1 ? `
+			<div class="h2h-breakdown-section">
+				<h3 class="h2h-breakdown-heading"><i class="mdi mdi-history"></i> By era</h3>
+				<table class="h2h-breakdown-table"><tbody>${eraRows}</tbody></table>
+			</div>` : '';
+
+		const extra = [
+			d.bestWinStreak ? `<span class="h2h-stat-label">Longest win streak</span><span>${d.bestWinStreak} games</span>` : null,
+			d.worstLossStreak ? `<span class="h2h-stat-label">Longest losing streak</span><span>${d.worstLossStreak} games</span>` : null,
+			`<span class="h2h-stat-label">Runs for / against</span><span>${d.runsFor} / ${d.runsAgainst} <span class="h2h-breakdown-meta">(${rd(d.runDiff)})</span></span>`,
+			d.shutouts ? `<span class="h2h-stat-label">Shutouts</span><span>${d.shutouts}</span>` : null,
+			d.shutoutLosses ? `<span class="h2h-stat-label">Shutout losses</span><span>${d.shutoutLosses}</span>` : null,
+			d.biggestWin ? `<span class="h2h-stat-label">Biggest win</span><span>${d.biggestWin.pf}–${d.biggestWin.pa} · <a href="/${d.biggestWin.season}">${d.biggestWin.season}</a></span>` : null,
+			d.worstLoss ? `<span class="h2h-stat-label">Worst loss</span><span>${d.worstLoss.pf}–${d.worstLoss.pa} · <a href="/${d.worstLoss.season}">${d.worstLoss.season}</a></span>` : null,
+		].filter(Boolean);
+
+		breakdown = `
+			<div class="h2h-breakdown">
+				<div class="h2h-breakdown-grid">
+					${splitRow('Overall', d.overall)}
+					${splitRow('Home', d.home)}
+					${splitRow('Away', d.away)}
+					${splitRow('Regular season', d.regular)}
+					${d.post.games ? splitRow('Postseason', d.post) : ''}
+				</div>
+				<div class="h2h-stats h2h-breakdown-extra">${extra.map((s) => `<div class="h2h-stat">${s}</div>`).join('')}</div>
+				${eraTable}
+			</div>`;
+	}
+
 	return `<section class="record-card record-card-focus h2h-focus-card">
 		<h2 class="record-card-title"><i class="mdi mdi-sword-cross"></i> vs ${esc(o.name)}</h2>
 		<div class="h2h-record">${esc(o.record)}</div>
 		<p class="record-note">${esc(streakSentence(o))}</p>
 		<div class="h2h-stats">${stats.map((s) => `<div class="h2h-stat">${s}</div>`).join('')}</div>
+		${breakdown}
 		<div class="record-share">${shareButtonsHtml('share-btn record-share-btn')}</div>
 	</section>`;
 }
@@ -40,8 +90,8 @@ function focusCardHtml(o) {
 function tableHtml(opponents) {
 	const sorted = sortRows(opponents, H2H_COLUMNS, h2hSort);
 	const rows = sorted.map((o) => `
-		<tr>
-			<td><a href="/vs/${o.slug}">${esc(o.name)}</a></td>
+		<tr class="h2h-row" data-slug="${esc(o.slug)}" tabindex="0" role="button" aria-label="Show breakdown vs ${esc(o.name)}">
+			<td><span class="h2h-row-name">${esc(o.name)}</span></td>
 			<td class="h2h-num">${esc(o.record)}</td>
 			<td class="h2h-num">${o.games}</td>
 			<td class="h2h-num">${pct(o.winPct)}</td>
@@ -69,6 +119,13 @@ async function init() {
 		if (!gamesRes.ok || !namesRes.ok || !teamstatsRes.ok) throw new Error(`CSV fetch failed: ${gamesRes.status}`);
 		const rows = parseGameinfoCsv(await gamesRes.text(), await namesRes.text(), await teamstatsRes.text());
 		const allTime = computeHeadToHead(rows);
+		// Group rows by franchise code for on-demand detail computation.
+		const rowsByFranchise = new Map();
+		for (const g of rows) {
+			const key = g.franchise || g.Opponent;
+			if (!rowsByFranchise.has(key)) rowsByFranchise.set(key, []);
+			rowsByFranchise.get(key).push(g);
+		}
 		document.getElementById('h2h-subtitle').textContent =
 			`Milwaukee Brewers · all-time vs ${allTime.opponents.length} opponents`;
 
@@ -126,18 +183,43 @@ async function init() {
 		wireShareRow(footerShare, h2hCopy(null, allTime).desc, `${window.location.origin}/vs`);
 		wireShareDropdown();
 
-		const slug = requestedSlug(allTime);
-		if (slug) {
+		const focus = document.getElementById('h2h-focus');
+		const showFocus = (slug, { pushHistory = false, scrollTo = false } = {}) => {
 			const o = allTime.bySlug.get(slug);
+			if (!o) return;
+			const detail = computeOpponentDetail(rowsByFranchise.get(o.franchise) || []);
 			document.title = h2hCopy(slug, allTime).title;
-			const focus = document.getElementById('h2h-focus');
-			focus.innerHTML = focusCardHtml(o);
+			focus.innerHTML = focusCardHtml(o, detail);
 			wireShareRow(
 				focus.querySelector('.record-share'),
 				h2hCopy(slug, allTime).desc,
 				`${window.location.origin}/vs/${slug}`,
 			);
-		}
+			if (pushHistory) history.pushState({ slug }, '', `/vs/${slug}`);
+			if (scrollTo) focus.scrollIntoView({ behavior: 'smooth', block: 'start' });
+		};
+
+		// Clicking a table row renders the breakdown card in place at the
+		// top of the page and updates the URL, so it's shareable and
+		// back-button friendly.
+		const onRowActivate = (e) => {
+			const tr = e.target.closest('tr.h2h-row');
+			if (!tr) return;
+			showFocus(tr.dataset.slug, { pushHistory: true, scrollTo: true });
+		};
+		wrap.addEventListener('click', onRowActivate);
+		wrap.addEventListener('keydown', (e) => {
+			if (e.key !== 'Enter' && e.key !== ' ') return;
+			if (e.target.matches('tr.h2h-row')) { e.preventDefault(); onRowActivate(e); }
+		});
+		window.addEventListener('popstate', () => {
+			const slug = requestedSlug(allTime);
+			if (slug) showFocus(slug);
+			else { focus.innerHTML = ''; document.title = 'Brewers All-Time Head-to-Head'; }
+		});
+
+		const slug = requestedSlug(allTime);
+		if (slug) showFocus(slug);
 	} catch (e) {
 		wrap.innerHTML = '<p class="record-empty">Could not load the game data. Try again later.</p>';
 		console.error(e);

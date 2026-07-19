@@ -14,6 +14,89 @@ export const slugifyOpponent = (name) =>
 
 const RESULTS = new Set(['WIN', 'LOSS', 'TIE']);
 
+// Per-opponent split counter. Returns an object with W/L/T fields plus
+// totals helpers, useful for home/away, regular/post, and era breakdowns.
+const splitCount = () => ({ WIN: 0, LOSS: 0, TIE: 0 });
+const splitRec = (c) => rec(c.WIN, c.LOSS, c.TIE);
+const splitGames = (c) => c.WIN + c.LOSS + c.TIE;
+const splitPct = (c) => { const n = splitGames(c); return n ? (c.WIN + c.TIE / 2) / n : 0; };
+
+// Detailed per-opponent breakdown derived purely from the parsed game rows.
+// Splits: overall, home/away, regular/postseason, by era (the opponent's
+// name at the time, e.g. "Tampa Bay Devil Rays" vs "Tampa Bay Rays").
+// Also: longest win/loss streaks, biggest win, most lopsided loss, shutouts
+// (both directions), and run differential. `rows` should already be scoped
+// to the one opponent (all games with that franchise code).
+export function computeOpponentDetail(rows) {
+	const games = rows
+		.filter((g) => RESULTS.has(g['Brewers Win']))
+		.slice()
+		.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+	if (!games.length) return null;
+
+	const overall = splitCount();
+	const home = splitCount();
+	const away = splitCount();
+	const regular = splitCount();
+	const post = splitCount();
+	const eraMap = new Map(); // eraName -> splitCount
+	let runsFor = 0, runsAgainst = 0;
+	let shutouts = 0, shutoutLosses = 0;
+	let biggestWin = null, worstLoss = null;
+
+	const bump = (c, r) => { c[r]++; };
+
+	for (const g of games) {
+		const r = g['Brewers Win'];
+		const pf = parseInt(g.brewers_score, 10) || 0;
+		const pa = parseInt(g.opponent_score, 10) || 0;
+		bump(overall, r);
+		bump(g.location === 'home' ? home : away, r);
+		if (g.regular_season === '1') bump(regular, r); else bump(post, r);
+		const era = g.Opponent;
+		if (!eraMap.has(era)) eraMap.set(era, splitCount());
+		bump(eraMap.get(era), r);
+		runsFor += pf; runsAgainst += pa;
+		if (r === 'WIN' && pa === 0) shutouts++;
+		if (r === 'LOSS' && pf === 0) shutoutLosses++;
+		if (r === 'WIN') {
+			if (!biggestWin || pf - pa > biggestWin.margin) biggestWin = { pf, pa, margin: pf - pa, date: g.date, season: parseInt(g.season, 10) };
+		} else if (r === 'LOSS') {
+			if (!worstLoss || pa - pf > worstLoss.margin) worstLoss = { pf, pa, margin: pa - pf, date: g.date, season: parseInt(g.season, 10) };
+		}
+	}
+
+	// Streaks across all games (any venue/type), chronological.
+	let curResult = null, curLen = 0, bestWin = 0, bestLoss = 0;
+	for (const g of games) {
+		const r = g['Brewers Win'];
+		if (r === curResult) curLen++;
+		else { curResult = r; curLen = 1; }
+		if (r === 'WIN' && curLen > bestWin) bestWin = curLen;
+		if (r === 'LOSS' && curLen > bestLoss) bestLoss = curLen;
+	}
+
+	const eras = [...eraMap.entries()]
+		.map(([name, c]) => ({ name, record: splitRec(c), games: splitGames(c), wins: c.WIN, losses: c.LOSS, ties: c.TIE, winPct: splitPct(c) }))
+		.sort((a, b) => b.games - a.games || (a.name < b.name ? -1 : 1));
+
+	return {
+		games: games.length,
+		overall: { record: splitRec(overall), wins: overall.WIN, losses: overall.LOSS, ties: overall.TIE, winPct: splitPct(overall) },
+		home: { record: splitRec(home), games: splitGames(home), wins: home.WIN, losses: home.LOSS, ties: home.TIE, winPct: splitPct(home) },
+		away: { record: splitRec(away), games: splitGames(away), wins: away.WIN, losses: away.LOSS, ties: away.TIE, winPct: splitPct(away) },
+		regular: { record: splitRec(regular), games: splitGames(regular), wins: regular.WIN, losses: regular.LOSS, ties: regular.TIE, winPct: splitPct(regular) },
+		post: { record: splitRec(post), games: splitGames(post), wins: post.WIN, losses: post.LOSS, ties: post.TIE, winPct: splitPct(post) },
+		eras,
+		runsFor, runsAgainst,
+		runDiff: runsFor - runsAgainst,
+		shutouts, shutoutLosses,
+		bestWinStreak: bestWin, worstLossStreak: bestLoss,
+		biggestWin, worstLoss,
+		first: games[0], last: games[games.length - 1],
+	};
+}
+
 // rows: parsed game rows (each carries a `franchise` code and an `Opponent`
 // display name). Returns { opponents, bySlug, latestSeason } — opponents
 // sorted by meetings played (rivals first), then name. All games count
