@@ -4,18 +4,18 @@ import { parseGameinfoCsv, computeSuperlatives, recordsCopy, formatDate, RECORD_
 import { shareButtonsHtml, wireShareRow } from './share-core.js';
 
 const yearLink = (yr) => `<a href="/${yr}">${yr}</a>`;
+const gameLink = (season, gid, label) => `<a href="/${season}#g-${esc(gid)}">${label}</a>`;
 const gameFlag = (g) => (g.worldseries ? ' · World Series' : g.playoff ? ' · Playoffs' : '');
 const blowoutEntry = (g) => ({
 	main: `${g.pf}–${g.pa}`, sub: `vs ${g.opponent}`,
-	detailHtml: `<a href="/${g.season}">${esc(formatDate(g.date))}</a>${esc(gameFlag(g))}`,
+	detailHtml: `${gameLink(g.season, g.gid, esc(formatDate(g.date)))}${esc(gameFlag(g))}`,
 });
 
 const CARDS = [
 	{
 		slug: 'best-starts', icon: 'mdi-rocket-launch-outline', title: 'Best Season Starts',
 		note: 'Wins to open a season',
-		entries: (d) => d.bestStarts.map((b) => ({ main: `${b.games}–0`, subHtml: yearLink(b.season) })),
-	},
+		entries: (d) => d.bestStarts.map((b) => ({ main: `${b.games}–0`, subHtml: gameLink(b.season, b.firstGid, yearLink(b.season)) })),	},
 	{
 		slug: 'win-streaks', icon: 'mdi-fire', title: 'Longest Win Streaks',
 		note: 'Consecutive regular-season wins (ties end a streak)',
@@ -24,14 +24,12 @@ const CARDS = [
 			subHtml: s.startSeason === s.endSeason
 				? yearLink(s.startSeason)
 				: `${yearLink(s.startSeason)}–${yearLink(s.endSeason)}`,
-			detail: `${formatDate(s.startDate)} – ${formatDate(s.endDate)}`,
-		})),
-	},
+			detailHtml: `${gameLink(s.startSeason, s.startGid, esc(formatDate(s.startDate)))} – ${gameLink(s.endSeason, s.endGid, esc(formatDate(s.endDate)))}`,
+		})),	},
 	{
 		slug: 'worst-starts', icon: 'mdi-trending-down', title: 'Worst Season Starts',
 		note: 'Losses to open a season',
-		entries: (d) => d.worstStarts.map((w) => ({ main: `0–${w.games}`, subHtml: yearLink(w.season) })),
-	},
+		entries: (d) => d.worstStarts.map((w) => ({ main: `0–${w.games}`, subHtml: gameLink(w.season, w.firstGid, yearLink(w.season)) })),	},
 	{
 		slug: 'lopsided-wins', icon: 'mdi-scoreboard-outline', title: 'Most Lopsided Wins',
 		note: 'Biggest margins of victory, playoffs included',

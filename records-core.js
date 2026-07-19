@@ -236,12 +236,12 @@ export function computeSuperlatives(rows, { top = 5, now = new Date() } = {}) {
 	const seasonStarts = (result) => {
 		const out = [];
 		for (const yr of years) {
-			let n = 0;
+			let n = 0, first = null;
 			for (const g of seasons.get(yr)) {
-				if (g['Brewers Win'] === result) n++;
+				if (g['Brewers Win'] === result) { if (!first) first = g; n++; }
 				else break;
 			}
-			if (n > 0) out.push({ season: yr, games: n });
+			if (n > 0) out.push({ season: yr, games: n, firstGid: first?.gid || '' });
 		}
 		return out.sort((a, b) => b.games - a.games || a.season - b.season).slice(0, top);
 	};
@@ -329,6 +329,7 @@ export function computeSuperlatives(rows, { top = 5, now = new Date() } = {}) {
 		games: s.games,
 		startDate: s.start.date, endDate: s.end.date,
 		startSeason: parseInt(s.start.season, 10), endSeason: parseInt(s.end.season, 10),
+		startGid: s.start.gid || '', endGid: s.end.gid || '',
 	});
 	const topStreaks = winStreaks
 		.sort((a, b) => b.games - a.games || (a.start.date < b.start.date ? -1 : 1))
@@ -339,6 +340,7 @@ export function computeSuperlatives(rows, { top = 5, now = new Date() } = {}) {
 		const pf = parseInt(g.brewers_score, 10) || 0;
 		const pa = parseInt(g.opponent_score, 10) || 0;
 		return {
+			gid: g.gid || '',
 			date: g.date, season: parseInt(g.season, 10), opponent: g.Opponent,
 			pf, pa,
 			playoff: g.regular_season !== '1',
