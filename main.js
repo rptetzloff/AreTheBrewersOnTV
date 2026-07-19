@@ -219,7 +219,8 @@
       updateSiteTitle() {
           const el = document.getElementById('site-title');
           if (!el) return;
-          el.textContent = 'Are the Brewers On TV?';
+          const link = el.querySelector('a');
+          if (link) link.textContent = 'Are the Brewers On TV?';
       }
 
       // Compact franchise-history sparkline under the answer; the currently
