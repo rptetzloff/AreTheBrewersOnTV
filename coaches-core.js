@@ -273,6 +273,13 @@ export function computeCoachesFromData(rows, gidToMgr, mgrNames, championSeasons
 		const playoffGames = playoff.WIN + playoff.LOSS + playoff.TIE;
 		const firstSeason = parseInt(list[0].season, 10);
 		const lastSeason = parseInt(list[list.length - 1].season, 10);
+		const tenures = tenuresByMgr.get(mgrId);
+		const tenure = tenures ? tenures[tenureIdx] : null;
+		// Exact tenure bounds (ISO YYYY-MM-DD) — used for the history-chart era
+		// bands so stints don't overlap into neighboring seasons. Falls back to
+		// first/last game date for interim managers (no managers.csv row).
+		const fromDate = tenure ? tenure.startDate : list[0].date;
+		const toDate = tenure ? tenure.endDate : list[list.length - 1].date;
 		// Unique slug for multi-stint managers: append stint number.
 		const baseSlug = slugifyCoach(name);
 		const slugNum = (slugCounts.get(baseSlug) || 0) + 1;
@@ -283,6 +290,7 @@ export function computeCoachesFromData(rows, gidToMgr, mgrNames, championSeasons
 			interim: isInterim,
 			image: null, imagePage: null,
 			firstSeason, lastSeason,
+			fromDate, toDate,
 			tenure: firstSeason === lastSeason ? String(firstSeason) : `${firstSeason}–${lastSeason}`,
 			games: list.length,
 			wins: reg.WIN, losses: reg.LOSS, ties: reg.TIE,

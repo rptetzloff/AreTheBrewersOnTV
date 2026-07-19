@@ -44,7 +44,7 @@ function placeTooltip(e) {
 
 function render(history, coaches, metrics) {
 	const eras = coaches.map((c) => ({
-		label: bandLabel(c.name), from: c.firstSeason, to: c.lastSeason, key: c.slug,
+		label: bandLabel(c.name), from: c.fromDate, to: c.toDate, key: c.slug,
 	}));
 	chartEl.innerHTML = buildChartSvg(history, {
 		metrics, axes: true, eras, hitAreas: true, emoji: true,

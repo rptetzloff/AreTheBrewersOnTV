@@ -47,6 +47,19 @@ export function buildChartSvg(history, {
 	const plotH = height - pad.t - pad.b;
 	const first = history[0].season, last = history[history.length - 1].season;
 	const x = (season) => pad.l + ((season - first) / (last - first)) * plotW;
+	// Era bands may be keyed by exact ISO dates (YYYY-MM-DD) so stints don't
+	// overlap into neighboring seasons. Convert a date to a fractional season
+	// position on the same grid as the integer-season data points.
+	const seasonOfDate = (iso) => {
+		const [y, m, d] = iso.split('-').map((n) => parseInt(n, 10));
+		// Fractional year via day-of-year / 365.
+		const days = [31, (((y % 4 === 0 && y % 100 !== 0) || y % 400 === 0)) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+		let doy = d;
+		for (let i = 0; i < m - 1; i++) doy += days[i];
+		return y + (doy - 1) / 365;
+	};
+	const eraFrom = (era) => typeof era.from === 'string' ? seasonOfDate(era.from) : era.from;
+	const eraTo = (era) => typeof era.to === 'string' ? seasonOfDate(era.to) : era.to;
 
 	// One shared scale when every metric is in the same group; otherwise each
 	// series normalizes to its own max.
@@ -64,7 +77,7 @@ export function buildChartSvg(history, {
 	if (eras) {
 		let i = 0;
 		for (const era of eras) {
-			const from = Math.max(era.from - 0.5, first), to = Math.min(era.to + 0.5, last);
+			const from = Math.max(eraFrom(era), first), to = Math.min(eraTo(era), last);
 			if (to < from) continue;
 			const bx = x(from), bw = x(to) - x(from);
 			parts.push(`<rect x="${bx.toFixed(1)}" y="${pad.t - stripH}" width="${bw.toFixed(1)}" height="${(plotH + stripH).toFixed(1)}" fill="${GOLD}" opacity="${i % 2 ? 0.1 : 0.045}"/>`);
@@ -130,7 +143,7 @@ export function buildChartSvg(history, {
 		}
 		if (eras) {
 			for (const era of eras) {
-				const from = Math.max(era.from - 0.5, first), to = Math.min(era.to + 0.5, last);
+				const from = Math.max(eraFrom(era), first), to = Math.min(eraTo(era), last);
 				if (to < from || !era.key) continue;
 				parts.push(`<rect data-era="${era.key}" x="${x(from).toFixed(1)}" y="${pad.t - stripH}" width="${(x(to) - x(from)).toFixed(1)}" height="${stripH}" fill="transparent" style="cursor:pointer"/>`);
 			}
