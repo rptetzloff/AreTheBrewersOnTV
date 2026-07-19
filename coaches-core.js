@@ -1,8 +1,27 @@
 // Shared (browser + node) head-manager records, computed by assigning every
-// game to a managing tenure by date. Tenures come from
-// data/brewers_coaches.csv (from/to dates, so mid-season changes split
-// correctly). Pure functions only.
+// game to a managing tenure by date. Official tenures come from
+// data/managers.csv (name, start_year, end_year); any game managed by someone
+// not listed, or outside their official year range, is interim. Pure
+// functions only.
 import { rec, splitCsvLine, BREWERS_IDS } from './records-core.js';
+
+// Parses data/managers.csv → [{ mgrId, startYear, endYear }] in file order.
+// endYear empty/NaN means "present" (treated as 9999). A mgrId may appear more
+// than once (multiple stints, e.g. kuenh101 in 1975 and 1982-83).
+export function parseManagersCsv(raw) {
+	const lines = raw.trim().split('\n');
+	const headers = splitCsvLine(lines[0]);
+	const nameIdx = headers.indexOf('name');
+	const syIdx = headers.indexOf('start_year');
+	const eyIdx = headers.indexOf('end_year');
+	return lines.slice(1).filter((l) => l.trim()).map((l) => {
+		const v = splitCsvLine(l);
+		const startYear = parseInt(v[syIdx], 10);
+		const eyRaw = (v[eyIdx] || '').trim();
+		const endYear = eyRaw ? parseInt(eyRaw, 10) : 9999;
+		return { mgrId: v[nameIdx]?.trim(), startYear, endYear };
+	}).filter((t) => t.mgrId && !Number.isNaN(t.startYear));
+}
 
 export const slugifyCoach = (name) =>
 	name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
@@ -147,8 +166,14 @@ const INTERIM_THRESHOLD = 10;
 // Computes manager records directly from game rows (which include gid),
 // a gid→mgrId map from teamstats.csv, and an id→name map from biofile0.csv.
 // Mid-season changes are handled exactly because each game has its own gid.
-// Interim: a manager who never opened a season AND managed fewer than INTERIM_THRESHOLD games.
-export function computeCoachesFromData(rows, gidToMgr, mgrNames, championSeasons) {
+//
+// officialTenures (optional): parsed managers.csv rows [{ mgrId, startYear,
+// endYear }]. When provided, a manager is interim unless they appear in this
+// list — managers.csv is the authoritative source for "official" status, not
+// a game-count heuristic. Games still count toward whoever managed them, but
+// only official tenures show on the history timeline.
+export function computeCoachesFromData(rows, gidToMgr, mgrNames, championSeasons, officialTenures = null) {
+	const officialIds = officialTenures ? new Set(officialTenures.map((t) => t.mgrId)) : null;
 	const games = rows
 		.filter((g) => RESULTS.has(g['Brewers Win']) && g.gid && gidToMgr.has(g.gid))
 		.slice()
@@ -192,7 +217,7 @@ export function computeCoachesFromData(rows, gidToMgr, mgrNames, championSeasons
 	const coaches = mgrOrder.map((mgrId) => {
 		const list = byMgrId.get(mgrId);
 		const name = mgrNames.get(mgrId) || mgrId;
-		const isInterim = list.length < INTERIM_THRESHOLD && !seasonStarters.has(mgrId);
+		const isInterim = officialIds !== null ? !officialIds.has(mgrId) : (list.length < INTERIM_THRESHOLD && !seasonStarters.has(mgrId));
 		const reg = { WIN: 0, LOSS: 0, TIE: 0 };
 		const playoff = { WIN: 0, LOSS: 0, TIE: 0 };
 		let pf = 0, pa = 0;
