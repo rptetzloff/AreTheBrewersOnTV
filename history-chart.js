@@ -66,8 +66,8 @@ export function buildChartSvg(history, {
 	const stripH = eras ? 20 : 0;
 	const msTrackH = milestones ? 34 : 0; // two 17px tracks: team + park
 	const pad = axes
-		? { l: 46, r: 16, t: (emoji ? 26 : 16) + stripH + msTrackH, b: 30 }
-		: { l: 4, r: 4, t: (emoji ? 16 : 6) + stripH + msTrackH, b: 6 };
+		? { l: 46, r: 16, t: (emoji ? 26 : 16) + stripH, b: 30 + msTrackH }
+		: { l: 4, r: 4, t: (emoji ? 16 : 6) + stripH, b: 6 + msTrackH };
 	const plotW = width - pad.l - pad.r;
 	const plotH = height - pad.t - pad.b;
 	const first = history[0].season, last = history[history.length - 1].season;
@@ -110,25 +110,6 @@ export function buildChartSvg(history, {
 				parts.push(`<text x="${(bx + bw / 2).toFixed(1)}" y="${pad.t - stripH + 14}" font-size="12" fill="${GOLD}" opacity="0.8" text-anchor="middle">${era.label}</text>`);
 			}
 			i++;
-		}
-	}
-
-	if (milestones) {
-		// Two icon tracks above the plot: team-identity row then park row.
-		// Both sit above the manager strip when eras are present. Icons mark
-		// each transition year; hovering one shows the full name in the chart
-		// tooltip. The dashed reference line still runs the full plot height.
-		const trackTop = pad.t - msTrackH;
-		const teamY = trackTop + 8;
-		const parkY = trackTop + 25;
-		for (const ms of milestones) {
-			const px = x(seasonOfDate(ms.date));
-			if (px < pad.l || px > width - pad.r) continue;
-			const rowY = ms.type === 'team' ? teamY : parkY;
-			const glyph = ms.type === 'team' ? '⬡' : '⌂';
-			const attr = String(ms.label).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
-			parts.push(`<line x1="${px.toFixed(1)}" y1="${(rowY + 4).toFixed(1)}" x2="${px.toFixed(1)}" y2="${(pad.t + plotH).toFixed(1)}" stroke="${WHITE}" stroke-width="1" stroke-dasharray="2 3" opacity="0.25"/>`);
-			parts.push(`<text data-milestone="${attr}" data-milestone-type="${ms.type}" x="${px.toFixed(1)}" y="${(rowY + 4).toFixed(1)}" font-size="14" fill="${GOLD}" text-anchor="middle" style="cursor:help">${glyph}</text>`);
 		}
 	}
 
@@ -181,7 +162,7 @@ export function buildChartSvg(history, {
 	if (hitAreas) {
 		const step = plotW / (last - first);
 		for (const s of history) {
-			parts.push(`<rect data-season="${s.season}" x="${(x(s.season) - step / 2).toFixed(1)}" y="${pad.t - (eras ? 0 : stripH)}" width="${step.toFixed(1)}" height="${height - pad.t}" fill="transparent" style="cursor:pointer"/>`);
+			parts.push(`<rect data-season="${s.season}" x="${(x(s.season) - step / 2).toFixed(1)}" y="${pad.t - (eras ? 0 : stripH)}" width="${step.toFixed(1)}" height="${plotH}" fill="transparent" style="cursor:pointer"/>`);
 		}
 		if (eras) {
 			for (const era of eras) {
@@ -189,6 +170,27 @@ export function buildChartSvg(history, {
 				if (to < from || !era.key) continue;
 				parts.push(`<rect data-era="${era.key}" x="${x(from).toFixed(1)}" y="${pad.t - stripH}" width="${(x(to) - x(from)).toFixed(1)}" height="${stripH}" fill="transparent" style="cursor:pointer"/>`);
 			}
+		}
+	}
+
+	if (milestones) {
+		// Two icon tracks at the bottom, just below the plot and near the
+		// year labels: team-identity row then park row. Placing them here
+		// keeps them clear of the manager strip at the top, so its tooltip
+		// can't steal the hover. A dashed reference line runs from the top of
+		// the plot down to the icon. Drawn last so the icons sit above the
+		// per-season hit-areas and stay hoverable.
+		const trackTop = height - pad.b;
+		const teamY = trackTop + 8;
+		const parkY = trackTop + 25;
+		for (const ms of milestones) {
+			const px = x(seasonOfDate(ms.date));
+			if (px < pad.l || px > width - pad.r) continue;
+			const rowY = ms.type === 'team' ? teamY : parkY;
+			const glyph = ms.type === 'team' ? '⬡' : '⌂';
+			const attr = String(ms.label).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+			parts.push(`<line x1="${px.toFixed(1)}" y1="${pad.t.toFixed(1)}" x2="${px.toFixed(1)}" y2="${(rowY + 4).toFixed(1)}" stroke="${WHITE}" stroke-width="1" stroke-dasharray="2 3" opacity="0.25"/>`);
+			parts.push(`<text data-milestone="${attr}" data-milestone-type="${ms.type}" x="${px.toFixed(1)}" y="${(rowY + 4).toFixed(1)}" font-size="14" fill="${GOLD}" text-anchor="middle" style="cursor:help">${glyph}</text>`);
 		}
 	}
 
