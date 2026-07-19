@@ -1781,10 +1781,25 @@ _renderWatchChannels(channelsEl, resolved, radioResolved) {
       }
 
       const providers = Array.isArray(ch.providers) ? ch.providers : [];
-      if (providers.length > 0) {
+      // Merge in local providers from our lookup that carry this channel
+      const localProviders = [];
+      for (const pk of Object.keys(this.providerMeta)) {
+        const p = this.providerMeta[pk];
+        if (p.channels && p.channels[ch.key]) {
+          localProviders.push(p.display_name);
+        }
+      }
+      const norm = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const seenProviders = new Set();
+      const merged = [];
+      for (const name of [...providers, ...localProviders]) {
+        const k = norm(name);
+        if (!seenProviders.has(k)) { seenProviders.add(k); merged.push(name); }
+      }
+      if (merged.length > 0) {
         const pDiv = document.createElement('div');
         pDiv.className = 'watch-providers';
-        pDiv.textContent = 'Available on: ' + providers.join(', ');
+        pDiv.textContent = 'Available on: ' + merged.join(', ');
         item.appendChild(pDiv);
       }
 
