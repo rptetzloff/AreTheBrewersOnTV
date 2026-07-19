@@ -628,6 +628,93 @@ details:not([open]) > .collapsible-summary::before {
     background: #e0a820;
 }
 
+.schedule-provider-bar {
+    margin-top: 0.6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.schedule-provider-display {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.5rem 0.7rem;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    border-left: 3px solid #FFC52F;
+}
+
+.schedule-provider-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: rgba(255, 255, 255, 0.55);
+}
+
+.schedule-provider-name {
+    font-weight: 600;
+    color: #FFC52F;
+    margin-right: auto;
+}
+
+.schedule-provider-name.schedule-provider-none {
+    color: rgba(255, 255, 255, 0.5);
+    font-style: italic;
+    font-weight: 400;
+}
+
+.schedule-provider-change {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.8rem;
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 197, 47, 0.4);
+    background: rgba(255, 197, 47, 0.08);
+    color: #FFC52F;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.schedule-provider-change:hover {
+    background: rgba(255, 197, 47, 0.18);
+    border-color: #FFC52F;
+}
+
+.schedule-provider-edit {
+    padding: 0.6rem 0.7rem;
+    background: rgba(0, 0, 0, 0.25);
+    border-radius: 8px;
+    border-left: 3px solid #FFC52F;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.schedule-provider-edit .watch-provider-picker {
+    margin: 0;
+}
+
+.schedule-provider-cancel {
+    align-self: flex-start;
+    font-size: 0.8rem;
+    padding: 0.3rem 0.7rem;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: transparent;
+    color: rgba(255, 255, 255, 0.7);
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+}
+
+.schedule-provider-cancel:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+}
+
 .game-item {
     display: flex;
     flex-direction: column;

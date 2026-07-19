@@ -238,6 +238,7 @@
       updateSeasonSelector() {
           this.updateSiteTitle();
           this.renderHistorySpark();
+          this.renderScheduleProviderBar();
           const label = document.getElementById('season-label');
           const prevBtn = document.getElementById('season-prev');
           const nextBtn = document.getElementById('season-next');
@@ -1693,25 +1694,30 @@ initWatchModal() {
   });
 }
 
-_renderProviderPicker(channelsEl) {
+// Shared provider search input (used by the watch modal and the schedule bar).
+// Owns the selectedProvider/localStorage state; calls onChange(match) after
+// every apply so each caller can refresh its own dependents.
+_buildProviderInput({ label, inputId, listId, placeholder, onChange }) {
   const wrap = document.createElement('div');
   wrap.className = 'watch-provider-picker';
 
-  const label = document.createElement('label');
-  label.className = 'watch-provider-label';
-  label.htmlFor = 'watch-provider-input';
-  label.textContent = 'Your TV provider';
-  wrap.appendChild(label);
+  if (label) {
+    const lbl = document.createElement('label');
+    lbl.className = 'watch-provider-label';
+    lbl.htmlFor = inputId;
+    lbl.textContent = label;
+    wrap.appendChild(lbl);
+  }
 
   const inputWrap = document.createElement('div');
   inputWrap.className = 'watch-provider-input-wrap';
 
   const input = document.createElement('input');
   input.type = 'search';
-  input.id = 'watch-provider-input';
+  input.id = inputId;
   input.className = 'watch-provider-input';
-  input.placeholder = 'Search providers (e.g. Xfinity, Spectrum, TDS)…';
-  input.setAttribute('list', 'watch-provider-list');
+  input.placeholder = placeholder;
+  input.setAttribute('list', listId);
   input.autocomplete = 'off';
   input.spellcheck = false;
   if (this.selectedProvider && this.providerMeta[this.selectedProvider]) {
@@ -1728,7 +1734,7 @@ _renderProviderPicker(channelsEl) {
   inputWrap.appendChild(clearBtn);
 
   const list = document.createElement('datalist');
-  list.id = 'watch-provider-list';
+  list.id = listId;
   this.providerOptions().forEach(p => {
     const opt = document.createElement('option');
     opt.value = p.display_name;
@@ -1756,16 +1762,9 @@ _renderProviderPicker(channelsEl) {
       hint.textContent = input.value.trim() ? `No provider matching "${input.value.trim()}".` : '';
     }
     clearBtn.hidden = !input.value;
-    this._renderWatchChannels(channelsEl, channelsEl._resolved, channelsEl._radioResolved);
-    // Channel numbers in the schedule depend on the selected provider, so
-    // refresh any already-rendered schedule rows.
-    this._rerenderSchedule();
+    onChange(match);
   };
 
-  // input: only auto-apply when the typed text is an exact (case-insensitive)
-  // match for a known provider's display name or alias — this lets the user
-  // freely erase/edit partial text without the field fighting them. Datalist
-  // selections also fire input and will match here.
   input.addEventListener('input', () => {
     clearBtn.hidden = !input.value;
     const v = input.value.trim();
@@ -1777,12 +1776,10 @@ _renderProviderPicker(channelsEl) {
     if (exact) {
       applyMatch(this.providerMeta[exact]);
     } else {
-      // keep current selection (if any) but don't clobber; hide hint
       hint.hidden = true;
     }
   });
 
-  // change fires on blur and on datalist selection — final validation.
   input.addEventListener('change', () => {
     const match = this.resolveProviderByName(input.value);
     applyMatch(match, { persistInput: !!match });
@@ -1795,8 +1792,136 @@ _renderProviderPicker(channelsEl) {
     input.focus();
   });
 
+  return wrap;
+}
+
+_renderProviderPicker(channelsEl) {
   channelsEl.innerHTML = '';
-  channelsEl.appendChild(wrap);
+  channelsEl.appendChild(this._buildProviderInput({
+    label: 'Your TV provider',
+    inputId: 'watch-provider-input',
+    listId: 'watch-provider-list',
+    placeholder: 'Search providers (e.g. Xfinity, Spectrum, TDS)…',
+    onChange: () => {
+      this._renderWatchChannels(channelsEl, channelsEl._resolved, channelsEl._radioResolved);
+      this._rerenderSchedule();
+      this._refreshScheduleProviderDisplay();
+    },
+  }));
+}
+
+// Compact bar under the schedule showing the selected TV provider with a
+// control to change it. Hidden for historical (CSV-only) seasons, which have
+// no broadcast data.
+renderScheduleProviderBar() {
+  const bar = document.getElementById('schedule-provider-bar');
+  if (!bar) return;
+  const hasProviders = this.providerMeta && Object.keys(this.providerMeta).length > 0;
+  const isCsvSeason = this.usesCsvData(this.currentSeason);
+  bar.hidden = !hasProviders || isCsvSeason;
+  if (bar.hidden) return;
+
+  bar.innerHTML = '';
+
+  const current = this.selectedProvider && this.providerMeta[this.selectedProvider]
+    ? this.providerMeta[this.selectedProvider].display_name : null;
+
+  const display = document.createElement('div');
+  display.className = 'schedule-provider-display';
+
+  const labelSpan = document.createElement('span');
+  labelSpan.className = 'schedule-provider-label';
+  labelSpan.textContent = 'TV provider';
+  display.appendChild(labelSpan);
+
+  const nameSpan = document.createElement('span');
+  nameSpan.className = 'schedule-provider-name';
+  if (current) {
+    nameSpan.textContent = current;
+  } else {
+    nameSpan.classList.add('schedule-provider-none');
+    nameSpan.textContent = 'Not selected';
+  }
+  display.appendChild(nameSpan);
+
+  const changeBtn = document.createElement('button');
+  changeBtn.type = 'button';
+  changeBtn.className = 'schedule-provider-change';
+  changeBtn.innerHTML = current
+    ? '<i class="mdi mdi-pencil"></i> Change'
+    : '<i class="mdi mdi-magnify"></i> Choose provider';
+  display.appendChild(changeBtn);
+
+  bar.appendChild(display);
+
+  const editPanel = document.createElement('div');
+  editPanel.className = 'schedule-provider-edit';
+  editPanel.hidden = true;
+
+  const input = this._buildProviderInput({
+    inputId: 'schedule-provider-input',
+    listId: 'schedule-provider-list',
+    placeholder: 'Search providers (e.g. Xfinity, Spectrum, TDS)…',
+    onChange: (match) => {
+      this._rerenderSchedule();
+      const watchEl = document.getElementById('watch-channels');
+      if (watchEl && watchEl._resolved) {
+        this._renderWatchChannels(watchEl, watchEl._resolved, watchEl._radioResolved);
+      }
+      if (match) {
+        nameSpan.textContent = match.display_name;
+        nameSpan.classList.remove('schedule-provider-none');
+        changeBtn.innerHTML = '<i class="mdi mdi-pencil"></i> Change';
+        editPanel.hidden = true;
+        display.hidden = false;
+      } else {
+        nameSpan.textContent = 'Not selected';
+        nameSpan.classList.add('schedule-provider-none');
+        changeBtn.innerHTML = '<i class="mdi mdi-magnify"></i> Choose provider';
+      }
+    },
+  });
+  editPanel.appendChild(input);
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.className = 'schedule-provider-cancel';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', () => {
+    editPanel.hidden = true;
+    display.hidden = false;
+  });
+  editPanel.appendChild(cancelBtn);
+
+  bar.appendChild(editPanel);
+
+  changeBtn.addEventListener('click', () => {
+    display.hidden = true;
+    editPanel.hidden = false;
+    const inp = editPanel.querySelector('input');
+    if (inp) { inp.focus(); inp.select(); }
+  });
+}
+
+// Update just the name/button text in the schedule bar without rebuilding it
+// (used when the provider changes from elsewhere, e.g. the watch modal).
+_refreshScheduleProviderDisplay() {
+  const bar = document.getElementById('schedule-provider-bar');
+  if (!bar || bar.hidden) return;
+  const nameSpan = bar.querySelector('.schedule-provider-name');
+  const changeBtn = bar.querySelector('.schedule-provider-change');
+  if (!nameSpan || !changeBtn) return;
+  const current = this.selectedProvider && this.providerMeta[this.selectedProvider]
+    ? this.providerMeta[this.selectedProvider].display_name : null;
+  if (current) {
+    nameSpan.textContent = current;
+    nameSpan.classList.remove('schedule-provider-none');
+    changeBtn.innerHTML = '<i class="mdi mdi-pencil"></i> Change';
+  } else {
+    nameSpan.textContent = 'Not selected';
+    nameSpan.classList.add('schedule-provider-none');
+    changeBtn.innerHTML = '<i class="mdi mdi-magnify"></i> Choose provider';
+  }
 }
 
 _renderWatchChannels(channelsEl, resolved, radioResolved) {
