@@ -2108,8 +2108,9 @@ openLinescoreModal(g) {
   const BREWERS_ABBRS = new Set(['MIL', 'SE1']);
   const brewersIsHome = BREWERS_ABBRS.has(home.team);
   const oppLabel = g.Opponent;
-  const visLabel = brewersIsHome ? oppLabel : 'MIL';
-  const homLabel = brewersIsHome ? 'MIL' : oppLabel;
+  const brewersLabel = 'Milwaukee Brewers';
+  const visLabel = brewersIsHome ? oppLabel : brewersLabel;
+  const homLabel = brewersIsHome ? brewersLabel : oppLabel;
 
   const date = new Date(g.date);
   const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
