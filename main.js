@@ -75,7 +75,7 @@
         			if (!name) return 99;
         			const ch = this.resolveChannel(name);
         			const type = ch?.type || (b.type?.shortName === 'Streaming' ? 'streaming' : b.type?.shortName === 'Radio' ? 'radio' : 'cable');
-        			return { broadcast: 0, cable: 1, regional: 2, streaming: 3, radio: 4 }[type] ?? 5;
+        			return { broadcast: 0, regional: 1, cable: 2, streaming: 3, radio: 4 }[type] ?? 5;
         		};
         		return broadcasts.slice().sort((a, b) => rank(a) - rank(b))[0] || null;
         	}
