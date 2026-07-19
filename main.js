@@ -2167,22 +2167,20 @@ openLinescoreFromEvent(event) {
           return v === null || v === undefined ? '' : String(v);
         });
       };
-      const statVal = (c, name) => {
-        const s = (c.statistics || []).find(st => st.name === name || st.abbreviation === name);
-        return s ? (parseInt(s.displayValue) || 0) : 0;
-      };
+      const sumHits = (c) => (c.linescores || []).reduce((s, e) => s + (parseInt(e.hits) || 0), 0);
+      const sumErrors = (c) => (c.linescores || []).reduce((s, e) => s + (parseInt(e.errors) || 0), 0);
 
       const visitor = {
         inns: toInns(visS),
         r: parseInt(visS.score?.value ?? visS.score ?? 0),
-        h: statVal(visS, 'hits'),
-        e: statVal(visS, 'errors'),
+        h: sumHits(visS),
+        e: sumErrors(visS),
       };
       const home = {
         inns: toInns(homS),
         r: parseInt(homS.score?.value ?? homS.score ?? 0),
-        h: statVal(homS, 'hits'),
-        e: statVal(homS, 'errors'),
+        h: sumHits(homS),
+        e: sumErrors(homS),
       };
       this._renderLinescore(title, visitor, home, visLabel, homLabel, milIsHome, boxScoreUrl);
     })
@@ -2199,21 +2197,19 @@ _renderLinescoreFromSchedule(title, visC, homC, visLabel, homLabel, milIsHome, b
       return v === null || v === undefined ? '' : String(v);
     });
   };
-  const statVal = (c, name) => {
-    const s = (c.statistics || []).find(st => st.name === name || st.abbreviation === name);
-    return s ? (parseInt(s.displayValue) || 0) : 0;
-  };
+  const sumHits = (c) => (c.linescores || []).reduce((s, e) => s + (parseInt(e.hits) || 0), 0);
+  const sumErrors = (c) => (c.linescores || []).reduce((s, e) => s + (parseInt(e.errors) || 0), 0);
   const visitor = {
     inns: toInns(visC),
     r: parseInt(visC.score?.value ?? visC.score ?? 0),
-    h: statVal(visC, 'hits'),
-    e: statVal(visC, 'errors'),
+    h: sumHits(visC),
+    e: sumErrors(visC),
   };
   const home = {
     inns: toInns(homC),
     r: parseInt(homC.score?.value ?? homC.score ?? 0),
-    h: statVal(homC, 'hits'),
-    e: statVal(homC, 'errors'),
+    h: sumHits(homC),
+    e: sumErrors(homC),
   };
   this._renderLinescore(title, visitor, home, visLabel, homLabel, milIsHome, boxScoreUrl);
 }
