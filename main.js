@@ -917,6 +917,11 @@ createCsvGameItem(g, showH2h = false) {
 
           scheduleGrid.innerHTML = '';
 
+          // Cache so the schedule can be re-rendered when the selected TV
+          // provider changes (channel numbers depend on the provider).
+          this._lastScheduleEvents = sortedEvents;
+          this._lastIsPastSeason = isPastSeason;
+
           const sectionLabels = { pre: 'Preseason', regular: 'Regular Season', post: 'Playoffs' };
           let currentSection = null;
           sortedEvents.forEach(event => {
@@ -1051,9 +1056,10 @@ dateDiv.className = 'game-date';
 
 const primaryBroadcast = this.pickPrimaryBroadcast(event) || {};
  const network = primaryBroadcast.media?.shortName || '';
+ const channelNum = this.scheduleChannelNumber(primaryBroadcast);
 
 if (isLive || isInProgress) {
- dateDiv.innerHTML = `<span class="live-indicator-small"></span>LIVE NOW${network ? ` · <span class="game-network">${network}</span>` : ''}`;
+ dateDiv.innerHTML = `<span class="live-indicator-small"></span>LIVE NOW${network ? ` · <span class="game-network">${network}${channelNum ? ` <span class="game-channum">Ch. ${channelNum}</span>` : ''}</span>` : ''}`;
 } else {
  const dateText = date.toLocaleDateString('en-US', {
     weekday: 'short',
@@ -1063,7 +1069,7 @@ if (isLive || isInProgress) {
     minute: '2-digit'
 });
  dateDiv.innerHTML = network
- ? `${dateText} · <span class="game-network">${network}</span>`
+ ? `${dateText} · <span class="game-network">${network}${channelNum ? ` <span class="game-channum">Ch. ${channelNum}</span>` : ''}</span>`
  : dateText;
 }
 
@@ -1650,6 +1656,27 @@ resolveProviderChannel(providerKey, networkName) {
   return null;
 }
 
+// Channel number to show inline in the schedule for a broadcast, based on
+// the viewer's selected provider. Returns null when no provider is set, the
+// broadcast isn't on linear TV, or the channel isn't in the provider's lineup.
+scheduleChannelNumber(broadcast) {
+  if (!broadcast?.media?.shortName) return null;
+  if (!this.selectedProvider || !this.providerMeta[this.selectedProvider]) return null;
+  const ch = this.resolveChannel(broadcast.media.shortName);
+  // Only show channel numbers for linear TV (broadcast/cable/regional) —
+  // never streaming or radio.
+  const type = ch?.type;
+  if (type !== 'broadcast' && type !== 'cable' && type !== 'regional') return null;
+  const name = ch?.key || broadcast.media.shortName;
+  return this.resolveProviderChannel(this.selectedProvider, name);
+}
+
+_rerenderSchedule() {
+  if (this._lastScheduleEvents) {
+    this.displaySchedule(this._lastScheduleEvents, this._lastIsPastSeason);
+  }
+}
+
 providerOptions() {
   return Object.values(this.providerMeta)
     .sort((a, b) => a.display_name.localeCompare(b.display_name));
@@ -1730,6 +1757,9 @@ _renderProviderPicker(channelsEl) {
     }
     clearBtn.hidden = !input.value;
     this._renderWatchChannels(channelsEl, channelsEl._resolved, channelsEl._radioResolved);
+    // Channel numbers in the schedule depend on the selected provider, so
+    // refresh any already-rendered schedule rows.
+    this._rerenderSchedule();
   };
 
   // input: only auto-apply when the typed text is an exact (case-insensitive)

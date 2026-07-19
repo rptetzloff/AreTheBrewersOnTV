@@ -710,6 +710,18 @@ details:not([open]) > .collapsible-summary::before {
     font-style: italic;
 }
 
+.game-channum {
+    font-style: normal;
+    font-weight: 600;
+    opacity: 1;
+    color: #FFC52F;
+    background: rgba(255, 197, 47, 0.14);
+    padding: 0.05rem 0.35rem;
+    border-radius: 0.3rem;
+    margin-left: 0.2rem;
+    white-space: nowrap;
+}
+
 .game-result {
     text-align: center;
     width: 100%;
