@@ -62,6 +62,24 @@
         		return 'no';
         	}
 
+        	// Choose the broadcast to show next to the game date in the schedule
+        	// listing. Prefer TV-type channels (broadcast > cable > regional) over
+        	// streaming/radio, since ESPN often lists MLB.TV first even when a
+        	// linear TV channel is available. Uses the same channel metadata
+        	// classification as getTvStatus.
+        	pickPrimaryBroadcast(game) {
+        		const broadcasts = game?.competitions?.[0]?.broadcasts || [];
+        		if (broadcasts.length === 0) return null;
+        		const rank = (b) => {
+        			const name = b.media?.shortName;
+        			if (!name) return 99;
+        			const ch = this.resolveChannel(name);
+        			const type = ch?.type || (b.type?.shortName === 'Streaming' ? 'streaming' : b.type?.shortName === 'Radio' ? 'radio' : 'cable');
+        			return { broadcast: 0, cable: 1, regional: 2, streaming: 3, radio: 4 }[type] ?? 5;
+        		};
+        		return broadcasts.slice().sort((a, b) => rank(a) - rank(b))[0] || null;
+        	}
+
         	async init() {
         		try {
         			['streak-details', 'otd-details'].forEach(id => {
@@ -986,7 +1004,8 @@ opponentDiv.textContent = `${isHome ? 'vs' : '@'} ${opponent}`;
 const dateDiv = document.createElement('div');
 dateDiv.className = 'game-date';
 
-const network = competition.broadcasts?.[0]?.media?.shortName || '';
+const primaryBroadcast = this.pickPrimaryBroadcast(event) || {};
+ const network = primaryBroadcast.media?.shortName || '';
 
 if (isLive || isInProgress) {
  dateDiv.innerHTML = `<span class="live-indicator-small"></span>LIVE NOW${network ? ` · <span class="game-network">${network}</span>` : ''}`;
