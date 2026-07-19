@@ -1570,6 +1570,8 @@ _loadTvLookup(channelLookupRaw, providerLookupRaw) {
       alternate_name: p.alternate_name || '',
       website_url: p.website_url || '',
       channel_lineup: p.channel_lineup || '',
+      service_areas: (p.service_areas || '')
+        .split('|').map(s => s.trim()).filter(Boolean),
       channels: {},
     };
     // index display name + each comma-separated alternate name
@@ -1651,18 +1653,41 @@ resolveProviderByName(query) {
   return null;
 }
 
-resolveProviderChannel(providerKey, networkName) {
+resolveProviderChannel(providerKey, networkName, areaIndex) {
   if (!providerKey || !networkName) return null;
   const p = this.providerMeta[providerKey];
   if (!p) return null;
   const key = networkName.trim();
-  // direct hit on channel key or alias
-  if (p.channels[key]) return p.channels[key];
-  const lower = key.toLowerCase();
-  for (const [k, v] of Object.entries(p.channels)) {
-    if (k.toLowerCase() === lower) return v;
+  let raw = p.channels[key];
+  if (!raw) {
+    const lower = key.toLowerCase();
+    for (const [k, v] of Object.entries(p.channels)) {
+      if (k.toLowerCase() === lower) { raw = v; break; }
+    }
   }
-  return null;
+  if (!raw) return null;
+  // If the provider has service areas and the channel cell has per-area
+  // values separated by " | ", pick the one for the selected area. A cell
+  // with no separator is the general listing and is used as-is.
+  if (Array.isArray(p.service_areas) && p.service_areas.length > 1 && raw.includes('|')) {
+    const parts = raw.split('|').map(s => s.trim()).filter(Boolean);
+    if (parts.length > 1) {
+      const idx = (typeof areaIndex === 'number' && areaIndex >= 0 && areaIndex < parts.length) ? areaIndex : 0;
+      return parts[idx] || parts[0] || raw;
+    }
+  }
+  return raw;
+}
+
+selectedServiceAreaIndex(providerKey) {
+  if (!providerKey) return 0;
+  const idx = parseInt(localStorage.getItem(`tvServiceArea.${providerKey}`), 10);
+  return Number.isInteger(idx) && idx >= 0 ? idx : 0;
+}
+
+setServiceAreaIndex(providerKey, idx) {
+  if (!providerKey) return;
+  localStorage.setItem(`tvServiceArea.${providerKey}`, String(idx));
 }
 
 // Channel number to show inline in the schedule for a broadcast, based on
@@ -1677,7 +1702,7 @@ scheduleChannelNumber(broadcast) {
   const type = ch?.type;
   if (type !== 'broadcast' && type !== 'cable' && type !== 'regional') return null;
   const name = ch?.key || broadcast.media.shortName;
-  return this.resolveProviderChannel(this.selectedProvider, name);
+  return this.resolveProviderChannel(this.selectedProvider, name, this.selectedServiceAreaIndex(this.selectedProvider));
 }
 
 _rerenderSchedule() {
@@ -1757,6 +1782,53 @@ _buildProviderInput({ label, inputId, listId, placeholder, onChange }) {
   hint.hidden = true;
   wrap.appendChild(hint);
 
+  // Service-area picker — only shown when the selected provider splits its
+  // channel lineup across multiple service areas.
+  const areaSelectId = inputId + '-service-area';
+  const areaWrap = document.createElement('div');
+  areaWrap.className = 'watch-service-area-picker';
+  areaWrap.hidden = true;
+
+  const areaLabel = document.createElement('label');
+  areaLabel.className = 'watch-service-area-label';
+  areaLabel.htmlFor = areaSelectId;
+  areaLabel.textContent = 'Service area';
+  areaWrap.appendChild(areaLabel);
+
+  const areaSelect = document.createElement('select');
+  areaSelect.id = areaSelectId;
+  areaSelect.className = 'watch-service-area-select';
+  areaWrap.appendChild(areaSelect);
+
+  wrap.appendChild(areaWrap);
+
+  const refreshArea = (match) => {
+    const areas = match && Array.isArray(match.service_areas) ? match.service_areas : [];
+    areaSelect.innerHTML = '';
+    if (areas.length > 1) {
+      areas.forEach((name, i) => {
+        const opt = document.createElement('option');
+        opt.value = String(i);
+        opt.textContent = name;
+        areaSelect.appendChild(opt);
+      });
+      const saved = this.selectedServiceAreaIndex(match.key);
+      areaSelect.selectedIndex = Math.min(saved, areas.length - 1);
+      areaWrap.hidden = false;
+    } else {
+      areaWrap.hidden = true;
+    }
+  };
+
+  areaSelect.addEventListener('change', () => {
+    const key = this.selectedProvider;
+    if (key) this.setServiceAreaIndex(key, areaSelect.selectedIndex);
+    onChange(key && this.providerMeta[key] ? this.providerMeta[key] : null);
+  });
+
+  refreshArea(this.selectedProvider && this.providerMeta[this.selectedProvider]
+    ? this.providerMeta[this.selectedProvider] : null);
+
   const applyMatch = (match, { persistInput = true } = {}) => {
     if (match) {
       this.selectedProvider = match.key;
@@ -1770,6 +1842,7 @@ _buildProviderInput({ label, inputId, listId, placeholder, onChange }) {
       hint.textContent = input.value.trim() ? `No provider matching "${input.value.trim()}".` : '';
     }
     clearBtn.hidden = !input.value;
+    refreshArea(match);
     onChange(match);
   };
 
@@ -1990,7 +2063,7 @@ _renderWatchChannels(channelsEl, resolved, radioResolved) {
       }
 
       if (showChannelNum && numTypes.has(type)) {
-        const num = this.resolveProviderChannel(provider.key, ch.key);
+        const num = this.resolveProviderChannel(provider.key, ch.key, this.selectedServiceAreaIndex(provider.key));
         const numDiv = document.createElement('div');
         numDiv.className = 'watch-channel-num';
         if (num) {

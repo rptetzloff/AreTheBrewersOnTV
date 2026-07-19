@@ -834,6 +834,46 @@ details:not([open]) > .collapsible-summary::before {
     opacity: 1;
 }
 
+.watch-service-area-picker {
+    margin-top: 0.6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.watch-service-area-picker[hidden] {
+    display: none;
+}
+
+.watch-service-area-label {
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.65);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.watch-service-area-select {
+    font-size: 0.85rem;
+    padding: 0.4rem 0.55rem;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.06);
+    color: #fff;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+}
+
+.watch-service-area-select:hover {
+    border-color: rgba(255, 197, 47, 0.5);
+}
+
+.watch-service-area-select:focus {
+    outline: none;
+    border-color: #FFC52F;
+    background: rgba(255, 197, 47, 0.08);
+}
+
 .game-result {
     text-align: center;
     width: 100%;
