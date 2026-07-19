@@ -44,14 +44,20 @@ const CARDS = [
 	},
 	{
 		slug: 'world-series-appearances', icon: 'mdi-trophy-outline', title: 'World Series Appearances',
-		note: 'Seasons the Brewers reached the World Series',
-		entries: (d) => d.worldSeriesAppearances.map((p) => ({ main: String(p.season), subHtml: 'Brewers' })),
+		note: 'Brewers World Series results by year',
+		entries: (d) => d.worldSeriesAppearances.map((p) => ({
+			main: String(p.season),
+			subHtml: `${p.result} vs ${esc(p.opponent)} (${p.record})`,
+		})),
 		empty: 'The Brewers have not yet reached a World Series.',
 	},
 	{
 		slug: 'playoff-appearances', icon: 'mdi-medal-outline', title: 'Playoff Appearances',
-		note: 'Seasons the Brewers reached the postseason',
-		entries: (d) => d.playoffAppearances.map((p) => ({ main: String(p.season), subHtml: 'Brewers' })),
+		note: 'Brewers postseason series results by year',
+		entries: (d) => d.playoffAppearances.map((p) => ({
+			main: String(p.season),
+			subHtml: p.series.map((s) => `${s.result} ${s.roundLabel} vs ${esc(s.opponent)} (${s.record})`).join('<br>'),
+		})),
 		empty: 'The Brewers have not yet reached the playoffs.',
 	},
 	{

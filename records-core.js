@@ -260,26 +260,46 @@ export function computeSuperlatives(rows, { top = 5, now = new Date() } = {}) {
 	}
 	perfectSeasons.sort((a, b) => b.wins - a.wins || a.season - b.season);
 
-	// Postseason appearances: distinct seasons with at least one playoff game.
-	// World Series appearances: distinct seasons with at least one WS game.
-	const playoffAppearances = [];
-	const worldSeriesAppearances = [];
-	const seenPlayoff = new Set();
-	const seenWS = new Set();
+	// Postseason series results. Each series is grouped by (season, gametype,
+	// opponent); gametype codes: F=Wild Card, D=Division Series, L=LCS, W=World Series.
+	const ROUND_LABEL = { F: 'Wild Card', D: 'Division Series', L: 'LCS', W: 'World Series' };
+	const ROUND_ORDER = { F: 0, D: 1, L: 2, W: 3 };
+	const seriesMap = new Map(); // key -> { season, round, opponent, wins, losses }
 	for (const g of games) {
 		if (g.regular_season === '1') continue;
 		const yr = parseInt(g.season, 10);
-		if (!seenPlayoff.has(yr)) {
-			seenPlayoff.add(yr);
-			playoffAppearances.push({ season: yr });
+		const gt = g.gametype || 'D';
+		const key = `${yr}|${gt}|${g.Opponent}`;
+		let s = seriesMap.get(key);
+		if (!s) {
+			s = { season: yr, round: gt, opponent: g.Opponent, wins: 0, losses: 0 };
+			seriesMap.set(key, s);
 		}
-		if (g.worldseries && g.worldseries.trim() && !seenWS.has(yr)) {
-			seenWS.add(yr);
-			worldSeriesAppearances.push({ season: yr });
-		}
+		if (g['Brewers Win'] === 'WIN') s.wins++;
+		else if (g['Brewers Win'] === 'LOSS') s.losses++;
 	}
-	playoffAppearances.sort((a, b) => b.season - a.season);
-	worldSeriesAppearances.sort((a, b) => b.season - a.season);
+	const allSeries = [...seriesMap.values()].map((s) => ({
+		...s,
+		roundLabel: ROUND_LABEL[s.round] || 'Playoffs',
+		result: s.wins > s.losses ? 'Won' : 'Lost',
+		record: `${s.wins}–${s.losses}`,
+	}));
+	// Group series by season: playoff appearances list every series; WS
+	// appearances list only the World Series series (one per season at most).
+	const seriesBySeason = new Map();
+	for (const s of allSeries) {
+		if (!seriesBySeason.has(s.season)) seriesBySeason.set(s.season, []);
+		seriesBySeason.get(s.season).push(s);
+	}
+	const playoffAppearances = [...seriesBySeason.entries()]
+		.map(([season, series]) => ({
+			season,
+			series: series.sort((a, b) => (ROUND_ORDER[a.round] ?? 9) - (ROUND_ORDER[b.round] ?? 9)),
+		}))
+		.sort((a, b) => b.season - a.season);
+	const worldSeriesAppearances = allSeries
+		.filter((s) => s.round === 'W')
+		.sort((a, b) => b.season - a.season);
 
 	// Regular-season win streaks, contained within a single season; a loss or tie ends one.
 	const winStreaks = [];
@@ -419,18 +439,19 @@ export function recordsCopy(slug, data) {
 		case 'world-series-appearances': {
 			const w = data.worldSeriesAppearances;
 			return {
-				title: w.length ? `Brewers World Series Appearances — ${w.map((x) => x.season).join(', ')}` : 'Brewers World Series Appearances',
+				title: w.length ? `Brewers World Series — ${w.map((x) => `${x.season} (${x.result} ${x.record} vs ${x.opponent})`).join(', ')}` : 'Brewers World Series Appearances',
 				desc: w.length
-					? `World Series appearances by the Milwaukee Brewers: ${w.map((x) => x.season).join(', ')}.`
+					? `World Series results by the Milwaukee Brewers: ${w.map((x) => `${x.season}: ${x.result} ${x.record} vs the ${x.opponent}`).join('; ')}.`
 					: 'The Brewers have not yet reached a World Series.',
 			};
 		}
 		case 'playoff-appearances': {
 			const p = data.playoffAppearances;
+			const summary = p.map((x) => `${x.season} (${x.series.map((s) => `${s.result} ${s.roundLabel}`).join(', ')})`).join('; ');
 			return {
 				title: p.length ? `Brewers Playoff Appearances — ${p.map((x) => x.season).join(', ')}` : 'Brewers Playoff Appearances',
 				desc: p.length
-					? `Playoff appearances by the Milwaukee Brewers: ${p.map((x) => x.season).join(', ')}.`
+					? `Postseason series results by the Milwaukee Brewers: ${summary}.`
 					: 'The Brewers have not yet reached the playoffs.',
 			};
 		}
