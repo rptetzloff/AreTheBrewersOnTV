@@ -5,22 +5,29 @@
 // functions only.
 import { rec, splitCsvLine, BREWERS_IDS } from './records-core.js';
 
-// Parses data/managers.csv → [{ mgrId, startYear, endYear }] in file order.
-// endYear empty/NaN means "present" (treated as 9999). A mgrId may appear more
-// than once (multiple stints, e.g. kuenh101 in 1975 and 1982-83).
+// Parses data/managers.csv → [{ mgrId, startDate, endDate }] in file order.
+// Dates are M/D/YYYY and normalized to ISO YYYY-MM-DD for exact comparison.
+// end_date empty means "present" (treated as 9999-12-31). A mgrId may appear
+// more than once (multiple stints, e.g. kuenh101 in 1975 and 1982-83).
+function toIsoDate(raw) {
+	const [m, d, y] = raw.split('/').map((n) => parseInt(n, 10));
+	if (!y) return null;
+	return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
 export function parseManagersCsv(raw) {
 	const lines = raw.trim().split('\n');
 	const headers = splitCsvLine(lines[0]);
 	const nameIdx = headers.indexOf('name');
-	const syIdx = headers.indexOf('start_year');
-	const eyIdx = headers.indexOf('end_year');
+	const sdIdx = headers.indexOf('start_date');
+	const edIdx = headers.indexOf('end_date');
 	return lines.slice(1).filter((l) => l.trim()).map((l) => {
 		const v = splitCsvLine(l);
-		const startYear = parseInt(v[syIdx], 10);
-		const eyRaw = (v[eyIdx] || '').trim();
-		const endYear = eyRaw ? parseInt(eyRaw, 10) : 9999;
-		return { mgrId: v[nameIdx]?.trim(), startYear, endYear };
-	}).filter((t) => t.mgrId && !Number.isNaN(t.startYear));
+		const startDate = toIsoDate((v[sdIdx] || '').trim());
+		const edRaw = (v[edIdx] || '').trim();
+		const endDate = edRaw ? toIsoDate(edRaw) : '9999-12-31';
+		if (!startDate) return null;
+		return { mgrId: v[nameIdx]?.trim(), startDate, endDate };
+	}).filter(Boolean);
 }
 
 export const slugifyCoach = (name) =>
@@ -167,8 +174,8 @@ const INTERIM_THRESHOLD = 10;
 // a gid→mgrId map from teamstats.csv, and an id→name map from biofile0.csv.
 // Mid-season changes are handled exactly because each game has its own gid.
 //
-// officialTenures (optional): parsed managers.csv rows [{ mgrId, startYear,
-// endYear }]. When provided, a manager is interim unless they appear in this
+// officialTenures (optional): parsed managers.csv rows [{ mgrId, startDate,
+// endDate }]. When provided, a manager is interim unless they appear in this
 // list — managers.csv is the authoritative source for "official" status, not
 // a game-count heuristic. Games still count toward whoever managed them, but
 // only official tenures show on the history timeline.
@@ -214,7 +221,7 @@ export function computeCoachesFromData(rows, gidToMgr, mgrNames, championSeasons
 			// Official manager: only keep games within a managers.csv tenure.
 			// Fill-in games outside the tenure (e.g. Murphy 2021 before his
 			// 2024 appointment) are skipped so they don't extend the era band.
-			tenureIdx = tenures.findIndex((t) => yr >= t.startYear && yr <= t.endYear);
+			tenureIdx = tenures.findIndex((t) => g.date >= t.startDate && g.date <= t.endDate);
 			if (tenureIdx === -1) continue;
 		}
 		const key = `${mgrId}:${tenureIdx}`;
@@ -239,10 +246,9 @@ export function computeCoachesFromData(rows, gidToMgr, mgrNames, championSeasons
 		const mgrId = gidToMgr.get(finale.gid);
 		if (!mgrId) continue;
 		const tenures = tenuresByMgr.get(mgrId);
-		const fyr = parseInt(finale.season, 10);
 		let tenureIdx = 0;
-		if (tenures && tenures.length > 1) {
-			tenureIdx = tenures.findIndex((t) => fyr >= t.startYear && fyr <= t.endYear);
+		if (tenures) {
+			tenureIdx = tenures.findIndex((t) => finale.date >= t.startDate && finale.date <= t.endDate);
 			if (tenureIdx === -1) tenureIdx = 0;
 		}
 		const key = `${mgrId}:${tenureIdx}`;
