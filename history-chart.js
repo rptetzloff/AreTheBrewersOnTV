@@ -122,12 +122,11 @@ export function buildChartSvg(history, {
 			if (ms.label && axes) {
 				// Rotate labels vertically so adjacent milestones (e.g. 1969 & 1970)
 				// don't collide. Alternate left/right of the line to avoid overlap.
+				// Both sides rotate -90 so text always reads bottom-to-top.
 				const side = i % 2 === 0 ? 1 : -1;
 				const tx = px + side * 5;
-				const anchor = side > 0 ? 'start' : 'end';
 				const ry = pad.t + plotH - 6;
-				const rot = side > 0 ? -90 : 90;
-				parts.push(`<text x="${tx.toFixed(1)}" y="${ry.toFixed(1)}" font-size="10" fill="${WHITE}" opacity="0.6" text-anchor="${anchor}" transform="rotate(${rot} ${tx.toFixed(1)} ${ry.toFixed(1)})">${ms.label}</text>`);
+				parts.push(`<text x="${tx.toFixed(1)}" y="${ry.toFixed(1)}" font-size="12" fill="${WHITE}" opacity="0.75" text-anchor="start" transform="rotate(-90 ${tx.toFixed(1)} ${ry.toFixed(1)})"><title>${ms.label}</title>${ms.label}</text>`);
 			}
 		}
 	}
