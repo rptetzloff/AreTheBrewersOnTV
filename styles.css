@@ -2028,6 +2028,31 @@ details:not([open]) > .collapsible-summary::before {
     border-bottom-color: #FFD45E;
 }
 
+.linescore-pitchers {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.25rem;
+    padding: 0.6rem 0 0.1rem;
+    font-size: 0.82rem;
+}
+
+.linescore-pitcher {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.4rem;
+}
+
+.linescore-pitcher-label {
+    font-weight: 700;
+    color: #FFC52F;
+    letter-spacing: 0.04em;
+    min-width: 1.5em;
+}
+
+.linescore-pitcher-name {
+    color: rgba(255, 255, 255, 0.85);
+}
+
 /* ── Record standings link ── */
 .record-standings-link {
     cursor: pointer;

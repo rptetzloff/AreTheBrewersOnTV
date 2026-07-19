@@ -2182,7 +2182,21 @@ openLinescoreFromEvent(event) {
         h: sumHits(homS),
         e: sumErrors(homS),
       };
-      this._renderLinescore(title, visitor, home, visLabel, homLabel, milIsHome, boxScoreUrl);
+      const featured = comp.status?.featuredAthletes || [];
+      const findP = (name) => featured.find(f => f.name === name);
+      const fmtP = (f) => {
+        if (!f || !f.athlete) return null;
+        const a = f.athlete;
+        let line = a.displayName || a.fullName;
+        if (a.record) line += ` (${a.record})`;
+        return line;
+      };
+      const pitchers = {
+        wp: fmtP(findP('winningPitcher')),
+        lp: fmtP(findP('losingPitcher')),
+        save: fmtP(findP('savingPitcher')),
+      };
+      this._renderLinescore(title, visitor, home, visLabel, homLabel, milIsHome, boxScoreUrl, false, pitchers);
     })
     .catch(() => {
       this._renderLinescoreFromSchedule(title, visC, homC, visLabel, homLabel, milIsHome, boxScoreUrl);
@@ -2214,7 +2228,7 @@ _renderLinescoreFromSchedule(title, visC, homC, visLabel, homLabel, milIsHome, b
   this._renderLinescore(title, visitor, home, visLabel, homLabel, milIsHome, boxScoreUrl);
 }
 
-_renderLinescore(title, visitor, home, visLabel, homLabel, milIsHome, boxScoreUrl = '', loading = false) {
+_renderLinescore(title, visitor, home, visLabel, homLabel, milIsHome, boxScoreUrl = '', loading = false, pitchers = null) {
   const modal = document.getElementById('linescore-modal');
   document.getElementById('linescore-title').textContent = title;
   const body = document.getElementById('linescore-body');
@@ -2266,11 +2280,21 @@ _renderLinescore(title, visitor, home, visLabel, homLabel, milIsHome, boxScoreUr
         </tbody>
       </table>
     </div>
+    ${pitchers ? this._renderPitchers(pitchers) : ''}
     ${boxScoreUrl ? `<a class="linescore-box-link" href="${boxScoreUrl}" target="_blank" rel="noopener noreferrer">Full Box Score on ESPN <i class="mdi mdi-open-in-new"></i></a>` : ''}
   `;
 
   modal.hidden = false;
   document.body.style.overflow = 'hidden';
+}
+
+_renderPitchers(pitchers) {
+  const items = [];
+  if (pitchers.wp) items.push(`<span class="linescore-pitcher"><span class="linescore-pitcher-label">WP</span><span class="linescore-pitcher-name">${pitchers.wp}</span></span>`);
+  if (pitchers.lp) items.push(`<span class="linescore-pitcher"><span class="linescore-pitcher-label">LP</span><span class="linescore-pitcher-name">${pitchers.lp}</span></span>`);
+  if (pitchers.save) items.push(`<span class="linescore-pitcher"><span class="linescore-pitcher-label">S</span><span class="linescore-pitcher-name">${pitchers.save}</span></span>`);
+  if (!items.length) return '';
+  return `<div class="linescore-pitchers">${items.join('')}</div>`;
 }
 
 closeLinescoreModal() {
