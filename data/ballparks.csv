@@ -1,460 +1,508 @@
-ID,State,City,Park Name,First,Last
-ANN01,Alabama,Anniston,19400517,19410729
-AXC01,Alabama,Alexander City,19480505,19490330
-BIR01,Alabama,Birmingham,Rickwood Field,19270919,20240620
-DCA01,Alabama,Decatur,Legion Field,19490818,19490921
-DOT01,Alabama,Dothan,Wiregrass Stadium,19480624,19480624
-GAD01,Alabama,Gadsden,19350422,19460624
-HUN01,Alabama,Huntsville,Lincoln Park,19460807,19480515
-LEE01,Alabama,Leeds,19380820,19380903
-MOB01,Alabama,Mobile,19490403,19490403
-MTG01,Alabama,Montgomery,Cramton Bowl,19390803,19490929
-OZA01,Alabama,Ozark,19490401,19490401
-SEL01,Alabama,Selma,Rowell Field,19390428,19390621
-TUS01,Alabama,Tuscaloosa,Alberta Park,19480726,19490714,ELD01,Arkansas,El Dorado,19400502,19400502
-FTS01,Arkansas,Fort Smith,19480514,19480514
-HEL01,Arkansas,Helena,19490905,19490905
-HSP01,Arkansas,Hot Springs,19490505,19490628
-JON01,Arkansas,Jonesboro,19410514,19490712
-LRK01,Arkansas,Little Rock,Crump Park,19380805,19390922
-LRK02,Arkansas,Little Rock,Travelers Field,19380511,19490729
-MRA01,Arkansas,Marianna,19380516,19380516
-PBL01,Arkansas,Pine Bluff,19400712,19420702,PHO01,Arizona,Phoenix,Chase Field,19980331,20250925,ANA01,California,Anaheim,Angel Stadium of Anaheim,19660419,20250928
-BAK01,California,Bakersfield,Sam Lynn Park,19461023,19461023
-LGB01,California,Long Beach,Recreation Park,19431017,19431017
-LOS01,California,Los Angeles,Los Angeles Memorial Coliseum,19580418,19610920
-LOS02,California,Los Angeles,Wrigley Field,19301029,19611001
-LOS03,California,Los Angeles,Dodger Stadium,19620410,20251029
-LOS04,California,Los Angeles,Gilmore Field,19391008,19431107
-LOS05,California,Los Angeles,White Sox Park,19251024,19441022
-OAK01,California,Oakland,Oakland-Alameda County Coliseum,19680417,20240926
-OAK02,California,Oakland,Oaks Park,19471016,19471016
-SAC01,California,Sacramento,20250331,20250928
-SAN01,California,San Diego,Qualcomm Stadium,19690408,20030928
-SAN02,California,San Diego,Petco Park,20040408,20250928
-SAN03,California,San Diego,Lane Field,19421122,19481025
-SFO01,California,San Francisco,Seals Stadium,19441015,19590920
-SFO02,California,San Francisco,Candlestick Park,19600412,19990930
-SFO03,California,San Francisco,Oracle Park,20000411,20250928,DEN01,Colorado,Denver,Mile High Stadium,19930409,19940811
-DEN02,Colorado,Denver,Coors Field,19950426,20250921
-DEN03,Colorado,Denver,Merchants Park,19361004,19480824,BRI01,Connecticut,Bridgeport,Candlelite Stadium,19400723,19490602
-HAR02,Connecticut,Hartford,Bulkeley Stadium,19360810,19420914
-STA01,Connecticut,Stamford,Mitchell Field,19470503,19470701,WAS06,D.C,Washington,Boundary Field,18980418,18991014
-WAS07,D.C,Washington,American League Park I,19010429,19030928
-WAS08,D.C,Washington,American League Park II,19040414,19101006
-WAS09,D.C,Washington,Griffith Stadium,19110412,19610921
-WAS10,D.C,Washington,Robert F,Kennedy Stadium,19620409,20070923
-WAS11,D.C,Washington,Nationals Park,20080330,20250928,WIL03,Delaware,Wilmington,Harlan Field,19211010,19261001
-WIL04,Delaware,Wilmington,Wilmington Park,19370518,19490815
-WIL08,Delaware,Wilmington,Pennsy Field,19360514,19390724,DTB01,Florida,Daytona Beach,Cypress Street Park,19380408,19380408
-DUN01,Florida,Dunedin,TD Ballpark,20210408,20210524
-JKV01,Florida,Jacksonville,Red Cap Stadium,19370329,19410702
-LBV01,Florida,Lake Buena Vista,The Ballpark at Disney's Wide World,20070515,20080424
-MIA01,Florida,Miami,Sun Life Stadium,19930405,20110928
-MIA02,Florida,Miami,Marlins Park,20120404,20250928
-ORL01,Florida,Orlando,19390405,19410409
-PAL01,Florida,Palatka,19390408,19390408
-STP01,Florida,St,Petersburg,Tropicana Field,19980331,20240922
-TAM01,Florida,Tampa,Plant Field,19410614,19410614
-TAM02,Florida,Tampa,George M,Steinbrenner Field,20250328,20250921,ALB03,Georgia,Albany,19370512,19370512
-ATH01,Georgia,Athens,19360417,19360422
-ATL01,Georgia,Atlanta,Atlanta-Fulton County Stadium,19660412,19961024
-ATL02,Georgia,Atlanta,Turner Field,19970404,20161002
-ATL03,Georgia,Atlanta,Truist Park,20170414,20250928
-ATL04,Georgia,Atlanta,Ponce de Leon Park,19360413,19490509
-ATL05,Georgia,Atlanta,Harper Field,19400331,19460421
-ATL06,Georgia,Atlanta,Booker T,Washington High School Field,19380528,19380528
-COL06,Georgia,Columbus,Golden Park,19490622,19490816
-ELB01,Georgia,Elberton,19380509,19380613
-GRI01,Georgia,Griffin,19390419,19390419
-MAC01,Georgia,Macon,Luther Williams Park,19380829,19410417,HON01,Hawai'i,Honolulu,Aloha Stadium,19970419,19970420,BEL01,Illinois,Belleville,Belleville Athletic Field,19370720,19490617
-CAI01,Illinois,Cairo,19390728,19490526
-CAN04,Illinois,Canton,19430721,19430721
-CEN01,Illinois,Centralia,Fans Field,19480521,19490621
-CHI08,Illinois,Chicago,West Side Grounds,18980429,19151003
-CHI09,Illinois,Chicago,South Side Park III,19010424,19400908
-CHI10,Illinois,Chicago,Comiskey Park I,19100701,19900930
-CHI11,Illinois,Chicago,Wrigley Field,19140423,20251009
-CHI12,Illinois,Chicago,Guaranteed Rate Field;U.S,Cellular Field,19910418,20250921
-CHI15,Illinois,Chicago,Mills Stadium,19341014,19350806
-CHI16,Illinois,Chicago,Shrewbridge Field,19350505,19380711
-DAN01,Illinois,Danville,Garfield Stadium,19410808,19490630
-DCT01,Illinois,Decatur,Staley Field,19210716,19210716
-DCT02,Illinois,Decatur,Fans Field,19370714,19490622
-GLK01,Illinois,Great Lakes,Great Lakes Naval Training Station,19430807,19430807
-KEW01,Illinois,Kewanee,Northeast Park,19430629,19430805
-LSL01,Illinois,LaSalle,19440821,19440821
-MAT01,Illinois,Mattoon,Indians Park,19490620,19490620
-MET01,Illinois,Metropolis,19390728,19390728
-MOU01,Illinois,Mounds,19380529,19390813
-MTV01,Illinois,Mt,Vernon,Veterans Park,19490526,19490526
-PEO01,Illinois,Peoria,19370721,19370721
-PER01,Illinois,Peru,Washington Park,19410826,19430810
-RCK02,Illinois,Rockford,Rox Park,19490906,19490906
-SPA01,Illinois,Sparta,19400717,19400717
-SPR02,Illinois,Springfield,Reservoir Park,19291017,19291017
-SPR03,Illinois,Springfield,Lanphier Park,19390621,19480901
-SPR07,Illinois,Springfield,Fitzpatrick Stadium,19490627,19490627
-URB01,Illinois,Urbana,Illinois Field,19450915,19450915
-WFI01,Illinois,West Frankfort,Memorial Stadium,19480616,19490628,EVA01,Indiana,Evansville,Bosse Field,19390714,19390714
-FOR03,Indiana,Fort Wayne,Jailhouse Flats,19020622,19020831
-FOR04,Indiana,Fort Wayne,State School Diamond,19400617,19430811
-FOR05,Indiana,Fort Wayne,Dwenger Park,19440511,19440511
-GAR01,Indiana,Gary,19390819,19390819
-HAM01,Indiana,Hammond,Turner Field,19410625,19440901
-IND07,Indiana,Indianapolis,Federal League Park,19140423,19141008
-IND09,Indiana,Indianapolis,Northwestern Park,19150509,19150509
-IND10,Indiana,Indianapolis,Victory Field,19360826,19490820
-IND11,Indiana,Indianapolis,Washington Park,19210424,19210509
-KOK01,Indiana,Kokomo,Athletic Park,19220726,19220726
-KOK02,Indiana,Kokomo,Highland Park,19430729,19490824
-MUN02,Indiana,Muncie,McCullough Park,19420716,19490822
-RCI01,Indiana,Richmond,Municipal Stadium,19360911,19490907
-SBD01,Indiana,South Bend,Lippincott Park,19360824,19460708
-TER01,Indiana,Terre Haute,19410702,19440713,CBI01,Iowa,Council Bluffs,American Legion Park,19460723,19480707
-CED01,Iowa,Cedar Rapid,Hill Park,19371007,19490607
-DAV01,Iowa,Davenport,Municipal Stadium,19361001,19490608
-DAV02,Iowa,Davenport,Milan Park,19470918,19470918
-DES01,Iowa,Des Moines,League Park,19361002,19400610
-DES02,Iowa,Des Moines,Pioneer Memorial Park,19470730,19490721
-DYE01,Iowa,Dyersville,Field of Dreams,20210812,20220811
-FDI01,Iowa,Fort Dodge,19480812,19480812
-SCI01,Iowa,Sioux City,Soos Park,19470818,19490606
-SCI02,Iowa,Sioux City,Yards Park,19390710,19390710,ATC01,Kansas,Atchison,19490920,19490920
-CHN01,Kansas,Chanute,19370830,19380816
-EMP01,Kansas,Emporia,Summers Field,19350427,19350427
-JNC01,Kansas,Junction City,Rathert Field,19370902,19410602
-KCK01,Kansas,Kansas City,Ward Field,19380802,19380802
-MAN01,Kansas,Manhattan,Griffith Field,19370727,19390708
-MYV01,Kansas,Marysville,Marysville Ball Park,19370831,19370831
-PTK01,Kansas,Pittsburg,19460828,19490725
-TOP01,Kansas,Topeka,Owl Park,19390512,19420715
-WIC01,Kansas,Wichita,Lawrence Field,19350425,19490620,BGK01,Kentucky,Bowling Green,Dixie Park,19350508,19360711
-COV02,Kentucky,Covington,Covington Park,19400810,19400810
-FUL01,Kentucky,Fulton,Fairfield Kitty League Park,19390707,19390707
-HOP01,Kentucky,Hopkinsville,19430624,19430624
-LEX01,Kentucky,Lexington,Blue Grass Field,19480514,19490526
-LOU03,Kentucky,Louisville,Eclipse Park II,18980415,18990802
-LOU04,Kentucky,Louisville,Eclipse Park III,18990822,18990902
-LOU05,Kentucky,Louisville,Parkway Field,19360710,19490704
-OWE01,Kentucky,Owensboro,Miller Field,19400531,19410617,ALE01,Louisiana,Alexandria,19370427,19370427
-BAT01,Louisiana,Baton Rouge,19370412,19490419
-BOG01,Louisiana,Bogalusa,19420408,19420408
-HML01,Louisiana,Hammond,19410410,19410410
-HOU05,Louisiana,Houma,19400726,19400726
-LKC01,Louisiana,Lake Charles,19410514,19410514
-MNL01,Louisiana,Monroe,Casino Park,19370418,19490719
-NOL01,Louisiana,New Orleans,Pelican Stadium,19350428,19490831
-NOL02,Louisiana,New Orleans,Lincoln Park,19370414,19370425
-SHR01,Louisiana,Shreveport,Texas League Park,19410416,19490418
-TAL01,Louisiana,Tallulah,Fair Grounds Park,19370419,19370419,BAL07,Maryland,Baltimore,Oriole Park III,18980416,18991010
-BAL09,Maryland,Baltimore,Oriole Park IV,19010426,19020929
-BAL10,Maryland,Baltimore,Terrapin Park,19140413,19420510
-BAL11,Maryland,Baltimore,Memorial Stadium,19540415,19911006
-BAL12,Maryland,Baltimore,Oriole Park at Camden Yards,19920406,20250925
-BAL13,Maryland,Baltimore,Maryland Park,19240803,19311025
-BAL14,Maryland,Baltimore,Bugle Field,19321009,19490918
-CAM03,Maryland,Cambridge,19360512,19400822
-CUM01,Maryland,Cumberland,19370724,19380605
-EAS01,Maryland,Easton,Federal Park,19390725,19390725
-HAG01,Maryland,Hagerstown,Municipal Stadium,19350523,19460606
-NOR04,Maryland,Norbeck,Norbeck Park,19410719,19410719
-SBY01,Maryland,Salisbury,Memorial Field,19390726,19460605,BOS05,Massachusetts,Boston,South End Grounds III,18980419,19140811
-BOS06,Massachusetts,Boston,Huntington Avenue Baseball Grounds,19010508,19111007
-BOS07,Massachusetts,Boston,Fenway Park,19120420,20250928
-BOS08,Massachusetts,Boston,Braves Field,19150818,19520921
-SPR06,Massachusetts,Springfield,Pynchon Park,19400527,19400527,BCK01,Michigan,Battle Creek,Bailey Park,19490710,19490710
-BHM01,Michigan,Benton Harbor,Colony Park,19470702,19470702
-DET02,Michigan,Detroit,Bennett Park,19010425,19110910
-DET03,Michigan,Detroit,Burns Park,19010428,19020907
-DET04,Michigan,Detroit,Tiger Stadium,19120420,19990927
-DET05,Michigan,Detroit,Comerica Park,20000411,20251008
-DET06,Michigan,Detroit,Hamtramck Stadium,19300827,19370816
-DET07,Michigan,Detroit,Mack Park,19210507,19280729
-DET08,Michigan,Detroit,Dequindre Park,19480610,19480617
-DET09,Michigan,Detroit,Sandlotters Field,19350831,19350831
-FLI01,Michigan,Flint,Atwood Stadium,19450723,19470811
-GRA01,Michigan,Grand Rapids,Ramona Park,19030524,19030524
-GRA02,Michigan,Grand Rapids,Bigelow Field,19420901,19460529
-GRA03,Michigan,Grand Rapids,Lamar Park,19440718,19440718,MIN02,Minnesota,Bloomington,Metropolitan Stadium,19610421,19810930
-MIN03,Minnesota,Minneapolis,Hubert H,Humphrey Metrodome,19820406,20091011
-MIN04,Minnesota,Minneapolis,Target Field,20100412,20250921
-MIN05,Minnesota,Minneapolis,Nicollet Park,19430808,19430812
-STC01,Minnesota,St,Cloud,Rox Park,19470728,19470728
-STP02,Minnesota,St,Paul,Lexington Park,19380712,19490809
-WIN02,Minnesota,Winona,Gabrych Park,19490831,19490831,CLA01,Mississippi,Clarksdale,19380608,19480520
-COL07,Mississippi,Columbus,19490725,19490803
-GRE01,Mississippi,Greenville,Sportsmans Park,19390607,19490911
-GRE02,Mississippi,Greenwood,19480629,19490722
-JAC01,Mississippi,Jackson,League Park,19370422,19490726
-TUP01,Mississippi,Tupelo,19490416,19490416
-VCK01,Mississippi,Vicksburg,19490901,19490901,CLC01,Missouri,Chillicothe,Simpson Park,19490908,19490908
-CMB01,Missouri,Columbia,19370514,19370825
-HAN01,Missouri,Hannibal,19490907,19490907
-JOP01,Missouri,Joplin,Childress Field,19331010,19331010
-KAN02,Missouri,Kansas City,Association Park,19200801,19210725
-KAN04,Missouri,Kansas City,Gordon and Koppel Field,19140416,19150928
-KAN05,Missouri,Kansas City,Municipal Stadium,19230805,19721004
-KAN06,Missouri,Kansas City,Kauffman Stadium,19730410,20250921
-SPR05,Missouri,Springfield,White City Park,19370513,19410520
-STJ01,Missouri,St,Joseph,City Stadium,19390515,19490623
-STL03,Missouri,St,Louis,Sportsman's Park I,19010505,19010505
-STL05,Missouri,St,Louis,Robison Field,18980415,19200606
-STL06,Missouri,St,Louis,Sportsman's Park II,19020423,19081006
-STL07,Missouri,St,Louis,Sportsman's Park III,19090414,19660508
-STL08,Missouri,St,Louis,Handlan's Park,19140416,19151003
-STL09,Missouri,St,Louis,Busch Stadium II,19660512,20051019
-STL10,Missouri,St,Louis,Busch Stadium III,20060410,20250921
-STL11,Missouri,St,Louis,Giants Park,19201004,19210629
-STL12,Missouri,St,Louis,Stars Park,19250919,19311002
-STL13,Missouri,St,Louis,South End Park,19390514,19390727
-STL14,Missouri,St,Louis,Metropolitan Park,19370529,19370725
-UNI02,Missouri,Unionville,19370901,19370901,ARN01,Nebraska,Arlington,Fairgrounds Park,19470921,19490605
-BEA03,Nebraska,Beatrice,Athletic Park,19490630,19490630
-FLC01,Nebraska,Falls City,City Park,19490913,19490913
-GIN01,Nebraska,Grand Island,Municipal Ballpark,19490604,19490810
-HAS01,Nebraska,Hastings,Duncan Field,19490801,19490801
-KEA01,Nebraska,Kearney,Memorial Diamond,19490915,19490915
-LIN01,Nebraska,Lincoln,Sherman Field,19380914,19470924
-LIN02,Nebraska,Lincoln,Landis Yard,19390727,19390727
-NFN01,Nebraska,Norfolk,Athletic Park,19470922,19470922
-OMA01,Nebraska,Omaha,TD Ameritrade Park,20190613,20190613
-OMA02,Nebraska,Omaha,League Park,19331006,19331006
-OMA03,Nebraska,Omaha,Omaha Municipal Stadium,19490525,19490927
-OXF01,Nebraska,Oxford,Rodeo Grounds,19460814,19490914
-SUP01,Nebraska,Superior,Lincoln Park Field,19490809,19490809
-WYM01,Nebraska,Wymore,Arbor State Park,19490718,19490718,LAS01,Nevada,Las Vegas,Cashman Field,19960401,19960407,ACY01,New Jersey,Atlantic City,Inlet Park,19040901,19271021
-ACY02,New Jersey,Atlantic City,New York Avenue Field,19400823,19480521
-BEL02,New Jersey,Belmar,Belmar Memorial Field,19350525,19420630
-BRA01,New Jersey,Bradley Beach,Bradley Beach Field,19261011,19261011
-CAM01,New Jersey,Camden,Third Street and Erie Avenue Grounds,19211012,19211012
-CAM02,New Jersey,Camden,Twelfth and Federal St,19030915,19420526
-CAM04,New Jersey,Camden,Broadway,Everett St,19360602,19360609
-FAI01,New Jersey,Fairview,Fairview Park,19311004,19311011
-HAR01,New Jersey,Harrison,Harrison Field,19150416,19151003
-IRV01,New Jersey,Irvington,Ollemar Field,19350505,19350825
-JER02,New Jersey,Jersey City,Roosevelt Stadium,19410913,19570903
-MLB01,New Jersey,Millbrook,Community Center Field,19350809,19350809
-MTH01,New Jersey,Mt,Holly,19281008,19281008
-NBR01,New Jersey,New Brunswick,High School Field,19350603,19350826
-NWK01,New Jersey,Newark,Wiedenmeyer's Park,19040717,19040717
-NWK04,New Jersey,Newark,Ruppert Stadium,19360509,19490704
-PAR01,New Jersey,Parlin,19370701,19370701
-PAS01,New Jersey,Passaic,School Stadium,19350606,19350606
-PAT01,New Jersey,Paterson,Hinchliffe Stadium,19350511,19430529
-RED01,New Jersey,Red Bank,Pirates Park,19380814,19410808
-TRE01,New Jersey,Trenton,Dunn Field,19360904,19490705
-TRE02,New Jersey,Trenton,YMCA Field,19030914,19030914
-WNY01,New Jersey,West New York,West New York Field Club Grounds,18980911,18990917
-WNY02,New Jersey,West New York,Miller Stadium,19370729,19370909,ALB02,New York,Albany,Hawkins Stadium,19400602,19480814
-BEL03,New York,Belmont,19410716,19410716
-BUF04,New York,Buffalo,International Fair Association Grounds,19140511,19150908
-BUF05,New York,Buffalo,Sahlen Field,20200811,20210721
-BUF06,New York,Buffalo,Offermann Stadium,19350901,19490802
-FRE01,New York,Freeport,Freeport Stadium,19360719,19370615
-JAM01,New York,Jamestown,Celoron Baseball Park,19271010,19271010
-LIC01,New York,Long Island,Recreation Park Queens Plaza,19350527,19370612
-MID04,New York,Middletown,State Hospital Field,19350624,19390828
-NBG01,New York,Newburgh,19360608,19360622
-NIA01,New York,Niagara Falls,Hyde Park Stadium,19420604,19490801
-NYA01,New York,Nyack,Nyack Park,19360703,19360703
-NYC10,New York,New York,Polo Grounds IV,18980416,19101011
-NYC12,New York,Brooklyn,Washington Park III,18980430,19121005
-NYC13,New York,New York,Hilltop Park,19030430,19121005
-NYC14,New York,New York,Polo Grounds V,19111014,19630918
-NYC15,New York,Brooklyn,Ebbets Field,19130409,19570924
-NYC16,New York,New York,Yankee Stadium I,19230418,20080921
-NYC17,New York,New York,Shea Stadium,19640417,20080928
-NYC18,New York,Queens,Wallace's Ridgewood Park,19030913,19030913
-NYC19,New York,Brooklyn,Washington Park IV,19140511,19150930
-NYC20,New York,New York,Citi Field,20090413,20250921
-NYC21,New York,New York,Yankee Stadium II,20090416,20251008
-NYC22,New York,New York City,Olympic Field,19130718,19130720
-NYC23,New York,Brooklyn,Dexter Park,19341017,19470630
-NYC24,New York,New York,Catholic Protectory Oval,19251018,19291013
-NYC25,New York,New York,Dyckman Oval,19350602,19370907
-NYC28,New York,Brooklyn,Erasmus Field,19360907,19400704
-NYC29,New York,New York,Randalls Island,19380807,19380814
-NYC30,New York,Brooklyn,Bay Ridge Oval,19350720,19350720
-OLE01,New York,Olean,Bradner Stadium,19360609,19420527
-PGK01,New York,Poughkeepsie,Riverview Field,19360916,19370817
-PTR01,New York,Staten Island,Port Richmond,19410427,19410427
-ROC02,New York,Rochester,Culver Field II,18980827,18980829
-ROC03,New York,Rochester,Ontario Beach Grounds,18980828,18980828
-ROC04,New York,Rochester,Red Wing Stadium,19380802,19480729
-SYR04,New York,Syracuse,MacArthur Stadium,19380801,19490606,CHA03,North Carolina,Charlotte,Griffith Park,19390622,19490428
-DUR01,North Carolina,Durham,Durham Athletic Field,19400513,19400513
-FTB01,North Carolina,Fort Bragg,Fort Bragg Field,20160703,20160703
-GOL01,North Carolina,Goldsboro,19400511,19400511
-GRE03,North Carolina,Greensboro,Memorial Stadium,19440425,19460418
-RAL01,North Carolina,Raleigh,Chavis Park,19400508,19420415
-RKM01,North Carolina,Rocky Mount,Talbert Park,19480416,19480525
-WIL06,North Carolina,Wilmington,Legion Stadium,19420506,19420506
-WIL07,North Carolina,Wilson,Municipal Stadium,19350414,19400429
-WSL01,North Carolina,Winston-Salem,Soutside Park,19390624,19390624,BIS01,North Dakota,Bismarck,Bismarck Municipal Ballpark,19350616,19390723
-FAR01,North Dakota,Fargo,Barnett Field,19380713,19410722
-GFK01,North Dakota,Grand Forks,19350610,19350610
-GRA04,North Dakota,Grafton,19380717,19380717
-WAH01,North Dakota,Wahpeton,19410720,19410720,AKR01,Ohio,Akron,League Park,19300821,19450705
-CAN01,Ohio,Canton,Mahaffey Park,19020615,19030621
-CAN03,Ohio,Canton,Lakeside Park,19360726,19430529
-CIN05,Ohio,Cincinnati,League Park II,18980415,19011006
-CIN06,Ohio,Cincinnati,Palace of the Fans,19020417,19111012
-CIN07,Ohio,Cincinnati,Crosley Field,19120411,19700624
-CIN08,Ohio,Cincinnati,Cinergy Field,19700630,20020922
-CIN09,Ohio,Cincinnati,Great American Ballpark,20030331,20250925
-CLE05,Ohio,Cleveland,League Park III,18980429,19090906
-CLE06,Ohio,Cleveland,League Park IV,19100421,19490731
-CLE07,Ohio,Cleveland,Cleveland Stadium,19311004,19931003
-CLE08,Ohio,Cleveland,Progressive Field,19940404,20251002
-CLE11,Ohio,Cleveland,Kinsman Hardware Field,19310617,19310617
-CLL01,Ohio,Collinwood,Euclid Beach Park,18980612,18980619
-COL03,Ohio,Columbus,Neil Park I,19020803,19030517
-COL04,Ohio,Columbus,Neil Park II,19050723,19360920
-COL05,Ohio,Columbus,Red Bird Stadium,19350518,19490821
-DAY01,Ohio,Dayton,Fairview Park,19020608,19020608
-DAY03,Ohio,Dayton,Hudson Field,19350731,19490909
-DEF01,Ohio,Defiance,Kingsbury Park,19420618,19420618
-FIN01,Ohio,Findlay,Ohio State League Park,19420617,19420617
-LIM01,Ohio,Lima,Halloran Park,19390620,19480610
-MID02,Ohio,Middletown,19370812,19450607
-NCO01,Ohio,North Canton,Memorial Stadium,19490708,19490708
-NOR03,Ohio,Norwalk,Keller Field,19390806,19440822
-NWO01,Ohio,Newark,Arnold Park,19480722,19490707
-PAI01,Ohio,Painesville,19390513,19390513
-POR02,Ohio,Portsmouth,Riverside Park,19360916,19410813
-SPR04,Ohio,Springfield,Municipal Stadium,19360910,19490503
-STM01,Ohio,St,Marys,19450721,19450721
-TOL04,Ohio,Toledo,Armory Park,19030628,19030816
-TOL05,Ohio,Toledo,Swayne Field,19350508,19480822
-WAR02,Ohio,Warren,Fairgrounds Park,19400603,19400603
-YOU01,Ohio,Youngtown,Idora Park,19261003,19480901
-ZAN01,Ohio,Zanesville,Mark Park,19350521,19380728
-ZAN02,Ohio,Zanesville,Municipal Stadium,19410718,19490614,MUS01,Oklahoma,Muskogee,Athletic Park,19350422,19490922
-OKC01,Oklahoma,Oklahoma City,Holland Field,19331011,19420923
-OKC02,Oklahoma,Oklahoma City,Texas League Park,19350423,19490613
-SHW01,Oklahoma,Shawnee,Athletic Park,19400814,19400814
-TUL01,Oklahoma,Tulsa,Texas League Park,19390504,19490601
-TUL02,Oklahoma,Tulsa,Fairgrounds Park,19350424,19350424,ALT01,Pennsylvania,Altoona,Columbia Park,19360624,19450813
-ALT02,Pennsylvania,Altoona,Cricket Field,19320930,19480512
-BAN01,Pennsylvania,Bangor,19480825,19480825
-BEA02,Pennsylvania,Beaver Falls,19350514,19410519
-BLO01,Pennsylvania,Bloomsburg,Bloomsburg Fair Grounds,19261006,19261008
-BUT01,Pennsylvania,Butler,19281011,19420817
-CAR01,Pennsylvania,Carlisle,Biddle Field,19350711,19350719
-CHA02,Pennsylvania,Chambersburg,Henninger Field,19370622,19420525
-CHE01,Pennsylvania,Chester,Lloyd Field,19380601,19490607
-CHE02,Pennsylvania,Chester,Elks Park,19370602,19380606
-CHE03,Pennsylvania,Chester,Felton Field,19350513,19360722
-CLP01,Pennsylvania,Clearfield,Driving Park,19360831,19360831
-CRL01,Pennsylvania,Charleroi,19350812,19350812
-DAR01,Pennsylvania,Darby,Hilldale Park,19210905,19311010
-ERI01,Pennsylvania,Erie,Ainsworth Field,19360725,19470709
-GRE04,Pennsylvania,Greensburg,Offutt Field,19380702,19390724
-HOM01,Pennsylvania,Homestead,Municipal Field,19390909,19390909
-HOP02,Pennsylvania,Hopewell,19370521,19370521
-HRB01,Pennsylvania,Harrisburg,Island Park,19030918,19480519
-JOH01,Pennsylvania,Johnstown,Point Grounds,19271005,19400805
-KNP01,Pennsylvania,Kane,Glenwood Field,19410830,19410830
-LAN01,Pennsylvania,Lancaster,Stumpf Field,19380811,19460826
-MCK01,Pennsylvania,McKeesport,Cycler Park,19350706,19410521
-MEA01,Pennsylvania,Meadville,19420530,19470813
-MID03,Pennsylvania,Middletown,Grandview Park Field,19360807,19380730
-MNC01,Pennsylvania,Monaca,19360528,19360528
-MNH01,Pennsylvania,Munhall,West Field,19480515,19480515
-MSN01,Pennsylvania,Monessen,Tin Plate Field,19380516,19400806
-NBE01,Pennsylvania,North Bethlehem,19480521,19480521
-NWC01,Pennsylvania,New Castle,P.J,Flaherty Memorial Field,19480611,19490726
-OIL01,Pennsylvania,Oil City,Ramage-Hasson Field,19420819,19430718
-PHI09,Pennsylvania,Philadelphia,Baker Bowl,18980416,19380630
-PHI10,Pennsylvania,Philadelphia,Columbia Park,19010426,19081003
-PHI11,Pennsylvania,Philadelphia,Shibe Park,19090412,19701001
-PHI12,Pennsylvania,Philadelphia,Veterans Stadium,19710410,20030928
-PHI13,Pennsylvania,Philadelphia,Citizens Bank Park,20040412,20251006
-PHI16,Pennsylvania,Philadelphia,Passon Park,19340911,19380619
-PHI17,Pennsylvania,Philadelphia,44th and Parkside,19350511,19470823
-PHI19,Pennsylvania,Philadelphia,Bigler Park,19300925,19300926
-PIT05,Pennsylvania,Pittsburgh,Exposition Park III,18980429,19151002
-PIT06,Pennsylvania,Pittsburgh,Forbes Field,19090630,19700628
-PIT07,Pennsylvania,Pittsburgh,Three Rivers Stadium,19700716,20001001
-PIT08,Pennsylvania,Pittsburgh,PNC Park,20010409,20250921
-PIT09,Pennsylvania,Pittsburgh,Greenlee Field,19320708,19380716
-PPB01,Pennsylvania,Philipsburgh,19281009,19380528
-SCP01,Pennsylvania,State College,Bellefonte Community Athletic Field,19380517,19380622
-SCR01,Pennsylvania,Scranton,Dunmore Stadium,19420617,19420731
-SHA01,Pennsylvania,Sharon,Sharon Park,19281007,19281007
-SUN01,Pennsylvania,Sunbury,Memorial Park,19470604,19470604
-UNI01,Pennsylvania,Uniontown,Elks Park,19271007,19470523
-VAN01,Pennsylvania,Vandergrift,19480513,19480513
-WAP01,Pennsylvania,Washington,Wash-High Fied,19410902,19440913
-WAR03,Pennsylvania,Warren,Russell Field,19390727,19400627
-WIL02,Pennsylvania,Williamsport,BB&T Ballpark at Bowman Field,20170820,20250817
-WIL05,Pennsylvania,Williamsport,19430619,19430619
-YOR01,Pennsylvania,York,Eagles Park,19320927,19351014
-YOR02,Pennsylvania,York,Memorial Stadium,19460509,19480518
-YOR03,Pennsylvania,West York,Martin-Perry Field,19370715,19450820,SJU01,Puerto Rico,San Juan,Estadio Hiram Bithorn,20010401,20180418,WAR01,Rhode Island,Warwick,Rocky Point Park,19030906,19030906,BST01,Tennessee,Bristol,Bristol Motor Speedway,20250802,20250802
-CHT01,Tennessee,Chattanooga,Engel Stadium,19370809,19490618
-JAC02,Tennessee,Jackson,Lakeview Park,19380417,19490716
-KNO01,Tennessee,Knoxville,Caswell Park,19440804,19480507
-MEM01,Tennessee,Memphis,Lewis Athletic Park,19250829,19250829
-MEM02,Tennessee,Memphis,Martin Stadium,19370411,19490905
-MEM03,Tennessee,Memphis,Russwood Park,19350929,19461006
-NSH01,Tennessee,Nashville,Tom Wilson Park,19490417,19490417
-NSH02,Tennessee,Nashville,Sulphur Dell,19320918,19490818,ARL01,Texas,Arlington,Arlington Stadium,19720421,19931003
-ARL02,Texas,Arlington,Rangers Ballpark in Arlington,19940411,20190929
-ARL03,Texas,Arlington,Globe Life Field in Arlington,20200724,20250925
-AUS01,Texas,Austin,Disch Field,19470929,19490712
-BEA01,Texas,Beaumont,Stuart Stadium,19440430,19490520
-COR01,Texas,Corpus Christi,Firemens Ball Park,19460407,19460414
-DAL01,Texas,Dallas,Rebel Stadium,19390430,19480430
-DAL02,Texas,Dallas,Burnett Field,19380424,19490713
-FTW01,Texas,Fort Worth,La Grave Field,19400416,19480531
-GAL01,Texas,Galveston,Moody Stadium,19370412,19400430
-HOU01,Texas,Houston,Colt Stadium,19620410,19640927
-HOU02,Texas,Houston,Astrodome,19650412,19991009
-HOU03,Texas,Houston,Minute Maid Park,20000407,20250921
-HOU04,Texas,Houston,Buffalo Stadium,19380410,19490928
-HOU06,Texas,Houston,West End Park,19370413,19370429
-MRT01,Texas,Marshall,Matthewson Park,19380422,19390429
-PTA01,Texas,Port Arthur,Legion Park,19400729,19420416
-PTX01,Texas,Paris,Binnion Park,19410421,19460618
-SAT01,Texas,San Antonio,Mission Stadium,19470928,19490926
-SAT02,Texas,San Antonio,Tech Field,19440419,19460424
-TEX01,Texas,Texarkana,19380420,19390427
-WAC01,Texas,Waco,Katy Park,19380426,19490426
-WFL01,Texas,Wichita Falls,Spudder Field,19410711,19490519,DAN02,Virginia,Danville,Peters Park,19450621,19470429
-NOR01,Virginia,Norfolk,High Rock Park,19430424,19470507
-NOR02,Virginia,Norfolk,Tar Park,19400512,19490919
-NOR05,Virginia,Norfolk,Bain Field,19390625,19390625
-NPN01,Virginia,Newport News,Builders Stadium,19410710,19470506
-NPN02,Virginia,Newport News,Pensinsula War Memorial Stadium,19490816,19490914
-PET01,Virginia,Petersburg,19490608,19490817
-POR01,Virginia,Portsmouth,City Stadium,19400506,19490817
-RIC01,Virginia,Richmond,Richmond Fair Grounds,19460701,19460701
-RIC03,Virginia,Richmond,Tate Field,19270509,19470507
-RIC04,Virginia,Richmond,Mooers Field,19410512,19470425
-RIC05,Virginia,Richmond,Mayo Island,19390619,19390901,SEA01,Washington,Seattle,Sick's Stadium,19690411,19691002
-SEA02,Washington,Seattle,Kingdome,19770406,19990627
-SEA03,Washington,Seattle,Safeco Field,19990715,20251017,BEC01,West Virginia,Beckley,RMI Park,19350528,19380727
-BLU01,West Virginia,Bluefield,Blakely Field,19380907,19380907
-CHA01,West Virginia,Charleston,Kanawha Park,19360727,19490717
-FMT01,West Virginia,Fairmont,19281008,19370731
-HUN02,West Virginia,Huntington,19420518,19420518
-WHE02,West Virginia,Wheeling,Holloway Memorial Park,19390518,19390518,APP01,Wisconsin,Appleton,Spencer Park,19430807,19430807
-EAU01,Wisconsin,Eau Claire,Carson Park,19400724,19490810
-GBW01,Wisconsin,Green Bay,Joannes Park,19450717,19450717
-LCR01,Wisconsin,LaCrosse,Copeland Park,19490911,19490911
-MIL03,Wisconsin,Milwaukee,Athletic Park,19350707,19490901
-MIL04,Wisconsin,Milwaukee,Lloyd Street Grounds,19010503,19010912
-MIL05,Wisconsin,Milwaukee,County Stadium,19530414,20000928
-MIL06,Wisconsin,Milwaukee,Miller Park,20010406,20251014
-OSH01,Wisconsin,Oshkosh,Municipal Athletic Field,19410911,19410911
-RAC01,Wisconsin,Racine,Horlick Field,19440831,19450914,SYD01,Australia,Sydney,Sydney Cricket Ground,20140322,20140323,Canada,BRA02,Manitoba,Brandon,19380720,19380720
-PLP01,Manitoba,Portage La Prairie,Island Park,19380719,19380719
-WIN01,Manitoba,Winnipeg,Osborne Stadium,19350606,19430811,HAM02,Ontario,Hamilton,19430617,19440710
-STC02,Ontario,St,Catherines,Sports Park,19480907,19480907
-TOR01,Ontario,Toronto,Exhibition Stadium,19770407,19890528
-TOR02,Ontario,Toronto,Rogers Centre,19890605,20251101,MON01,Quebec,Montreal,Parc Jarry,19690414,19760926
-MON02,Quebec,Montreal,Stade Olympique,19770415,20040929,REG01,Saskatchewan,Regina,Park de Young,19380721,19390721,LON01,England,London,London Stadium,20190629,20240609,TOK01,Japan,Tokyo,Tokyo Dome,20000329,20250319,MEX01,Mexico,Mexico City,19351025,19351027
-MEX02,Mexico,Mexico City,Estadio Alfredo Harp Helu,20230429,20240428
-MNT01,Mexico,Monterrey,Estadio Monterrey,19960816,20190505,SEO01,South Korea,Seoul,Gocheok Sky Dome,20240320,20240321
+ID,Country,State,City,Park Name,First,Last
+ANN01,United States,Alabama,Anniston,,19400517,19410729
+AXC01,United States,Alabama,Alexander City,,19480505,19490330
+BIR01,United States,Alabama,Birmingham,Rickwood Field,19270919,20240620
+DCA01,United States,Alabama,Decatur,Legion Field,19490818,19490921
+DOT01,United States,Alabama,Dothan,Wiregrass Stadium,19480624,19480624
+GAD01,United States,Alabama,Gadsden,,19350422,19460624
+HUN01,United States,Alabama,Huntsville,Lincoln Park,19460807,19480515
+LEE01,United States,Alabama,Leeds,,19380820,19380903
+MOB01,United States,Alabama,Mobile,,19490403,19490403
+MTG01,United States,Alabama,Montgomery,Cramton Bowl,19390803,19490929
+OZA01,United States,Alabama,Ozark,,19490401,19490401
+SEL01,United States,Alabama,Selma,Rowell Field,19390428,19390621
+TUS01,United States,Alabama,Tuscaloosa,Alberta Park,19480726,19490714
+ELD01,United States,Arkansas,El Dorado,,19400502,19400502
+FTS01,United States,Arkansas,Fort Smith,,19480514,19480514
+HEL01,United States,Arkansas,Helena,,19490905,19490905
+HSP01,United States,Arkansas,Hot Springs,,19490505,19490628
+JON01,United States,Arkansas,Jonesboro,,19410514,19490712
+LRK01,United States,Arkansas,Little Rock,Crump Park,19380805,19390922
+LRK02,United States,Arkansas,Little Rock,Travelers Field,19380511,19490729
+MRA01,United States,Arkansas,Marianna,,19380516,19380516
+PBL01,United States,Arkansas,Pine Bluff,,19400712,19420702
+PHO01,United States,Arizona,Phoenix,Chase Field,19980331,20250925
+ANA01,United States,California,Anaheim,Angel Stadium of Anaheim,19660419,20250928
+BAK01,United States,California,Bakersfield,Sam Lynn Park,19461023,19461023
+LGB01,United States,California,Long Beach,Recreation Park,19431017,19431017
+LOS01,United States,California,Los Angeles,Los Angeles Memorial Coliseum,19580418,19610920
+LOS02,United States,California,Los Angeles,Wrigley Field,19301029,19611001
+LOS03,United States,California,Los Angeles,Dodger Stadium,19620410,20251029
+LOS04,United States,California,Los Angeles,Gilmore Field,19391008,19431107
+LOS05,United States,California,Los Angeles,White Sox Park,19251024,19441022
+OAK01,United States,California,Oakland,Oakland-Alameda County Coliseum,19680417,20240926
+OAK02,United States,California,Oakland,Oaks Park,19471016,19471016
+SAC01,United States,California,Sacramento,,20250331,20250928
+SAN01,United States,California,San Diego,Qualcomm Stadium,19690408,20030928
+SAN02,United States,California,San Diego,Petco Park,20040408,20250928
+SAN03,United States,California,San Diego,Lane Field,19421122,19481025
+SFO01,United States,California,San Francisco,Seals Stadium,19441015,19590920
+SFO02,United States,California,San Francisco,Candlestick Park,19600412,19990930
+SFO03,United States,California,San Francisco,Oracle Park,20000411,20250928
+DEN01,United States,Colorado,Denver,Mile High Stadium,19930409,19940811
+DEN02,United States,Colorado,Denver,Coors Field,19950426,20250921
+DEN03,United States,Colorado,Denver,Merchants Park,19361004,19480824
+BRI01,United States,Connecticut,Bridgeport,Candlelite Stadium,19400723,19490602
+HAR02,United States,Connecticut,Hartford,Bulkeley Stadium,19360810,19420914
+STA01,United States,Connecticut,Stamford,Mitchell Field,19470503,19470701
+WAS06,United States,D.C,Washington,Boundary Field,18980418,18991014
+WAS07,United States,D.C,Washington,American League Park I,19010429,19030928
+WAS08,United States,D.C,Washington,American League Park II,19040414,19101006
+WAS09,United States,D.C,Washington,Griffith Stadium,19110412,19610921
+WAS10,United States,D.C,Washington,Robert F Kennedy Stadium,19620409,20070923
+WAS11,United States,D.C,Washington,Nationals Park,20080330,20250928
+WIL03,United States,Delaware,Wilmington,Harlan Field,19211010,19261001
+WIL04,United States,Delaware,Wilmington,Wilmington Park,19370518,19490815
+WIL08,United States,Delaware,Wilmington,Pennsy Field,19360514,19390724
+DTB01,United States,Florida,Daytona Beach,Cypress Street Park,19380408,19380408
+DUN01,United States,Florida,Dunedin,TD Ballpark,20210408,20210524
+JKV01,United States,Florida,Jacksonville,Red Cap Stadium,19370329,19410702
+LBV01,United States,Florida,Lake Buena Vista,The Ballpark at Disney's Wide World,20070515,20080424
+MIA01,United States,Florida,Miami,Sun Life Stadium,19930405,20110928
+MIA02,United States,Florida,Miami,Marlins Park,20120404,20250928
+ORL01,United States,Florida,Orlando,,19390405,19410409
+PAL01,United States,Florida,Palatka,,19390408,19390408
+STP01,United States,Florida,St Petersburg,Tropicana Field,19980331,20240922
+TAM01,United States,Florida,Tampa,Plant Field,19410614,19410614
+TAM02,United States,Florida,Tampa,George M Steinbrenner Field,20250328,20250921
+ALB03,United States,Georgia,Albany,,19370512,19370512
+ATH01,United States,Georgia,Athens,,19360417,19360422
+ATL01,United States,Georgia,Atlanta,Atlanta-Fulton County Stadium,19660412,19961024
+ATL02,United States,Georgia,Atlanta,Turner Field,19970404,20161002
+ATL03,United States,Georgia,Atlanta,Truist Park,20170414,20250928
+ATL04,United States,Georgia,Atlanta,Ponce de Leon Park,19360413,19490509
+ATL05,United States,Georgia,Atlanta,Harper Field,19400331,19460421
+ATL06,United States,Georgia,Atlanta,Booker T Washington High School Field,19380528,19380528
+COL06,United States,Georgia,Columbus,Golden Park,19490622,19490816
+ELB01,United States,Georgia,Elberton,,19380509,19380613
+GRI01,United States,Georgia,Griffin,,19390419,19390419
+MAC01,United States,Georgia,Macon,Luther Williams Park,19380829,19410417
+HON01,United States,Hawai'i,Honolulu,Aloha Stadium,19970419,19970420
+BEL01,United States,Illinois,Belleville,Belleville Athletic Field,19370720,19490617
+CAI01,United States,Illinois,Cairo,,19390728,19490526
+CAN04,United States,Illinois,Canton,,19430721,19430721
+CEN01,United States,Illinois,Centralia,Fans Field,19480521,19490621
+CHI08,United States,Illinois,Chicago,West Side Grounds,18980429,19151003
+CHI09,United States,Illinois,Chicago,South Side Park III,19010424,19400908
+CHI10,United States,Illinois,Chicago,Comiskey Park I,19100701,19900930
+CHI11,United States,Illinois,Chicago,Wrigley Field,19140423,20251009
+CHI12,United States,Illinois,Chicago,Guaranteed Rate Field;U.S. Cellular Field,19910418,20250921
+CHI15,United States,Illinois,Chicago,Mills Stadium,19341014,19350806
+CHI16,United States,Illinois,Chicago,Shrewbridge Field,19350505,19380711
+DAN01,United States,Illinois,Danville,Garfield Stadium,19410808,19490630
+DCT01,United States,Illinois,Decatur,Staley Field,19210716,19210716
+DCT02,United States,Illinois,Decatur,Fans Field,19370714,19490622
+GLK01,United States,Illinois,Great Lakes,Great Lakes Naval Training Station,19430807,19430807
+KEW01,United States,Illinois,Kewanee,Northeast Park,19430629,19430805
+LSL01,United States,Illinois,LaSalle,,19440821,19440821
+MAT01,United States,Illinois,Mattoon,Indians Park,19490620,19490620
+MET01,United States,Illinois,Metropolis,,19390728,19390728
+MOU01,United States,Illinois,Mounds,,19380529,19390813
+MTV01,United States,Illinois,Mt Vernon,Veterans Park,19490526,19490526
+PEO01,United States,Illinois,Peoria,,19370721,19370721
+PER01,United States,Illinois,Peru,Washington Park,19410826,19430810
+RCK02,United States,Illinois,Rockford,Rox Park,19490906,19490906
+SPA01,United States,Illinois,Sparta,,19400717,19400717
+SPR02,United States,Illinois,Springfield,Reservoir Park,19291017,19291017
+SPR03,United States,Illinois,Springfield,Lanphier Park,19390621,19480901
+SPR07,United States,Illinois,Springfield,Fitzpatrick Stadium,19490627,19490627
+URB01,United States,Illinois,Urbana,Illinois Field,19450915,19450915
+WFI01,United States,Illinois,West Frankfort,Memorial Stadium,19480616,19490628
+EVA01,United States,Indiana,Evansville,Bosse Field,19390714,19390714
+FOR03,United States,Indiana,Fort Wayne,Jailhouse Flats,19020622,19020831
+FOR04,United States,Indiana,Fort Wayne,State School Diamond,19400617,19430811
+FOR05,United States,Indiana,Fort Wayne,Dwenger Park,19440511,19440511
+GAR01,United States,Indiana,Gary,,19390819,19390819
+HAM01,United States,Indiana,Hammond,Turner Field,19410625,19440901
+IND07,United States,Indiana,Indianapolis,Federal League Park,19140423,19141008
+IND09,United States,Indiana,Indianapolis,Northwestern Park,19150509,19150509
+IND10,United States,Indiana,Indianapolis,Victory Field,19360826,19490820
+IND11,United States,Indiana,Indianapolis,Washington Park,19210424,19210509
+KOK01,United States,Indiana,Kokomo,Athletic Park,19220726,19220726
+KOK02,United States,Indiana,Kokomo,Highland Park,19430729,19490824
+MUN02,United States,Indiana,Muncie,McCullough Park,19420716,19490822
+RCI01,United States,Indiana,Richmond,Municipal Stadium,19360911,19490907
+SBD01,United States,Indiana,South Bend,Lippincott Park,19360824,19460708
+TER01,United States,Indiana,Terre Haute,,19410702,19440713
+CBI01,United States,Iowa,Council Bluffs,American Legion Park,19460723,19480707
+CED01,United States,Iowa,Cedar Rapid,Hill Park,19371007,19490607
+DAV01,United States,Iowa,Davenport,Municipal Stadium,19361001,19490608
+DAV02,United States,Iowa,Davenport,Milan Park,19470918,19470918
+DES01,United States,Iowa,Des Moines,League Park,19361002,19400610
+DES02,United States,Iowa,Des Moines,Pioneer Memorial Park,19470730,19490721
+DYE01,United States,Iowa,Dyersville,Field of Dreams,20210812,20220811
+FDI01,United States,Iowa,Fort Dodge,,19480812,19480812
+SCI01,United States,Iowa,Sioux City,Soos Park,19470818,19490606
+SCI02,United States,Iowa,Sioux City,Yards Park,19390710,19390710
+ATC01,United States,Kansas,Atchison,,19490920,19490920
+CHN01,United States,Kansas,Chanute,,19370830,19380816
+EMP01,United States,Kansas,Emporia,Summers Field,19350427,19350427
+JNC01,United States,Kansas,Junction City,Rathert Field,19370902,19410602
+KCK01,United States,Kansas,Kansas City,Ward Field,19380802,19380802
+MAN01,United States,Kansas,Manhattan,Griffith Field,19370727,19390708
+MYV01,United States,Kansas,Marysville,Marysville Ball Park,19370831,19370831
+PTK01,United States,Kansas,Pittsburg,,19460828,19490725
+TOP01,United States,Kansas,Topeka,Owl Park,19390512,19420715
+WIC01,United States,Kansas,Wichita,Lawrence Field,19350425,19490620
+BGK01,United States,Kentucky,Bowling Green,Dixie Park,19350508,19360711
+COV02,United States,Kentucky,Covington,Covington Park,19400810,19400810
+FUL01,United States,Kentucky,Fulton,Fairfield Kitty League Park,19390707,19390707
+HOP01,United States,Kentucky,Hopkinsville,,19430624,19430624
+LEX01,United States,Kentucky,Lexington,Blue Grass Field,19480514,19490526
+LOU03,United States,Kentucky,Louisville,Eclipse Park II,18980415,18990802
+LOU04,United States,Kentucky,Louisville,Eclipse Park III,18990822,18990902
+LOU05,United States,Kentucky,Louisville,Parkway Field,19360710,19490704
+OWE01,United States,Kentucky,Owensboro,Miller Field,19400531,19410617
+ALE01,United States,Louisiana,Alexandria,,19370427,19370427
+BAT01,United States,Louisiana,Baton Rouge,,19370412,19490419
+BOG01,United States,Louisiana,Bogalusa,,19420408,19420408
+HML01,United States,Louisiana,Hammond,,19410410,19410410
+HOU05,United States,Louisiana,Houma,,19400726,19400726
+LKC01,United States,Louisiana,Lake Charles,,19410514,19410514
+MNL01,United States,Louisiana,Monroe,Casino Park,19370418,19490719
+NOL01,United States,Louisiana,New Orleans,Pelican Stadium,19350428,19490831
+NOL02,United States,Louisiana,New Orleans,Lincoln Park,19370414,19370425
+SHR01,United States,Louisiana,Shreveport,Texas League Park,19410416,19490418
+TAL01,United States,Louisiana,Tallulah,Fair Grounds Park,19370419,19370419
+BAL07,United States,Maryland,Baltimore,Oriole Park III,18980416,18991010
+BAL09,United States,Maryland,Baltimore,Oriole Park IV,19010426,19020929
+BAL10,United States,Maryland,Baltimore,Terrapin Park,19140413,19420510
+BAL11,United States,Maryland,Baltimore,Memorial Stadium,19540415,19911006
+BAL12,United States,Maryland,Baltimore,Oriole Park at Camden Yards,19920406,20250925
+BAL13,United States,Maryland,Baltimore,Maryland Park,19240803,19311025
+BAL14,United States,Maryland,Baltimore,Bugle Field,19321009,19490918
+CAM03,United States,Maryland,Cambridge,,19360512,19400822
+CUM01,United States,Maryland,Cumberland,,19370724,19380605
+EAS01,United States,Maryland,Easton,Federal Park,19390725,19390725
+HAG01,United States,Maryland,Hagerstown,Municipal Stadium,19350523,19460606
+NOR04,United States,Maryland,Norbeck,Norbeck Park,19410719,19410719
+SBY01,United States,Maryland,Salisbury,Memorial Field,19390726,19460605
+BOS05,United States,Massachusetts,Boston,South End Grounds III,18980419,19140811
+BOS06,United States,Massachusetts,Boston,Huntington Avenue Baseball Grounds,19010508,19111007
+BOS07,United States,Massachusetts,Boston,Fenway Park,19120420,20250928
+BOS08,United States,Massachusetts,Boston,Braves Field,19150818,19520921
+SPR06,United States,Massachusetts,Springfield,Pynchon Park,19400527,19400527
+BCK01,United States,Michigan,Battle Creek,Bailey Park,19490710,19490710
+BHM01,United States,Michigan,Benton Harbor,Colony Park,19470702,19470702
+DET02,United States,Michigan,Detroit,Bennett Park,19010425,19110910
+DET03,United States,Michigan,Detroit,Burns Park,19010428,19020907
+DET04,United States,Michigan,Detroit,Tiger Stadium,19120420,19990927
+DET05,United States,Michigan,Detroit,Comerica Park,20000411,20251008
+DET06,United States,Michigan,Detroit,Hamtramck Stadium,19300827,19370816
+DET07,United States,Michigan,Detroit,Mack Park,19210507,19280729
+DET08,United States,Michigan,Detroit,Dequindre Park,19480610,19480617
+DET09,United States,Michigan,Detroit,Sandlotters Field,19350831,19350831
+FLI01,United States,Michigan,Flint,Atwood Stadium,19450723,19470811
+GRA01,United States,Michigan,Grand Rapids,Ramona Park,19030524,19030524
+GRA02,United States,Michigan,Grand Rapids,Bigelow Field,19420901,19460529
+GRA03,United States,Michigan,Grand Rapids,Lamar Park,19440718,19440718
+MIN02,United States,Minnesota,Bloomington,Metropolitan Stadium,19610421,19810930
+MIN03,United States,Minnesota,Minneapolis,Hubert H Humphrey Metrodome,19820406,20091011
+MIN04,United States,Minnesota,Minneapolis,Target Field,20100412,20250921
+MIN05,United States,Minnesota,Minneapolis,Nicollet Park,19430808,19430812
+STC01,United States,Minnesota,St Cloud,Rox Park,19470728,19470728
+STP02,United States,Minnesota,St Paul,Lexington Park,19380712,19490809
+WIN02,United States,Minnesota,Winona,Gabrych Park,19490831,19490831
+CLA01,United States,Mississippi,Clarksdale,,19380608,19480520
+COL07,United States,Mississippi,Columbus,,19490725,19490803
+GRE01,United States,Mississippi,Greenville,Sportsmans Park,19390607,19490911
+GRE02,United States,Mississippi,Greenwood,,19480629,19490722
+JAC01,United States,Mississippi,Jackson,League Park,19370422,19490726
+TUP01,United States,Mississippi,Tupelo,,19490416,19490416
+VCK01,United States,Mississippi,Vicksburg,,19490901,19490901
+CLC01,United States,Missouri,Chillicothe,Simpson Park,19490908,19490908
+CMB01,United States,Missouri,Columbia,,19370514,19370825
+HAN01,United States,Missouri,Hannibal,,19490907,19490907
+JOP01,United States,Missouri,Joplin,Childress Field,19331010,19331010
+KAN02,United States,Missouri,Kansas City,Association Park,19200801,19210725
+KAN04,United States,Missouri,Kansas City,Gordon and Koppel Field,19140416,19150928
+KAN05,United States,Missouri,Kansas City,Municipal Stadium,19230805,19721004
+KAN06,United States,Missouri,Kansas City,Kauffman Stadium,19730410,20250921
+SPR05,United States,Missouri,Springfield,White City Park,19370513,19410520
+STJ01,United States,Missouri,St Joseph,City Stadium,19390515,19490623
+STL03,United States,Missouri,St Louis,Sportsman's Park I,19010505,19010505
+STL05,United States,Missouri,St Louis,Robison Field,18980415,19200606
+STL06,United States,Missouri,St Louis,Sportsman's Park II,19020423,19081006
+STL07,United States,Missouri,St Louis,Sportsman's Park III,19090414,19660508
+STL08,United States,Missouri,St Louis,Handlan's Park,19140416,19151003
+STL09,United States,Missouri,St Louis,Busch Stadium II,19660512,20051019
+STL10,United States,Missouri,St Louis,Busch Stadium III,20060410,20250921
+STL11,United States,Missouri,St Louis,Giants Park,19201004,19210629
+STL12,United States,Missouri,St Louis,Stars Park,19250919,19311002
+STL13,United States,Missouri,St Louis,South End Park,19390514,19390727
+STL14,United States,Missouri,St Louis,Metropolitan Park,19370529,19370725
+UNI02,United States,Missouri,Unionville,,19370901,19370901
+ARN01,United States,Nebraska,Arlington,Fairgrounds Park,19470921,19490605
+BEA03,United States,Nebraska,Beatrice,Athletic Park,19490630,19490630
+FLC01,United States,Nebraska,Falls City,City Park,19490913,19490913
+GIN01,United States,Nebraska,Grand Island,Municipal Ballpark,19490604,19490810
+HAS01,United States,Nebraska,Hastings,Duncan Field,19490801,19490801
+KEA01,United States,Nebraska,Kearney,Memorial Diamond,19490915,19490915
+LIN01,United States,Nebraska,Lincoln,Sherman Field,19380914,19470924
+LIN02,United States,Nebraska,Lincoln,Landis Yard,19390727,19390727
+NFN01,United States,Nebraska,Norfolk,Athletic Park,19470922,19470922
+OMA01,United States,Nebraska,Omaha,TD Ameritrade Park,20190613,20190613
+OMA02,United States,Nebraska,Omaha,League Park,19331006,19331006
+OMA03,United States,Nebraska,Omaha,Omaha Municipal Stadium,19490525,19490927
+OXF01,United States,Nebraska,Oxford,Rodeo Grounds,19460814,19490914
+SUP01,United States,Nebraska,Superior,Lincoln Park Field,19490809,19490809
+WYM01,United States,Nebraska,Wymore,Arbor State Park,19490718,19490718
+LAS01,United States,Nevada,Las Vegas,Cashman Field,19960401,19960407
+ACY01,United States,New Jersey,Atlantic City,Inlet Park,19040901,19271021
+ACY02,United States,New Jersey,Atlantic City,New York Avenue Field,19400823,19480521
+BEL02,United States,New Jersey,Belmar,Belmar Memorial Field,19350525,19420630
+BRA01,United States,New Jersey,Bradley Beach,Bradley Beach Field,19261011,19261011
+CAM01,United States,New Jersey,Camden,Third Street and Erie Avenue Grounds,19211012,19211012
+CAM02,United States,New Jersey,Camden,Twelfth and Federal St,19030915,19420526
+CAM04,United States,New Jersey,Camden,Broadway Everett St,19360602,19360609
+FAI01,United States,New Jersey,Fairview,Fairview Park,19311004,19311011
+HAR01,United States,New Jersey,Harrison,Harrison Field,19150416,19151003
+IRV01,United States,New Jersey,Irvington,Ollemar Field,19350505,19350825
+JER02,United States,New Jersey,Jersey City,Roosevelt Stadium,19410913,19570903
+MLB01,United States,New Jersey,Millbrook,Community Center Field,19350809,19350809
+MTH01,United States,New Jersey,Mt,Holly,19281008,19281008
+NBR01,United States,New Jersey,New Brunswick,High School Field,19350603,19350826
+NWK01,United States,New Jersey,Newark,Wiedenmeyer's Park,19040717,19040717
+NWK04,United States,New Jersey,Newark,Ruppert Stadium,19360509,19490704
+PAR01,United States,New Jersey,Parlin,,19370701,19370701
+PAS01,United States,New Jersey,Passaic,School Stadium,19350606,19350606
+PAT01,United States,New Jersey,Paterson,Hinchliffe Stadium,19350511,19430529
+RED01,United States,New Jersey,Red Bank,Pirates Park,19380814,19410808
+TRE01,United States,New Jersey,Trenton,Dunn Field,19360904,19490705
+TRE02,United States,New Jersey,Trenton,YMCA Field,19030914,19030914
+WNY01,United States,New Jersey,West New York,West New York Field Club Grounds,18980911,18990917
+WNY02,United States,New Jersey,West New York,Miller Stadium,19370729,19370909
+ALB02,United States,New York,Albany,Hawkins Stadium,19400602,19480814
+BEL03,United States,New York,Belmont,,19410716,19410716
+BUF04,United States,New York,Buffalo,International Fair Association Grounds,19140511,19150908
+BUF05,United States,New York,Buffalo,Sahlen Field,20200811,20210721
+BUF06,United States,New York,Buffalo,Offermann Stadium,19350901,19490802
+FRE01,United States,New York,Freeport,Freeport Stadium,19360719,19370615
+JAM01,United States,New York,Jamestown,Celoron Baseball Park,19271010,19271010
+LIC01,United States,New York,Long Island,Recreation Park Queens Plaza,19350527,19370612
+MID04,United States,New York,Middletown,State Hospital Field,19350624,19390828
+NBG01,United States,New York,Newburgh,,19360608,19360622
+NIA01,United States,New York,Niagara Falls,Hyde Park Stadium,19420604,19490801
+NYA01,United States,New York,Nyack,Nyack Park,19360703,19360703
+NYC10,United States,New York,New York,Polo Grounds IV,18980416,19101011
+NYC12,United States,New York,Brooklyn,Washington Park III,18980430,19121005
+NYC13,United States,New York,New York,Hilltop Park,19030430,19121005
+NYC14,United States,New York,New York,Polo Grounds V,19111014,19630918
+NYC15,United States,New York,Brooklyn,Ebbets Field,19130409,19570924
+NYC16,United States,New York,New York,Yankee Stadium I,19230418,20080921
+NYC17,United States,New York,New York,Shea Stadium,19640417,20080928
+NYC18,United States,New York,Queens,Wallace's Ridgewood Park,19030913,19030913
+NYC19,United States,New York,Brooklyn,Washington Park IV,19140511,19150930
+NYC20,United States,New York,New York,Citi Field,20090413,20250921
+NYC21,United States,New York,New York,Yankee Stadium II,20090416,20251008
+NYC22,United States,New York,New York City,Olympic Field,19130718,19130720
+NYC23,United States,New York,Brooklyn,Dexter Park,19341017,19470630
+NYC24,United States,New York,New York,Catholic Protectory Oval,19251018,19291013
+NYC25,United States,New York,New York,Dyckman Oval,19350602,19370907
+NYC28,United States,New York,Brooklyn,Erasmus Field,19360907,19400704
+NYC29,United States,New York,New York,Randalls Island,19380807,19380814
+NYC30,United States,New York,Brooklyn,Bay Ridge Oval,19350720,19350720
+OLE01,United States,New York,Olean,Bradner Stadium,19360609,19420527
+PGK01,United States,New York,Poughkeepsie,Riverview Field,19360916,19370817
+PTR01,United States,New York,Staten Island,Port Richmond,19410427,19410427
+ROC02,United States,New York,Rochester,Culver Field II,18980827,18980829
+ROC03,United States,New York,Rochester,Ontario Beach Grounds,18980828,18980828
+ROC04,United States,New York,Rochester,Red Wing Stadium,19380802,19480729
+SYR04,United States,New York,Syracuse,MacArthur Stadium,19380801,19490606
+CHA03,United States,North Carolina,Charlotte,Griffith Park,19390622,19490428
+DUR01,United States,North Carolina,Durham,Durham Athletic Field,19400513,19400513
+FTB01,United States,North Carolina,Fort Bragg,Fort Bragg Field,20160703,20160703
+GOL01,United States,North Carolina,Goldsboro,,19400511,19400511
+GRE03,United States,North Carolina,Greensboro,Memorial Stadium,19440425,19460418
+RAL01,United States,North Carolina,Raleigh,Chavis Park,19400508,19420415
+RKM01,United States,North Carolina,Rocky Mount,Talbert Park,19480416,19480525
+WIL06,United States,North Carolina,Wilmington,Legion Stadium,19420506,19420506
+WIL07,United States,North Carolina,Wilson,Municipal Stadium,19350414,19400429
+WSL01,United States,North Carolina,Winston-Salem,Soutside Park,19390624,19390624
+BIS01,United States,North Dakota,Bismarck,Bismarck Municipal Ballpark,19350616,19390723
+FAR01,United States,North Dakota,Fargo,Barnett Field,19380713,19410722
+GFK01,United States,North Dakota,Grand Forks,,19350610,19350610
+GRA04,United States,North Dakota,Grafton,,19380717,19380717
+WAH01,United States,North Dakota,Wahpeton,,19410720,19410720
+AKR01,United States,Ohio,Akron,League Park,19300821,19450705
+CAN01,United States,Ohio,Canton,Mahaffey Park,19020615,19030621
+CAN03,United States,Ohio,Canton,Lakeside Park,19360726,19430529
+CIN05,United States,Ohio,Cincinnati,League Park II,18980415,19011006
+CIN06,United States,Ohio,Cincinnati,Palace of the Fans,19020417,19111012
+CIN07,United States,Ohio,Cincinnati,Crosley Field,19120411,19700624
+CIN08,United States,Ohio,Cincinnati,Cinergy Field,19700630,20020922
+CIN09,United States,Ohio,Cincinnati,Great American Ballpark,20030331,20250925
+CLE05,United States,Ohio,Cleveland,League Park III,18980429,19090906
+CLE06,United States,Ohio,Cleveland,League Park IV,19100421,19490731
+CLE07,United States,Ohio,Cleveland,Cleveland Stadium,19311004,19931003
+CLE08,United States,Ohio,Cleveland,Progressive Field,19940404,20251002
+CLE11,United States,Ohio,Cleveland,Kinsman Hardware Field,19310617,19310617
+CLL01,United States,Ohio,Collinwood,Euclid Beach Park,18980612,18980619
+COL03,United States,Ohio,Columbus,Neil Park I,19020803,19030517
+COL04,United States,Ohio,Columbus,Neil Park II,19050723,19360920
+COL05,United States,Ohio,Columbus,Red Bird Stadium,19350518,19490821
+DAY01,United States,Ohio,Dayton,Fairview Park,19020608,19020608
+DAY03,United States,Ohio,Dayton,Hudson Field,19350731,19490909
+DEF01,United States,Ohio,Defiance,Kingsbury Park,19420618,19420618
+FIN01,United States,Ohio,Findlay,Ohio State League Park,19420617,19420617
+LIM01,United States,Ohio,Lima,Halloran Park,19390620,19480610
+MID02,United States,Ohio,Middletown,,19370812,19450607
+NCO01,United States,Ohio,North Canton,Memorial Stadium,19490708,19490708
+NOR03,United States,Ohio,Norwalk,Keller Field,19390806,19440822
+NWO01,United States,Ohio,Newark,Arnold Park,19480722,19490707
+PAI01,United States,Ohio,Painesville,,19390513,19390513
+POR02,United States,Ohio,Portsmouth,Riverside Park,19360916,19410813
+SPR04,United States,Ohio,Springfield,Municipal Stadium,19360910,19490503
+STM01,United States,Ohio,St,Marys,19450721,19450721
+TOL04,United States,Ohio,Toledo,Armory Park,19030628,19030816
+TOL05,United States,Ohio,Toledo,Swayne Field,19350508,19480822
+WAR02,United States,Ohio,Warren,Fairgrounds Park,19400603,19400603
+YOU01,United States,Ohio,Youngtown,Idora Park,19261003,19480901
+ZAN01,United States,Ohio,Zanesville,Mark Park,19350521,19380728
+ZAN02,United States,Ohio,Zanesville,Municipal Stadium,19410718,19490614
+MUS01,United States,Oklahoma,Muskogee,Athletic Park,19350422,19490922
+OKC01,United States,Oklahoma,Oklahoma City,Holland Field,19331011,19420923
+OKC02,United States,Oklahoma,Oklahoma City,Texas League Park,19350423,19490613
+SHW01,United States,Oklahoma,Shawnee,Athletic Park,19400814,19400814
+TUL01,United States,Oklahoma,Tulsa,Texas League Park,19390504,19490601
+TUL02,United States,Oklahoma,Tulsa,Fairgrounds Park,19350424,19350424
+ALT01,United States,Pennsylvania,Altoona,Columbia Park,19360624,19450813
+ALT02,United States,Pennsylvania,Altoona,Cricket Field,19320930,19480512
+BAN01,United States,Pennsylvania,Bangor,,19480825,19480825
+BEA02,United States,Pennsylvania,Beaver Falls,,19350514,19410519
+BLO01,United States,Pennsylvania,Bloomsburg,Bloomsburg Fair Grounds,19261006,19261008
+BUT01,United States,Pennsylvania,Butler,,19281011,19420817
+CAR01,United States,Pennsylvania,Carlisle,Biddle Field,19350711,19350719
+CHA02,United States,Pennsylvania,Chambersburg,Henninger Field,19370622,19420525
+CHE01,United States,Pennsylvania,Chester,Lloyd Field,19380601,19490607
+CHE02,United States,Pennsylvania,Chester,Elks Park,19370602,19380606
+CHE03,United States,Pennsylvania,Chester,Felton Field,19350513,19360722
+CLP01,United States,Pennsylvania,Clearfield,Driving Park,19360831,19360831
+CRL01,United States,Pennsylvania,Charleroi,,19350812,19350812
+DAR01,United States,Pennsylvania,Darby,Hilldale Park,19210905,19311010
+ERI01,United States,Pennsylvania,Erie,Ainsworth Field,19360725,19470709
+GRE04,United States,Pennsylvania,Greensburg,Offutt Field,19380702,19390724
+HOM01,United States,Pennsylvania,Homestead,Municipal Field,19390909,19390909
+HOP02,United States,Pennsylvania,Hopewell,,19370521,19370521
+HRB01,United States,Pennsylvania,Harrisburg,Island Park,19030918,19480519
+JOH01,United States,Pennsylvania,Johnstown,Point Grounds,19271005,19400805
+KNP01,United States,Pennsylvania,Kane,Glenwood Field,19410830,19410830
+LAN01,United States,Pennsylvania,Lancaster,Stumpf Field,19380811,19460826
+MCK01,United States,Pennsylvania,McKeesport,Cycler Park,19350706,19410521
+MEA01,United States,Pennsylvania,Meadville,,19420530,19470813
+MID03,United States,Pennsylvania,Middletown,Grandview Park Field,19360807,19380730
+MNC01,United States,Pennsylvania,Monaca,,19360528,19360528
+MNH01,United States,Pennsylvania,Munhall,West Field,19480515,19480515
+MSN01,United States,Pennsylvania,Monessen,Tin Plate Field,19380516,19400806
+NBE01,United States,Pennsylvania,North Bethlehem,,19480521,19480521
+NWC01,United States,Pennsylvania,New Castle,P.J. Flaherty Memorial Field,19480611,19490726
+OIL01,United States,Pennsylvania,Oil City,Ramage-Hasson Field,19420819,19430718
+PHI09,United States,Pennsylvania,Philadelphia,Baker Bowl,18980416,19380630
+PHI10,United States,Pennsylvania,Philadelphia,Columbia Park,19010426,19081003
+PHI11,United States,Pennsylvania,Philadelphia,Shibe Park,19090412,19701001
+PHI12,United States,Pennsylvania,Philadelphia,Veterans Stadium,19710410,20030928
+PHI13,United States,Pennsylvania,Philadelphia,Citizens Bank Park,20040412,20251006
+PHI16,United States,Pennsylvania,Philadelphia,Passon Park,19340911,19380619
+PHI17,United States,Pennsylvania,Philadelphia,44th and Parkside,19350511,19470823
+PHI19,United States,Pennsylvania,Philadelphia,Bigler Park,19300925,19300926
+PIT05,United States,Pennsylvania,Pittsburgh,Exposition Park III,18980429,19151002
+PIT06,United States,Pennsylvania,Pittsburgh,Forbes Field,19090630,19700628
+PIT07,United States,Pennsylvania,Pittsburgh,Three Rivers Stadium,19700716,20001001
+PIT08,United States,Pennsylvania,Pittsburgh,PNC Park,20010409,20250921
+PIT09,United States,Pennsylvania,Pittsburgh,Greenlee Field,19320708,19380716
+PPB01,United States,Pennsylvania,Philipsburgh,,19281009,19380528
+SCP01,United States,Pennsylvania,State College,Bellefonte Community Athletic Field,19380517,19380622
+SCR01,United States,Pennsylvania,Scranton,Dunmore Stadium,19420617,19420731
+SHA01,United States,Pennsylvania,Sharon,Sharon Park,19281007,19281007
+SUN01,United States,Pennsylvania,Sunbury,Memorial Park,19470604,19470604
+UNI01,United States,Pennsylvania,Uniontown,Elks Park,19271007,19470523
+VAN01,United States,Pennsylvania,Vandergrift,,19480513,19480513
+WAP01,United States,Pennsylvania,Washington,Wash-High Fied,19410902,19440913
+WAR03,United States,Pennsylvania,Warren,Russell Field,19390727,19400627
+WIL02,United States,Pennsylvania,Williamsport,BB&T Ballpark at Bowman Field,20170820,20250817
+WIL05,United States,Pennsylvania,Williamsport,,19430619,19430619
+YOR01,United States,Pennsylvania,York,Eagles Park,19320927,19351014
+YOR02,United States,Pennsylvania,York,Memorial Stadium,19460509,19480518
+YOR03,United States,Pennsylvania,West York,Martin-Perry Field,19370715,19450820
+SJU01,United States,Puerto Rico,San Juan,Estadio Hiram Bithorn,20010401,20180418
+WAR01,United States,Rhode Island,Warwick,Rocky Point Park,19030906,19030906
+BST01,United States,Tennessee,Bristol,Bristol Motor Speedway,20250802,20250802
+CHT01,United States,Tennessee,Chattanooga,Engel Stadium,19370809,19490618
+JAC02,United States,Tennessee,Jackson,Lakeview Park,19380417,19490716
+KNO01,United States,Tennessee,Knoxville,Caswell Park,19440804,19480507
+MEM01,United States,Tennessee,Memphis,Lewis Athletic Park,19250829,19250829
+MEM02,United States,Tennessee,Memphis,Martin Stadium,19370411,19490905
+MEM03,United States,Tennessee,Memphis,Russwood Park,19350929,19461006
+NSH01,United States,Tennessee,Nashville,Tom Wilson Park,19490417,19490417
+NSH02,United States,Tennessee,Nashville,Sulphur Dell,19320918,19490818
+ARL01,United States,Texas,Arlington,Arlington Stadium,19720421,19931003
+ARL02,United States,Texas,Arlington,Rangers Ballpark in Arlington,19940411,20190929
+ARL03,United States,Texas,Arlington,Globe Life Field in Arlington,20200724,20250925
+AUS01,United States,Texas,Austin,Disch Field,19470929,19490712
+BEA01,United States,Texas,Beaumont,Stuart Stadium,19440430,19490520
+COR01,United States,Texas,Corpus Christi,Firemens Ball Park,19460407,19460414
+DAL01,United States,Texas,Dallas,Rebel Stadium,19390430,19480430
+DAL02,United States,Texas,Dallas,Burnett Field,19380424,19490713
+FTW01,United States,Texas,Fort Worth,La Grave Field,19400416,19480531
+GAL01,United States,Texas,Galveston,Moody Stadium,19370412,19400430
+HOU01,United States,Texas,Houston,Colt Stadium,19620410,19640927
+HOU02,United States,Texas,Houston,Astrodome,19650412,19991009
+HOU03,United States,Texas,Houston,Minute Maid Park,20000407,20250921
+HOU04,United States,Texas,Houston,Buffalo Stadium,19380410,19490928
+HOU06,United States,Texas,Houston,West End Park,19370413,19370429
+MRT01,United States,Texas,Marshall,Matthewson Park,19380422,19390429
+PTA01,United States,Texas,Port Arthur,Legion Park,19400729,19420416
+PTX01,United States,Texas,Paris,Binnion Park,19410421,19460618
+SAT01,United States,Texas,San Antonio,Mission Stadium,19470928,19490926
+SAT02,United States,Texas,San Antonio,Tech Field,19440419,19460424
+TEX01,United States,Texas,Texarkana,,19380420,19390427
+WAC01,United States,Texas,Waco,Katy Park,19380426,19490426
+WFL01,United States,Texas,Wichita Falls,Spudder Field,19410711,19490519
+DAN02,United States,Virginia,Danville,Peters Park,19450621,19470429
+NOR01,United States,Virginia,Norfolk,High Rock Park,19430424,19470507
+NOR02,United States,Virginia,Norfolk,Tar Park,19400512,19490919
+NOR05,United States,Virginia,Norfolk,Bain Field,19390625,19390625
+NPN01,United States,Virginia,Newport News,Builders Stadium,19410710,19470506
+NPN02,United States,Virginia,Newport News,Pensinsula War Memorial Stadium,19490816,19490914
+PET01,United States,Virginia,Petersburg,,19490608,19490817
+POR01,United States,Virginia,Portsmouth,City Stadium,19400506,19490817
+RIC01,United States,Virginia,Richmond,Richmond Fair Grounds,19460701,19460701
+RIC03,United States,Virginia,Richmond,Tate Field,19270509,19470507
+RIC04,United States,Virginia,Richmond,Mooers Field,19410512,19470425
+RIC05,United States,Virginia,Richmond,Mayo Island,19390619,19390901
+SEA01,United States,Washington,Seattle,Sick's Stadium,19690411,19691002
+SEA02,United States,Washington,Seattle,Kingdome,19770406,19990627
+SEA03,United States,Washington,Seattle,Safeco Field,19990715,20251017
+BEC01,United States,West Virginia,Beckley,RMI Park,19350528,19380727
+BLU01,United States,West Virginia,Bluefield,Blakely Field,19380907,19380907
+CHA01,United States,West Virginia,Charleston,Kanawha Park,19360727,19490717
+FMT01,United States,West Virginia,Fairmont,,19281008,19370731
+HUN02,United States,West Virginia,Huntington,,19420518,19420518
+WHE02,United States,West Virginia,Wheeling,Holloway Memorial Park,19390518,19390518
+APP01,United States,Wisconsin,Appleton,Spencer Park,19430807,19430807
+EAU01,United States,Wisconsin,Eau Claire,Carson Park,19400724,19490810
+GBW01,United States,Wisconsin,Green Bay,Joannes Park,19450717,19450717
+LCR01,United States,Wisconsin,LaCrosse,Copeland Park,19490911,19490911
+MIL03,United States,Wisconsin,Milwaukee,Athletic Park,19350707,19490901
+MIL04,United States,Wisconsin,Milwaukee,Lloyd Street Grounds,19010503,19010912
+MIL05,United States,Wisconsin,Milwaukee,County Stadium,19530414,20000928
+MIL06,United States,Wisconsin,Milwaukee,Miller Park,20010406,20251014
+OSH01,United States,Wisconsin,Oshkosh,Municipal Athletic Field,19410911,19410911
+RAC01,United States,Wisconsin,Racine,Horlick Field,19440831,19450914
+SYD01,United States,Australia,Sydney,Sydney Cricket Ground,20140322,20140323
+BRA02,Canada,Manitoba,Brandon,,19380720,19380720
+PLP01,Canada,Manitoba,Portage La Prairie,Island Park,19380719,19380719
+WIN01,Canada,Manitoba,Winnipeg,Osborne Stadium,19350606,19430811
+HAM02,Canada,Ontario,Hamilton,,19430617,19440710
+STC02,Canada,Ontario,St Catherines,Sports Park,19480907,19480907
+TOR01,Canada,Ontario,Toronto,Exhibition Stadium,19770407,19890528
+TOR02,Canada,Ontario,Toronto,Rogers Centre,19890605,20251101
+MON01,Canada,Quebec,Montreal,Parc Jarry,19690414,19760926
+MON02,Canada,Quebec,Montreal,Stade Olympique,19770415,20040929
+REG01,Canada,Saskatchewan,Regina,Park de Young,19380721,19390721
+LON01,United Kingdom,England,London,London Stadium,20190629,20240609
+TOK01,Japan,Tokyo,Tokyo,Tokyo Dome,20000329,20250319
+MEX01,Mexico,Mexico City,Mexico City,,19351025,19351027
+MEX02,Mexico,Mexico City,Mexico City,Estadio Alfredo Harp Helu,20230429,20240428
+MNT01,Mexico,Mexico City,Monterrey,Estadio Monterrey,19960816,20190505
+SEO01,South Korea,Seoul,Seoul,Gocheok Sky Dome,20240320,20240321
