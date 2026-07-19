@@ -1950,6 +1950,42 @@ details:not([open]) > .collapsible-summary::before {
     justify-content: center;
 }
 
+.history-section-title {
+    text-align: center;
+    margin: 1.5rem 0 0.75rem;
+    font-size: 1.25rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.season-table {
+    font-variant-numeric: tabular-nums;
+}
+
+.season-table thead th {
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+    transition: color 0.15s, background 0.15s;
+}
+
+.season-table thead th:hover {
+    color: white;
+    background: rgba(255, 197, 47, 0.12);
+}
+
+.season-table tbody tr {
+    cursor: pointer;
+}
+
+.season-table .pos {
+    color: #9BD7A3;
+}
+
+.season-table .neg {
+    color: #FF6B6B;
+}
+
 
 /* --- Coach photos & interim markers --- */
 
