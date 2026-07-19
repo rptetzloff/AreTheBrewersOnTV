@@ -849,6 +849,14 @@ details:not([open]) > .collapsible-summary::before {
     margin: 0 1rem;
 }
 
+.footer-nav {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.35rem 0.25rem;
+    max-width: 640px;
+}
+
 .github-link {
     display: inline-flex;
     align-items: center;
