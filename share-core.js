@@ -85,8 +85,9 @@ export function wireShareRow(row, message, url) {
 // is populated.
 export function wireShareDropdown() {
 	const trigger = document.getElementById('footer-share-trigger');
-	const menu = document.getElementById('footer-share');
-	if (!trigger || !menu || trigger.dataset.wired) return;
+	if (!trigger || trigger.dataset.wired) return;
+	const menu = trigger.parentElement.querySelector('.footer-share');
+	if (!menu) return;
 	trigger.dataset.wired = '1';
 
 	const open = (on) => {

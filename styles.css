@@ -1094,7 +1094,11 @@ details:not([open]) > .collapsible-summary::before {
     align-items: center;
     gap: 0.5rem;
     padding: 0.5rem 0.65rem;
+    border: none;
     border-radius: 6px;
+    background: none;
+    font: inherit;
+    cursor: pointer;
     color: rgba(255, 255, 255, 0.85);
     text-decoration: none;
     font-size: 0.82rem;
