@@ -684,35 +684,41 @@ details:not([open]) > .collapsible-summary::before {
     border-color: #FFC52F;
 }
 
-.schedule-provider-edit {
-    padding: 0.6rem 0.7rem;
-    background: rgba(0, 0, 0, 0.25);
-    border-radius: 8px;
-    border-left: 3px solid #FFC52F;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-}
-
-.schedule-provider-edit .watch-provider-picker {
-    margin: 0;
-}
-
-.schedule-provider-cancel {
-    align-self: flex-start;
-    font-size: 0.8rem;
-    padding: 0.3rem 0.7rem;
-    border-radius: 6px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    background: transparent;
-    color: rgba(255, 255, 255, 0.7);
+.provider-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
     cursor: pointer;
-    transition: background 0.2s, color 0.2s;
 }
 
-.schedule-provider-cancel:hover {
-    background: rgba(255, 255, 255, 0.08);
-    color: #fff;
+.provider-dialog {
+    position: relative;
+    background: #1a3660;
+    border: 1px solid rgba(255, 197, 47, 0.3);
+    border-radius: 12px;
+    padding: 1.25rem;
+    width: 90%;
+    max-width: 460px;
+    max-height: 80vh;
+    overflow-y: auto;
+    z-index: 1;
+    color: white;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+    animation: galleryIn 0.2s ease-out;
+}
+
+.provider-dialog .gallery-header {
+    padding: 0 0 0.8rem;
+}
+
+.provider-dialog .watch-channels {
+    gap: 0;
+}
+
+.provider-dialog .watch-provider-picker {
+    margin: 0;
+    padding-bottom: 0;
+    border-bottom: none;
 }
 
 .game-item {

@@ -159,6 +159,7 @@
         			}
         			this.initGallery();
         			this.initWatchModal();
+        			this.initProviderModal();
         			this.initLinescoreModal();
         			this.initStandingsModal();
         			this.buildOnThisDay();
@@ -1811,8 +1812,8 @@ _renderProviderPicker(channelsEl) {
 }
 
 // Compact bar under the schedule showing the selected TV provider with a
-// control to change it. Hidden for historical (CSV-only) seasons, which have
-// no broadcast data.
+// button that opens a modal to change it. Hidden for historical (CSV-only)
+// seasons, which have no broadcast data.
 renderScheduleProviderBar() {
   const bar = document.getElementById('schedule-provider-bar');
   if (!bar) return;
@@ -1849,58 +1850,52 @@ renderScheduleProviderBar() {
   changeBtn.className = 'schedule-provider-change';
   changeBtn.innerHTML = current
     ? '<i class="mdi mdi-pencil"></i> Change'
-    : '<i class="mdi mdi-magnify"></i> Choose provider';
+    : '<i class="mdi mdi-magnify"></i> Choose';
+  changeBtn.addEventListener('click', () => this.openProviderModal());
   display.appendChild(changeBtn);
 
   bar.appendChild(display);
+}
 
-  const editPanel = document.createElement('div');
-  editPanel.className = 'schedule-provider-edit';
-  editPanel.hidden = true;
+initProviderModal() {
+  const modal = document.getElementById('provider-modal');
+  if (!modal) return;
+  const backdrop = modal.querySelector('.provider-backdrop');
+  const closeBtn = document.getElementById('provider-close');
+  backdrop.addEventListener('click', () => this.closeProviderModal());
+  closeBtn.addEventListener('click', () => this.closeProviderModal());
+  document.addEventListener('keydown', (e) => {
+    if (!modal.hidden && e.key === 'Escape') this.closeProviderModal();
+  });
+}
 
-  const input = this._buildProviderInput({
+openProviderModal() {
+  const modal = document.getElementById('provider-modal');
+  if (!modal) return;
+  const container = document.getElementById('provider-picker-container');
+  container.innerHTML = '';
+  container.appendChild(this._buildProviderInput({
+    label: 'Your TV provider',
     inputId: 'schedule-provider-input',
     listId: 'schedule-provider-list',
     placeholder: 'Search providers (e.g. Xfinity, Spectrum, TDS)…',
-    onChange: (match) => {
+    onChange: () => {
       this._rerenderSchedule();
       const watchEl = document.getElementById('watch-channels');
       if (watchEl && watchEl._resolved) {
         this._renderWatchChannels(watchEl, watchEl._resolved, watchEl._radioResolved);
       }
-      if (match) {
-        nameSpan.textContent = match.display_name;
-        nameSpan.classList.remove('schedule-provider-none');
-        changeBtn.innerHTML = '<i class="mdi mdi-pencil"></i> Change';
-        editPanel.hidden = true;
-        display.hidden = false;
-      } else {
-        nameSpan.textContent = 'Not selected';
-        nameSpan.classList.add('schedule-provider-none');
-        changeBtn.innerHTML = '<i class="mdi mdi-magnify"></i> Choose provider';
-      }
+      this._refreshScheduleProviderDisplay();
     },
-  });
-  editPanel.appendChild(input);
+  }));
+  modal.hidden = false;
+  const inp = container.querySelector('input');
+  if (inp) { inp.focus(); inp.select(); }
+}
 
-  const cancelBtn = document.createElement('button');
-  cancelBtn.type = 'button';
-  cancelBtn.className = 'schedule-provider-cancel';
-  cancelBtn.textContent = 'Cancel';
-  cancelBtn.addEventListener('click', () => {
-    editPanel.hidden = true;
-    display.hidden = false;
-  });
-  editPanel.appendChild(cancelBtn);
-
-  bar.appendChild(editPanel);
-
-  changeBtn.addEventListener('click', () => {
-    display.hidden = true;
-    editPanel.hidden = false;
-    const inp = editPanel.querySelector('input');
-    if (inp) { inp.focus(); inp.select(); }
-  });
+closeProviderModal() {
+  const modal = document.getElementById('provider-modal');
+  if (modal) modal.hidden = true;
 }
 
 // Update just the name/button text in the schedule bar without rebuilding it
