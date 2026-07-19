@@ -179,6 +179,16 @@ export function computeCoachesFromData(rows, gidToMgr, mgrNames, championSeasons
 		.slice()
 		.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 
+	// Build per-manager tenure list from managers.csv so a manager with
+	// multiple stints (e.g. Kuenn 1975 + 1982-83) produces separate rows.
+	const tenuresByMgr = new Map();
+	if (officialTenures) {
+		for (const t of officialTenures) {
+			if (!tenuresByMgr.has(t.mgrId)) tenuresByMgr.set(t.mgrId, []);
+			tenuresByMgr.get(t.mgrId).push(t);
+		}
+	}
+
 	// Which managers started at least one season (first game of each year).
 	const seasonStarters = new Set();
 	const seenSeason = new Set();
@@ -190,16 +200,29 @@ export function computeCoachesFromData(rows, gidToMgr, mgrNames, championSeasons
 		}
 	}
 
-	// Group games by mgrId in order of first appearance.
-	const byMgrId = new Map();
-	const mgrOrder = [];
+	// Assign each game to a stint keyed by (mgrId, tenureIdx). For official
+	// managers with multiple tenures, tenureIdx separates stints; for everyone
+	// else it's 0. Stints are ordered by first-game date (games are sorted).
+	const stintOrder = [];
+	const gamesByStint = new Map();
 	for (const g of games) {
 		const mgrId = gidToMgr.get(g.gid);
-		if (!byMgrId.has(mgrId)) { byMgrId.set(mgrId, []); mgrOrder.push(mgrId); }
-		byMgrId.get(mgrId).push(g);
+		const yr = parseInt(g.season, 10);
+		let tenureIdx = 0;
+		const tenures = tenuresByMgr.get(mgrId);
+		if (tenures && tenures.length > 1) {
+			tenureIdx = tenures.findIndex((t) => yr >= t.startYear && yr <= t.endYear);
+			if (tenureIdx === -1) tenureIdx = 0;
+		}
+		const key = `${mgrId}:${tenureIdx}`;
+		if (!gamesByStint.has(key)) {
+			gamesByStint.set(key, []);
+			stintOrder.push({ mgrId, tenureIdx, key });
+		}
+		gamesByStint.get(key).push(g);
 	}
 
-	// Champion season → mgrId of that season's final game.
+	// Champion season → stint key of that season's final game.
 	const titleCount = new Map();
 	const lastGameBySeason = new Map();
 	for (const g of games) {
@@ -211,11 +234,22 @@ export function computeCoachesFromData(rows, gidToMgr, mgrNames, championSeasons
 		const finale = lastGameBySeason.get(yr);
 		if (!finale) continue;
 		const mgrId = gidToMgr.get(finale.gid);
-		if (mgrId) titleCount.set(mgrId, (titleCount.get(mgrId) || 0) + 1);
+		if (!mgrId) continue;
+		const tenures = tenuresByMgr.get(mgrId);
+		const fyr = parseInt(finale.season, 10);
+		let tenureIdx = 0;
+		if (tenures && tenures.length > 1) {
+			tenureIdx = tenures.findIndex((t) => fyr >= t.startYear && fyr <= t.endYear);
+			if (tenureIdx === -1) tenureIdx = 0;
+		}
+		const key = `${mgrId}:${tenureIdx}`;
+		titleCount.set(key, (titleCount.get(key) || 0) + 1);
 	}
 
-	const coaches = mgrOrder.map((mgrId) => {
-		const list = byMgrId.get(mgrId);
+	// Track slug duplicates so multi-stint managers get unique slugs.
+	const slugCounts = new Map();
+	const coaches = stintOrder.map(({ mgrId, key }) => {
+		const list = gamesByStint.get(key);
 		const name = mgrNames.get(mgrId) || mgrId;
 		const isInterim = officialIds !== null ? !officialIds.has(mgrId) : (list.length < INTERIM_THRESHOLD && !seasonStarters.has(mgrId));
 		const reg = { WIN: 0, LOSS: 0, TIE: 0 };
@@ -230,8 +264,13 @@ export function computeCoachesFromData(rows, gidToMgr, mgrNames, championSeasons
 		const playoffGames = playoff.WIN + playoff.LOSS + playoff.TIE;
 		const firstSeason = parseInt(list[0].season, 10);
 		const lastSeason = parseInt(list[list.length - 1].season, 10);
+		// Unique slug for multi-stint managers: append stint number.
+		const baseSlug = slugifyCoach(name);
+		const slugNum = (slugCounts.get(baseSlug) || 0) + 1;
+		slugCounts.set(baseSlug, slugNum);
+		const slug = slugNum > 1 ? `${baseSlug}-${slugNum}` : baseSlug;
 		return {
-			name, slug: slugifyCoach(name),
+			name, slug,
 			interim: isInterim,
 			image: null, imagePage: null,
 			firstSeason, lastSeason,
@@ -243,7 +282,7 @@ export function computeCoachesFromData(rows, gidToMgr, mgrNames, championSeasons
 			playoffGames,
 			playoffRecord: playoffGames ? rec(playoff.WIN, playoff.LOSS, playoff.TIE) : null,
 			pf, pa,
-			titles: titleCount.get(mgrId) || 0,
+			titles: titleCount.get(key) || 0,
 		};
 	});
 
