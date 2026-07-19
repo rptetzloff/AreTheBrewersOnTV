@@ -63,7 +63,7 @@ async function init() {
 		});
 		renderTable();
 
-		const share = document.getElementById('coaches-share');
+		const share = document.getElementById('managers-share');
 		share.innerHTML = shareButtonsHtml('share-btn record-share-btn');
 		wireShareRow(share, coachesCopy(data).desc, `${window.location.origin}/managers`);
 	} catch (e) {

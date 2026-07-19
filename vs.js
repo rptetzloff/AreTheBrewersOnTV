@@ -105,7 +105,11 @@ async function init() {
 		for (const el of [controls.venue, controls.type, controls.current]) {
 			el.addEventListener('change', () => { saveFilters(); renderTable(); });
 		}
-		renderTable();
+			renderTable();
+
+		const footerShare = document.getElementById('h2h-share');
+		footerShare.innerHTML = shareButtonsHtml('share-btn record-share-btn');
+		wireShareRow(footerShare, h2hCopy(null, allTime).desc, `${window.location.origin}/vs`);
 
 		const slug = requestedSlug(allTime);
 		if (slug) {

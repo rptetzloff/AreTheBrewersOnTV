@@ -857,6 +857,15 @@ details:not([open]) > .collapsible-summary::before {
     max-width: 640px;
 }
 
+.footer-share {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+    max-width: 640px;
+}
+
 .github-link {
     display: inline-flex;
     align-items: center;

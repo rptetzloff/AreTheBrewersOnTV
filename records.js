@@ -121,6 +121,10 @@ async function init() {
 		grid.innerHTML = CARDS.map((c) => cardHtml(c, data)).join('');
 		wireShares(grid, data);
 
+		const footerShare = document.getElementById('records-share');
+		footerShare.innerHTML = shareButtonsHtml('share-btn record-share-btn');
+		wireShareRow(footerShare, recordsCopy('overview', data).desc, `${window.location.origin}/records`);
+
 		const slug = requestedSlug();
 		if (slug) {
 			document.title = recordsCopy(slug, data).title;
