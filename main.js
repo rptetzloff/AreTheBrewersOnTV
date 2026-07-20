@@ -827,7 +827,7 @@ createCsvGameItem(g, showH2h = false) {
         		const answerEl = document.getElementById('answer');
         		const recordEl = document.getElementById('record');
 
-        		this._lastResult = { isUndefeated, wins, losses, ties, isPastSeason, worldSeriesName, postRecord, preRecord, tvStatus };
+        		this._lastResult = { isUndefeated, wins, losses, ties, isPastSeason, worldSeriesName, postRecord, preRecord, tvStatus, tvGame };
         		this._isOffseason = false;
 
         		if (worldSeriesName) {
@@ -1303,6 +1303,28 @@ setupShareButtons() {
   wireShareDropdown();
 }
 
+// Watching details for today's game: network, plus the user's provider and
+// channel number when one is selected in the channel guide.
+_shareTvLine() {
+  const { tvStatus, tvGame } = this._lastResult || {};
+  if (!tvGame || (tvStatus !== 'yes' && tvStatus !== 'streaming')) return null;
+  const opp = tvGame.competitions?.[0]?.competitors?.find(c => c.team?.abbreviation !== 'MIL')?.team?.shortDisplayName;
+  const b = this.pickPrimaryBroadcast(tvGame);
+  const name = b?.media?.shortName;
+  const ch = name ? this.resolveChannel(name) : null;
+  const network = ch?.display_name || name || null;
+  let watch = network ? ` on ${network}` : '';
+  if (network && this.selectedProvider) {
+    const num = this.resolveProviderChannel(this.selectedProvider, ch?.key || name, this.selectedServiceAreaIndex(this.selectedProvider));
+    const provider = this.providerMeta[this.selectedProvider]?.display_name;
+    if (num && provider) watch = ` on ${network} (ch. ${num} on ${provider})`;
+  }
+  const vs = opp ? ` vs the ${opp}` : '';
+  return tvStatus === 'yes'
+    ? `📺 The Brewers are ON TV today${vs}${watch}!`
+    : `📱 The Brewers are streaming today${vs}${watch}!`;
+}
+
 getShareMessage() {
   const season = this.currentSeason;
   const isPast = season && this.latestSeason && season < this.latestSeason;
@@ -1328,11 +1350,11 @@ getShareMessage() {
         return `The ${season} Milwaukee Brewers finished ${recordText}. #ThisIsMyCrew`;
     }
 } else {
- if (isUndefeated) {
-    return `⚾ The Milwaukee Brewers are UNDEFEATED so far in ${season}! ${recordText} ⚾ #ThisIsMyCrew`;
-} else {
-    return `The Milwaukee Brewers are ${recordText} so far in the ${season} season. #ThisIsMyCrew`;
-}
+ const base = isUndefeated
+    ? `⚾ The Milwaukee Brewers are UNDEFEATED so far in ${season}! ${recordText} ⚾`
+    : `The Milwaukee Brewers are ${recordText} so far in the ${season} season.`;
+ const tvLine = this._shareTvLine();
+ return tvLine ? `${tvLine} ${base} #ThisIsMyCrew` : `${base} #ThisIsMyCrew`;
 }
 }
 
@@ -1930,6 +1952,9 @@ _buildProviderInput({ label, inputId, listId, placeholder, onChange }) {
     clearBtn.hidden = !input.value;
     refreshArea(match);
     onChange(match);
+    // The share message carries the selected provider's channel number —
+    // refresh the prebuilt intent links whenever the provider changes.
+    this.updateIntentLinks();
   };
 
   input.addEventListener('input', () => {
