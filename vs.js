@@ -136,7 +136,6 @@ async function init() {
 			q: document.getElementById('h2h-filter'),
 			venue: document.getElementById('h2h-venue'),
 			type: document.getElementById('h2h-type'),
-			current: document.getElementById('h2h-current'),
 		};
 		const countEl = document.getElementById('h2h-count');
 
@@ -144,13 +143,11 @@ async function init() {
 			const stored = JSON.parse(localStorage.getItem('h2hFilters') || '{}');
 			if ([...controls.venue.options].some((o) => o.value === stored.venue)) controls.venue.value = stored.venue;
 			if ([...controls.type.options].some((o) => o.value === stored.type)) controls.type.value = stored.type;
-			controls.current.checked = stored.current === true;
 		} catch { /* corrupt storage — keep defaults */ }
 		const saveFilters = () => {
 			localStorage.setItem('h2hFilters', JSON.stringify({
 				venue: controls.venue.value,
 				type: controls.type.value,
-				current: controls.current.checked,
 			}));
 		};
 
@@ -163,8 +160,7 @@ async function init() {
 			const data = venue === 'all' && type === 'all' ? allTime : computeHeadToHead(subset);
 			const q = controls.q.value.trim().toLowerCase();
 			const opponents = data.opponents.filter((o) =>
-				(!controls.current.checked || o.current)
-				&& (q === '' || o.name.toLowerCase().includes(q)));
+				(q === '' || o.name.toLowerCase().includes(q)));
 			if (opponents.length) {
 				wrap.innerHTML = tableHtml(opponents);
 				const table = wrap.querySelector('table');
@@ -172,11 +168,11 @@ async function init() {
 			} else {
 				wrap.innerHTML = '<p class="record-empty">No opponents match those filters.</p>';
 			}
-			const filtered = venue !== 'all' || type !== 'all' || controls.current.checked || q !== '';
+			const filtered = venue !== 'all' || type !== 'all' || q !== '';
 			countEl.textContent = filtered ? `${opponents.length} of ${allTime.opponents.length} opponents` : '';
 		};
 		controls.q.addEventListener('input', renderTable);
-		for (const el of [controls.venue, controls.type, controls.current]) {
+		for (const el of [controls.venue, controls.type]) {
 			el.addEventListener('change', () => { saveFilters(); renderTable(); });
 		}
 			renderTable();
