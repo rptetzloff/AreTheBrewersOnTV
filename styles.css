@@ -2505,6 +2505,33 @@ details:not([open]) > .collapsible-summary::before {
     max-width: 55%;
 }
 
+/* Inline mode (the dedicated provider dialog): the list is in-flow dialog
+   content below the input rather than a floating overlay, so it can't clip
+   against the dialog's own scroll container. */
+.watch-provider-suggestions-inline {
+    position: static;
+    margin-top: 0.4rem;
+    max-height: 45vh;
+    box-shadow: none;
+}
+
+/* Service areas rendered as the same tappable rows. */
+.watch-area-options {
+    display: flex;
+    flex-direction: column;
+    margin-top: 0.3rem;
+    max-height: 30vh;
+    overflow-y: auto;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 197, 47, 0.3);
+    background: #1a3558;
+}
+
+.watch-area-option.active .watch-provider-suggestion-name::before {
+    content: '✓ ';
+    color: #FFC52F;
+}
+
 .watch-channel-num {
     display: flex;
     align-items: baseline;

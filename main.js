@@ -1874,11 +1874,14 @@ _providerMatches(q) {
 }
 
 // Shared provider search input (used by the watch modal and the schedule bar).
-// Owns the selectedProvider/localStorage state; calls onChange(match) after
-// every apply so each caller can refresh its own dependents.
+// Owns the selectedProvider/localStorage state; calls onChange(match, source)
+// after every apply so each caller can refresh its own dependents — source is
+// 'row' (explicit pick), 'typed', 'blur', 'clear', or 'area'.
 // The suggestion list is custom-rendered — native <datalist> is unusable on
-// Android (blank suggestion chips) and unstylable everywhere else.
-_buildProviderInput({ label, inputId, listId, placeholder, onChange }) {
+// Android (blank suggestion chips) and unstylable everywhere else. With
+// inline: true the list renders in-flow and stays open (for the dedicated
+// provider dialog, where a floating overlay would clip against the modal).
+_buildProviderInput({ label, inputId, listId, placeholder, onChange, inline = false }) {
   const wrap = document.createElement('div');
   wrap.className = 'watch-provider-picker';
 
@@ -1918,12 +1921,16 @@ _buildProviderInput({ label, inputId, listId, placeholder, onChange }) {
 
   const sugg = document.createElement('div');
   sugg.id = listId;
-  sugg.className = 'watch-provider-suggestions';
+  sugg.className = 'watch-provider-suggestions' + (inline ? ' watch-provider-suggestions-inline' : '');
   sugg.setAttribute('role', 'listbox');
   sugg.hidden = true;
-  inputWrap.appendChild(sugg);
 
   wrap.appendChild(inputWrap);
+  // Inline mode renders the list as a sibling below the input box; overlay
+  // mode floats it from inside the input wrap. Keeping it out of the input
+  // wrap in inline mode also keeps the clear button anchored to the input.
+  if (inline) wrap.appendChild(sugg);
+  else inputWrap.appendChild(sugg);
 
   const hint = document.createElement('div');
   hint.className = 'watch-provider-hint';
@@ -1931,53 +1938,59 @@ _buildProviderInput({ label, inputId, listId, placeholder, onChange }) {
   wrap.appendChild(hint);
 
   // Service-area picker — only shown when the selected provider splits its
-  // channel lineup across multiple service areas.
-  const areaSelectId = inputId + '-service-area';
+  // channel lineup across multiple service areas. Rendered as the same
+  // tappable rows as the provider suggestions.
   const areaWrap = document.createElement('div');
   areaWrap.className = 'watch-service-area-picker';
   areaWrap.hidden = true;
 
-  const areaLabel = document.createElement('label');
+  const areaLabel = document.createElement('div');
   areaLabel.className = 'watch-service-area-label';
-  areaLabel.htmlFor = areaSelectId;
   areaLabel.textContent = 'Service area';
   areaWrap.appendChild(areaLabel);
 
-  const areaSelect = document.createElement('select');
-  areaSelect.id = areaSelectId;
-  areaSelect.className = 'watch-service-area-select';
-  areaWrap.appendChild(areaSelect);
+  const areaList = document.createElement('div');
+  areaList.className = 'watch-area-options';
+  areaList.setAttribute('role', 'listbox');
+  areaWrap.appendChild(areaList);
 
   wrap.appendChild(areaWrap);
 
   const refreshArea = (match) => {
     const areas = match && Array.isArray(match.service_areas) ? match.service_areas : [];
-    areaSelect.innerHTML = '';
+    areaList.innerHTML = '';
     if (areas.length > 1) {
+      const saved = Math.min(this.selectedServiceAreaIndex(match.key), areas.length - 1);
       areas.forEach((name, i) => {
-        const opt = document.createElement('option');
-        opt.value = String(i);
-        opt.textContent = name;
-        areaSelect.appendChild(opt);
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.className = 'watch-provider-suggestion watch-area-option' + (i === saved ? ' active' : '');
+        row.setAttribute('role', 'option');
+        row.setAttribute('aria-selected', String(i === saved));
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'watch-provider-suggestion-name';
+        nameSpan.textContent = name;
+        row.appendChild(nameSpan);
+        row.addEventListener('click', () => {
+          this.setServiceAreaIndex(match.key, i);
+          areaList.querySelectorAll('.watch-area-option').forEach((r, j) => {
+            r.classList.toggle('active', j === i);
+            r.setAttribute('aria-selected', String(j === i));
+          });
+          onChange(match, 'area');
+        });
+        areaList.appendChild(row);
       });
-      const saved = this.selectedServiceAreaIndex(match.key);
-      areaSelect.selectedIndex = Math.min(saved, areas.length - 1);
       areaWrap.hidden = false;
     } else {
       areaWrap.hidden = true;
     }
   };
 
-  areaSelect.addEventListener('change', () => {
-    const key = this.selectedProvider;
-    if (key) this.setServiceAreaIndex(key, areaSelect.selectedIndex);
-    onChange(key && this.providerMeta[key] ? this.providerMeta[key] : null);
-  });
-
   refreshArea(this.selectedProvider && this.providerMeta[this.selectedProvider]
     ? this.providerMeta[this.selectedProvider] : null);
 
-  const applyMatch = (match, { persistInput = true } = {}) => {
+  const applyMatch = (match, { persistInput = true, source = 'typed' } = {}) => {
     if (match) {
       this.selectedProvider = match.key;
       localStorage.setItem('tvProvider', match.key);
@@ -1991,7 +2004,7 @@ _buildProviderInput({ label, inputId, listId, placeholder, onChange }) {
     }
     clearBtn.hidden = !input.value;
     refreshArea(match);
-    onChange(match);
+    onChange(match, source);
     // The share message carries the selected provider's channel number —
     // refresh the prebuilt intent links whenever the provider changes.
     this.updateIntentLinks();
@@ -2002,12 +2015,17 @@ _buildProviderInput({ label, inputId, listId, placeholder, onChange }) {
   let activeIdx = -1;
   let currentMatches = [];
   const hideSugg = () => {
+    activeIdx = -1;
     sugg.hidden = true;
     input.setAttribute('aria-expanded', 'false');
-    activeIdx = -1;
   };
   const renderSugg = () => {
-    currentMatches = this._providerMatches(input.value.trim().toLowerCase());
+    let q = input.value.trim().toLowerCase();
+    // When the input just holds the current selection, filtering to that one
+    // provider is a useless echo — show the full list for browsing instead.
+    const selName = this.selectedProvider && this.providerMeta[this.selectedProvider]?.display_name.toLowerCase();
+    if (q && q === selName) q = '';
+    currentMatches = this._providerMatches(q);
     sugg.innerHTML = '';
     if (!currentMatches.length) { hideSugg(); return; }
     currentMatches.forEach((m, i) => {
@@ -2028,7 +2046,7 @@ _buildProviderInput({ label, inputId, listId, placeholder, onChange }) {
       // pointerdown fires before the input's blur, so focus stays put.
       row.addEventListener('pointerdown', (e) => {
         e.preventDefault();
-        applyMatch(m.p);
+        applyMatch(m.p, { source: 'row' });
         hideSugg();
       });
       sugg.appendChild(row);
@@ -2038,7 +2056,8 @@ _buildProviderInput({ label, inputId, listId, placeholder, onChange }) {
   };
 
   input.addEventListener('focus', renderSugg);
-  input.addEventListener('blur', hideSugg);
+  if (!inline) input.addEventListener('blur', hideSugg);
+  if (inline) renderSugg();
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') { hideSugg(); return; }
     if (sugg.hidden && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { renderSugg(); return; }
@@ -2051,7 +2070,7 @@ _buildProviderInput({ label, inputId, listId, placeholder, onChange }) {
       rows[activeIdx]?.scrollIntoView({ block: 'nearest' });
     } else if (e.key === 'Enter' && activeIdx >= 0 && currentMatches[activeIdx]) {
       e.preventDefault();
-      applyMatch(currentMatches[activeIdx].p);
+      applyMatch(currentMatches[activeIdx].p, { source: 'row' });
       hideSugg();
     }
   });
@@ -2067,23 +2086,26 @@ _buildProviderInput({ label, inputId, listId, placeholder, onChange }) {
     }
     const exact = this.providerAliasIndex.get(v.toLowerCase());
     if (exact) {
-      // Apply immediately but don't rewrite the input mid-typing.
+      // Typed the full name: apply it (without rewriting the input mid-word)
+      // and get the list out of the way — the service areas, if any, are the
+      // next step. Refocusing the input brings the full list back.
       applyMatch(this.providerMeta[exact], { persistInput: false });
+      hideSugg();
     } else {
       hint.hidden = true;
+      renderSugg();
     }
-    renderSugg();
   });
 
   input.addEventListener('change', () => {
     const match = this.resolveProviderByName(input.value);
-    applyMatch(match, { persistInput: !!match });
+    applyMatch(match, { persistInput: !!match, source: 'blur' });
   });
 
   clearBtn.addEventListener('click', () => {
     input.value = '';
     clearBtn.hidden = true;
-    applyMatch(null, { persistInput: false });
+    applyMatch(null, { persistInput: false, source: 'clear' });
     input.focus();
     renderSugg();
   });
@@ -2174,13 +2196,18 @@ openProviderModal() {
     inputId: 'schedule-provider-input',
     listId: 'schedule-provider-list',
     placeholder: 'Search providers (e.g. Xfinity, Spectrum, TDS)…',
-    onChange: () => {
+    inline: true,
+    onChange: (match, source) => {
       this._rerenderSchedule();
       const watchEl = document.getElementById('watch-channels');
       if (watchEl && watchEl._resolved) {
         this._renderWatchChannels(watchEl, watchEl._resolved, watchEl._radioResolved);
       }
       this._refreshScheduleProviderDisplay();
+      // Explicitly picking a provider finishes the dialog — unless a service
+      // area still needs choosing; picking the area finishes it too.
+      const needsArea = match && Array.isArray(match.service_areas) && match.service_areas.length > 1;
+      if (source === 'area' || (source === 'row' && !needsArea)) this.closeProviderModal();
     },
   }));
   modal.hidden = false;
