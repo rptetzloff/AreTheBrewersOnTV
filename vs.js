@@ -19,7 +19,7 @@ const H2H_COLUMNS = [
 	{ key: 'games',  label: 'Games', title: 'Games played', num: true, defaultDir: -1 },
 	{ key: 'winPct', label: 'Win %', title: 'Winning percentage', num: true, defaultDir: -1 },
 ];
-let h2hSort = { key: 'games', dir: -1 };
+let h2hSort = { key: 'winPct', dir: -1 };
 
 function splitRow(label, s) {
 	return `<div class="h2h-breakdown-stat">
