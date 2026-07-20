@@ -143,9 +143,20 @@ function serveVsHtml(req, res, slug) {
 
 // --- Box score data (server-side CSV indices, built once and cached) ---
 
-let _boxIndices = null;
-async function getBoxIndices() {
-  if (_boxIndices) return _boxIndices;
+// Memoized as a promise so concurrent cold-start requests (the /game page
+// and its /api/boxscore fetch arrive nearly together) share one build instead
+// of each streaming the 400MB plays file.
+let _boxIndicesPromise = null;
+let _boxIndicesReady = null;
+function getBoxIndices() {
+  if (!_boxIndicesPromise) {
+    _boxIndicesPromise = buildBoxIndices().then((idx) => { _boxIndicesReady = idx; return idx; });
+  }
+  return _boxIndicesPromise;
+}
+
+async function buildBoxIndices() {
+  const started = Date.now();
   const { promises: p } = await import('fs');
   const read = async (f) => {
     try { return await p.readFile(f, 'utf8'); } catch { return ''; }
@@ -176,7 +187,7 @@ async function getBoxIndices() {
   };
 
   const namesData = parseCurrentNamesCsv(namesRaw);
-  _boxIndices = {
+  const indices = {
     ...(await readScoringPlays()),
     games: buildGameIndex(gameinfoRaw),
     pitching: buildPitchingIndex(pitchingRaw),
@@ -187,7 +198,8 @@ async function getBoxIndices() {
     parks: parseBallparksCsv(parksRaw),
     lineScores: parseTeamstatsLineScores(teamstatsRaw),
   };
-  return _boxIndices;
+  console.log(`box score indices built in ${((Date.now() - started) / 1000).toFixed(1)}s`);
+  return indices;
 }
 
 async function serveBoxscoreApi(req, res, gid) {
@@ -201,8 +213,10 @@ async function serveBoxscoreApi(req, res, gid) {
 async function serveGameHtml(req, res, gid) {
   const origin = originOf(req);
   const canonical = `${origin}/game/${gid}`;
-  const idx = await getBoxIndices();
-  const box = buildBoxscore(gid, idx);
+  // Never block the page on the index build — the shell renders its own
+  // loading state and the /api/boxscore fetch waits instead. Only a cold
+  // start serves generic meta tags here.
+  const box = _boxIndicesReady ? buildBoxscore(gid, _boxIndicesReady) : null;
   const title = box ? `${box.game.visName} @ ${box.game.homeName} — ${box.game.date}` : 'Box Score';
   const desc = box ? `Full box score: ${box.game.visName} ${box.game.visScore}, ${box.game.homeName} ${box.game.homeScore} (${box.game.date}). Milwaukee Brewers historical game.` : 'Milwaukee Brewers historical game box score.';
   sendPage(res, GAME_VERSIONED, { title, desc, img: `${origin}/og/default.png`, canonical });
@@ -348,4 +362,9 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, () => console.log(`listening on :${PORT}`));
+server.listen(PORT, () => {
+  console.log(`listening on :${PORT}`);
+  // Warm the box score indices in the background so the first visitor after
+  // a deploy or spin-down doesn't pay the full CSV/plays parse on request.
+  getBoxIndices().catch((err) => console.error('box index warmup failed:', err));
+});
