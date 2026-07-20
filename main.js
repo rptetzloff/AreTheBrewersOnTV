@@ -374,8 +374,9 @@ processCsvSeasonData(season) {
   this.currentSeason = season;
   if (!this.latestSeason) {
         			// Determine latest season from ESPN on first load — but if we're bootstrapping
-        			// from a CSV season directly, use the current year as a proxy
-     this.latestSeason = this.csvMaxSeason || new Date().getFullYear();
+        			// from a CSV season directly, the current (ESPN-covered) season may be newer
+        			// than the CSV data, so allow navigating forward to the calendar year.
+     this.latestSeason = Math.max(this.csvMaxSeason || 0, new Date().getFullYear());
  }
  this.updateSeasonSelector();
 

@@ -338,6 +338,23 @@ function nonBatterEvent(f) {
   return 'Runner advance';
 }
 
+// Scan the batting index for Brewers players who hit for the cycle (single,
+// double, triple, and home run in one game). Returns raw entries; the caller
+// joins date/opponent from the game rows.
+export function computeCycles(battingIndex, playerNames) {
+  const cycles = [];
+  for (const [gid, rows] of battingIndex) {
+    for (const b of rows) {
+      if (!BREWERS_IDS.has(b.team)) continue;
+      const singles = b.h - b.d - b.t - b.hr;
+      if (b.d >= 1 && b.t >= 1 && b.hr >= 1 && singles >= 1) {
+        cycles.push({ gid, playerId: b.id, player: playerNames.get(b.id) || b.id, h: b.h, ab: b.ab });
+      }
+    }
+  }
+  return cycles;
+}
+
 function ipString(ipouts) {
   const inn = Math.floor(ipouts / 3);
   const frac = ipouts % 3;

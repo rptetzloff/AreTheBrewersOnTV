@@ -10,11 +10,11 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join, normalize, extname } from 'node:path';
 import { renderPng, renderRecordsPng, renderH2hPng, renderHistoryPng, renderCoachesPng } from './lib/cards.js';
 import { getSeasonState, defaultSeason } from './lib/seasons.js';
-import { records, recordsMeta, isRecordSlug, seasonHistory, historyMeta } from './lib/records.js';
+import { records, recordsMeta, isRecordSlug, seasonHistory, historyMeta, registerCycles } from './lib/records.js';
 import { coaches, coachesMeta } from './lib/coaches.js';
 import { h2h, h2hMeta, isOpponentSlug } from './lib/h2h.js';
 import { esc, parseCurrentNamesCsv, parseBallparksCsv, parseTeamstatsLineScores } from './records-core.js';
-import { buildGameIndex, buildPitchingIndex, buildBattingIndex, buildFieldingIndex, buildPlayerNameMap, buildBoxscore, createScoringPlaysCollector } from './boxscore-core.js';
+import { buildGameIndex, buildPitchingIndex, buildBattingIndex, buildFieldingIndex, buildPlayerNameMap, buildBoxscore, createScoringPlaysCollector, computeCycles } from './boxscore-core.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = __dirname;
@@ -203,6 +203,9 @@ async function buildBoxIndices() {
   });
   indices.gameNav = new Map();
   ordered.forEach((gid, i) => indices.gameNav.set(gid, { prev: ordered[i - 1] || null, next: ordered[i + 1] || null }));
+  // Cycles need per-player batting lines, which only exist in these indices —
+  // hand them to the records module for the /records page, meta, and cards.
+  registerCycles(computeCycles(indices.batting, indices.playerNames));
   console.log(`box score indices built in ${((Date.now() - started) / 1000).toFixed(1)}s`);
   return indices;
 }
@@ -351,6 +354,14 @@ const server = http.createServer(async (req, res) => {
       const slug = pathname.slice('/vs/'.length).replace(/\/$/, '');
       if (!isOpponentSlug(slug)) return notFound(res);
       return serveVsHtml(req, res, slug);
+    }
+
+    // Cycles for the records page — computed server-side from the batting
+    // index (the raw batting CSV is far too large to ship to the browser).
+    if (pathname === '/api/records/cycles') {
+      await getBoxIndices();
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=3600' });
+      return res.end(JSON.stringify({ cycles: records.cycles || [] }));
     }
 
     const boxApi = pathname.match(/^\/api\/boxscore\/(.+)$/);

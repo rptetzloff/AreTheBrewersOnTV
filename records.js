@@ -70,6 +70,37 @@ const CARDS = [
 		empty: 'The Brewers have never thrown a perfect game.',
 	},
 	{
+		slug: 'triple-plays', icon: 'mdi-numeric-3-circle-outline', title: 'Triple Plays',
+		note: 'Every triple play the Brewers have turned, most recent first',
+		highlightTop: false,
+		entries: (d) => (d.triplePlays || []).map((g) => ({
+			main: g.count > 1 ? `${g.count} in one game` : `vs ${g.opponent}`,
+			sub: g.count > 1 ? `vs ${g.opponent}` : `${g.pf}–${g.pa}`,
+			detailHtml: `${gameLink(g.season, g.gid, esc(formatDate(g.date)))}${esc(gameFlag(g))}`,
+		})),
+		empty: 'The Brewers have never turned a triple play.',
+	},
+	{
+		slug: 'most-hr-game', icon: 'mdi-baseball-bat', title: 'Most Home Runs in a Game',
+		note: 'Most home runs hit by the Brewers in a single game (ties included)',
+		entries: (d) => (d.mostTeamHrGames || []).map((g) => ({
+			main: `${g.hr} HR`,
+			sub: `vs ${g.opponent} (${g.pf}–${g.pa})`,
+			detailHtml: `${gameLink(g.season, g.gid, esc(formatDate(g.date)))}${esc(gameFlag(g))}`,
+		})),
+	},
+	{
+		slug: 'cycles', icon: 'mdi-sync-circle', title: 'Cycles',
+		note: 'Every Brewer to hit for the cycle, most recent first',
+		highlightTop: false,
+		entries: (d) => (d.cycles || []).map((c) => ({
+			main: c.player,
+			sub: `vs ${c.opponent}`,
+			detailHtml: `${gameLink(c.season, c.gid, esc(formatDate(c.date)))}${esc(gameFlag(c))} · ${c.h}-for-${c.ab}`,
+		})),
+		empty: 'No Brewer has hit for the cycle. Yet.',
+	},
+	{
 		slug: 'world-series-appearances', icon: 'mdi-trophy-outline', title: 'World Series Appearances',
 		note: 'Brewers World Series results by year',
 		highlightTop: false,
@@ -141,16 +172,20 @@ function requestedSlug() {
 async function init() {
 	const grid = document.getElementById('records-grid');
 	try {
-		const [gamesRes, namesRes, teamstatsRes] = await Promise.all([
+		const [gamesRes, namesRes, teamstatsRes, cyclesRes] = await Promise.all([
 			fetch('/data/gameinfo.csv'),
 			fetch('/data/CurrentNames.csv'),
 			fetch('/data/teamstats.csv'),
+			// Server-computed (needs the full batting file); optional — the card
+			// shows its empty state if unavailable.
+			fetch('/api/records/cycles').catch(() => null),
 		]);
 		if (!gamesRes.ok || !namesRes.ok || !teamstatsRes.ok) throw new Error(`CSV fetch failed`);
 		const namesText = await namesRes.text();
 		const teamstatsText = await teamstatsRes.text();
 		const rows = parseGameinfoCsv(await gamesRes.text(), namesText, teamstatsText);
-		const data = { ...computeSuperlatives(rows), ...computeTeamstatsRecords(rows, teamstatsText) };
+		const cyclesJson = cyclesRes?.ok ? await cyclesRes.json().catch(() => null) : null;
+		const data = { ...computeSuperlatives(rows), ...computeTeamstatsRecords(rows, teamstatsText), cycles: cyclesJson?.cycles || [] };
 		document.getElementById('records-subtitle').textContent =
 			`Milwaukee Brewers · ${data.seasonRange.first}–${data.seasonRange.last}`;
 		grid.innerHTML = CARDS.map((c) => cardHtml(c, data)).join('');
