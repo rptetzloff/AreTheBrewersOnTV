@@ -1,3 +1,11 @@
+/* The hidden attribute must always win. Several elements here set their own
+   display (flex/grid), which silently overrides the UA's [hidden] rule — this
+   has caused three real bugs (box score team panels, the license modal, the
+   schedule provider bar). */
+[hidden] {
+    display: none !important;
+}
+
 body {
     font-family: 'Arial', sans-serif;
     margin: 0;
@@ -2451,8 +2459,50 @@ details:not([open]) > .collapsible-summary::before {
     background: rgba(255, 197, 47, 0.15);
 }
 
-.watch-provider-input-wrap datalist {
-    display: none;
+.watch-provider-suggestions {
+    position: absolute;
+    top: calc(100% + 0.25rem);
+    left: 0;
+    right: 0;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    max-height: 240px;
+    overflow-y: auto;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 197, 47, 0.3);
+    background: #1a3558;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.watch-provider-suggestion {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.6rem;
+    padding: 0.5rem 0.7rem;
+    border: none;
+    background: none;
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 0.85rem;
+    text-align: left;
+    cursor: pointer;
+}
+
+.watch-provider-suggestion:hover,
+.watch-provider-suggestion.active {
+    background: rgba(255, 197, 47, 0.15);
+    color: #FFC52F;
+}
+
+.watch-provider-suggestion-via {
+    font-size: 0.72rem;
+    font-style: italic;
+    color: rgba(255, 255, 255, 0.45);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 55%;
 }
 
 .watch-channel-num {

@@ -1850,9 +1850,34 @@ initWatchModal() {
   });
 }
 
+// Providers matching a query, ranked starts-with before contains, matching
+// display names and aliases (so "charter" finds Spectrum). An empty query
+// returns everything — the dropdown doubles as a browsable list.
+_providerMatches(q) {
+  const opts = this.providerOptions();
+  if (!q) return opts.map(p => ({ p, via: null }));
+  const scored = [];
+  for (const p of opts) {
+    const names = [p.display_name, ...(p.alternate_name || '').split(',').map(s => s.trim()).filter(Boolean)];
+    let best = null;
+    for (const n of names) {
+      const ln = n.toLowerCase();
+      const rank = ln.startsWith(q) ? 0 : ln.includes(q) ? 1 : -1;
+      if (rank < 0) continue;
+      const via = n === p.display_name ? null : n;
+      if (!best || rank < best.rank || (rank === best.rank && !via && best.via)) best = { rank, via };
+    }
+    if (best) scored.push({ p, via: best.via, rank: best.rank });
+  }
+  scored.sort((a, b) => a.rank - b.rank || a.p.display_name.localeCompare(b.p.display_name));
+  return scored;
+}
+
 // Shared provider search input (used by the watch modal and the schedule bar).
 // Owns the selectedProvider/localStorage state; calls onChange(match) after
 // every apply so each caller can refresh its own dependents.
+// The suggestion list is custom-rendered — native <datalist> is unusable on
+// Android (blank suggestion chips) and unstylable everywhere else.
 _buildProviderInput({ label, inputId, listId, placeholder, onChange }) {
   const wrap = document.createElement('div');
   wrap.className = 'watch-provider-picker';
@@ -1869,13 +1894,15 @@ _buildProviderInput({ label, inputId, listId, placeholder, onChange }) {
   inputWrap.className = 'watch-provider-input-wrap';
 
   const input = document.createElement('input');
-  input.type = 'search';
+  input.type = 'text';
   input.id = inputId;
   input.className = 'watch-provider-input';
   input.placeholder = placeholder;
-  input.setAttribute('list', listId);
   input.autocomplete = 'off';
   input.spellcheck = false;
+  input.setAttribute('role', 'combobox');
+  input.setAttribute('aria-expanded', 'false');
+  input.setAttribute('aria-controls', listId);
   if (this.selectedProvider && this.providerMeta[this.selectedProvider]) {
     input.value = this.providerMeta[this.selectedProvider].display_name;
   }
@@ -1889,14 +1916,12 @@ _buildProviderInput({ label, inputId, listId, placeholder, onChange }) {
   clearBtn.hidden = !input.value;
   inputWrap.appendChild(clearBtn);
 
-  const list = document.createElement('datalist');
-  list.id = listId;
-  this.providerOptions().forEach(p => {
-    const opt = document.createElement('option');
-    opt.value = p.display_name;
-    list.appendChild(opt);
-  });
-  inputWrap.appendChild(list);
+  const sugg = document.createElement('div');
+  sugg.id = listId;
+  sugg.className = 'watch-provider-suggestions';
+  sugg.setAttribute('role', 'listbox');
+  sugg.hidden = true;
+  inputWrap.appendChild(sugg);
 
   wrap.appendChild(inputWrap);
 
@@ -1972,19 +1997,82 @@ _buildProviderInput({ label, inputId, listId, placeholder, onChange }) {
     this.updateIntentLinks();
   };
 
+  // Custom suggestion dropdown: shows every provider on focus, filters as
+  // the visitor types (aliases included, shown as a secondary label).
+  let activeIdx = -1;
+  let currentMatches = [];
+  const hideSugg = () => {
+    sugg.hidden = true;
+    input.setAttribute('aria-expanded', 'false');
+    activeIdx = -1;
+  };
+  const renderSugg = () => {
+    currentMatches = this._providerMatches(input.value.trim().toLowerCase());
+    sugg.innerHTML = '';
+    if (!currentMatches.length) { hideSugg(); return; }
+    currentMatches.forEach((m, i) => {
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'watch-provider-suggestion' + (i === activeIdx ? ' active' : '');
+      row.setAttribute('role', 'option');
+      const name = document.createElement('span');
+      name.className = 'watch-provider-suggestion-name';
+      name.textContent = m.p.display_name;
+      row.appendChild(name);
+      if (m.via) {
+        const via = document.createElement('span');
+        via.className = 'watch-provider-suggestion-via';
+        via.textContent = m.via;
+        row.appendChild(via);
+      }
+      // pointerdown fires before the input's blur, so focus stays put.
+      row.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        applyMatch(m.p);
+        hideSugg();
+      });
+      sugg.appendChild(row);
+    });
+    sugg.hidden = false;
+    input.setAttribute('aria-expanded', 'true');
+  };
+
+  input.addEventListener('focus', renderSugg);
+  input.addEventListener('blur', hideSugg);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { hideSugg(); return; }
+    if (sugg.hidden && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { renderSugg(); return; }
+    if (sugg.hidden) return;
+    const rows = sugg.querySelectorAll('.watch-provider-suggestion');
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      activeIdx = e.key === 'ArrowDown' ? Math.min(activeIdx + 1, rows.length - 1) : Math.max(activeIdx - 1, 0);
+      rows.forEach((r, i) => r.classList.toggle('active', i === activeIdx));
+      rows[activeIdx]?.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter' && activeIdx >= 0 && currentMatches[activeIdx]) {
+      e.preventDefault();
+      applyMatch(currentMatches[activeIdx].p);
+      hideSugg();
+    }
+  });
+
   input.addEventListener('input', () => {
     clearBtn.hidden = !input.value;
+    activeIdx = -1;
     const v = input.value.trim();
     if (!v) {
-      applyMatch(null);
+      applyMatch(null, { persistInput: false });
+      renderSugg();
       return;
     }
     const exact = this.providerAliasIndex.get(v.toLowerCase());
     if (exact) {
-      applyMatch(this.providerMeta[exact]);
+      // Apply immediately but don't rewrite the input mid-typing.
+      applyMatch(this.providerMeta[exact], { persistInput: false });
     } else {
       hint.hidden = true;
     }
+    renderSugg();
   });
 
   input.addEventListener('change', () => {
@@ -1995,8 +2083,9 @@ _buildProviderInput({ label, inputId, listId, placeholder, onChange }) {
   clearBtn.addEventListener('click', () => {
     input.value = '';
     clearBtn.hidden = true;
-    applyMatch(null);
+    applyMatch(null, { persistInput: false });
     input.focus();
+    renderSugg();
   });
 
   return wrap;
