@@ -4,7 +4,8 @@ import { parseGameinfoCsv, computeSuperlatives, computeTeamstatsRecords, records
 import { shareButtonsHtml, labeledShareButtonsHtml, wireShareRow, wireShareDropdown } from './share-core.js';
 
 const yearLink = (yr) => `<a href="/${yr}">${yr}</a>`;
-const gameLink = (season, gid, label) => `<a href="/${season}#g-${esc(gid)}">${label}</a>`;
+// Game links go straight to the box score page.
+const gameLink = (season, gid, label) => `<a href="/game/${esc(gid)}">${label}</a>`;
 const gameFlag = (g) => (g.worldseries ? ' · World Series' : g.playoff ? ' · Playoffs' : '');
 const blowoutEntry = (g) => ({
 	main: `${g.pf}–${g.pa}`, sub: `vs ${g.opponent}`,
@@ -81,13 +82,24 @@ const CARDS = [
 		empty: 'The Brewers have never turned a triple play.',
 	},
 	{
-		slug: 'most-hr-game', icon: 'mdi-baseball-bat', title: 'Most Home Runs in a Game',
+		slug: 'most-hr-game', icon: 'mdi-baseball-bat', title: 'Most Home Runs in a Game (Team)',
 		note: 'Most home runs hit by the Brewers in a single game (ties included)',
 		entries: (d) => (d.mostTeamHrGames || []).map((g) => ({
 			main: `${g.hr} HR`,
 			sub: `vs ${g.opponent} (${g.pf}–${g.pa})`,
 			detailHtml: `${gameLink(g.season, g.gid, esc(formatDate(g.date)))}${esc(gameFlag(g))}`,
 		})),
+	},
+	{
+		slug: 'player-hr-game', icon: 'mdi-account-star-outline', title: 'Most Home Runs in a Game (Player)',
+		note: 'Every three-homer game by a Brewer, best first',
+		highlightTop: false,
+		entries: (d) => (d.playerHrGames || []).map((g) => ({
+			main: `${g.hr} HR`,
+			sub: `${g.player} vs ${g.opponent}`,
+			detailHtml: `${gameLink(g.season, g.gid, esc(formatDate(g.date)))}${esc(gameFlag(g))} · ${g.rbi} RBI`,
+		})),
+		empty: 'No Brewer has hit three home runs in a game. Yet.',
 	},
 	{
 		slug: 'cycles', icon: 'mdi-sync-circle', title: 'Cycles',
@@ -106,7 +118,7 @@ const CARDS = [
 		highlightTop: false,
 		entries: (d) => d.worldSeriesAppearances.map((p) => ({
 			main: String(p.season),
-			subHtml: `<a href="/${p.season}#g-${esc(p.firstGid)}">${esc(p.result)} vs ${esc(p.opponent)} (${esc(p.record)})</a>`,
+			subHtml: `<a href="/game/${esc(p.firstGid)}">${esc(p.result)} vs ${esc(p.opponent)} (${esc(p.record)})</a>`,
 		})),
 		empty: 'The Brewers have not yet reached a World Series.',
 	},
@@ -116,7 +128,7 @@ const CARDS = [
 		highlightTop: false,
 		entries: (d) => d.playoffAppearances.map((p) => ({
 			main: String(p.season),
-			subHtml: p.series.map((s) => `<a href="/${s.season}#g-${esc(s.firstGid)}">${esc(s.result)} ${esc(s.roundLabel)} vs ${esc(s.opponent)} (${esc(s.record)})</a>`).join('<br>'),
+			subHtml: p.series.map((s) => `<a href="/game/${esc(s.firstGid)}">${esc(s.result)} ${esc(s.roundLabel)} vs ${esc(s.opponent)} (${esc(s.record)})</a>`).join('<br>'),
 		})),
 		empty: 'The Brewers have not yet reached the playoffs.',
 	},
@@ -176,16 +188,19 @@ async function init() {
 			fetch('/data/gameinfo.csv'),
 			fetch('/data/CurrentNames.csv'),
 			fetch('/data/teamstats.csv'),
-			// Server-computed (needs the full batting file); optional — the card
-			// shows its empty state if unavailable.
-			fetch('/api/records/cycles').catch(() => null),
+			// Server-computed (needs the full batting file); optional — the cards
+			// show their empty state if unavailable.
+			fetch('/api/records/batting').catch(() => null),
 		]);
 		if (!gamesRes.ok || !namesRes.ok || !teamstatsRes.ok) throw new Error(`CSV fetch failed`);
 		const namesText = await namesRes.text();
 		const teamstatsText = await teamstatsRes.text();
 		const rows = parseGameinfoCsv(await gamesRes.text(), namesText, teamstatsText);
-		const cyclesJson = cyclesRes?.ok ? await cyclesRes.json().catch(() => null) : null;
-		const data = { ...computeSuperlatives(rows), ...computeTeamstatsRecords(rows, teamstatsText), cycles: cyclesJson?.cycles || [] };
+		const featsJson = cyclesRes?.ok ? await cyclesRes.json().catch(() => null) : null;
+		const data = {
+			...computeSuperlatives(rows), ...computeTeamstatsRecords(rows, teamstatsText),
+			cycles: featsJson?.cycles || [], playerHrGames: featsJson?.playerHrGames || [],
+		};
 		document.getElementById('records-subtitle').textContent =
 			`Milwaukee Brewers · ${data.seasonRange.first}–${data.seasonRange.last}`;
 		grid.innerHTML = CARDS.map((c) => cardHtml(c, data)).join('');

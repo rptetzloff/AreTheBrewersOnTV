@@ -773,6 +773,15 @@ export function recordsCopy(slug, data) {
 				desc: `The most home runs the Brewers have hit in one game: ${g.hr}, vs the ${g.opponent} on ${formatDate(g.date)}.`,
 			};
 		}
+		case 'player-hr-game': {
+			const h = data.playerHrGames || [];
+			if (!h.length) return { title: 'Most Home Runs in a Game by a Brewer', desc: 'Player single-game home run records.' };
+			const g = h[0];
+			return {
+				title: `Most Home Runs in a Game by a Brewer — ${g.hr}`,
+				desc: `${g.player} hit ${g.hr} home runs vs the ${g.opponent} on ${formatDate(g.date)} — the most by a Brewer in one game. ${h.length} such games all-time.`,
+			};
+		}
 		case 'cycles': {
 			const c = data.cycles || [];
 			if (!c.length) return { title: 'Brewers Cycles', desc: 'Every cycle hit in Milwaukee Brewers history.' };
@@ -804,6 +813,7 @@ export function parseTeamstatsLineScores(raw) {
 	const lobI = headers.indexOf('lob');
 	const dpI = headers.indexOf('d_dp');
 	const tpI = headers.indexOf('d_tp');
+	const hrI = headers.indexOf('b_hr');
 	const innIdxs = [];
 	for (let i = 1; i <= 28; i++) {
 		innIdxs.push(headers.indexOf(`inn${i}`));
@@ -825,6 +835,7 @@ export function parseTeamstatsLineScores(raw) {
 			lob: lobI >= 0 ? parseInt(v[lobI], 10) || 0 : 0,
 			dp: dpI >= 0 ? parseInt(v[dpI], 10) || 0 : 0,
 			tp: tpI >= 0 ? parseInt(v[tpI], 10) || 0 : 0,
+			hr: hrI >= 0 ? parseInt(v[hrI], 10) || 0 : 0,
 		};
 		if (vh === 'v') entry.visitor = side;
 		else if (vh === 'h') entry.home = side;
@@ -832,4 +843,4 @@ export function parseTeamstatsLineScores(raw) {
 	return map;
 }
 
-export const RECORD_SLUGS = ['best-seasons', 'worst-seasons', 'best-starts', 'win-streaks', 'worst-starts', 'lopsided-wins', 'worst-losses', 'no-hitters', 'perfect-games', 'triple-plays', 'most-hr-game', 'cycles', 'world-series-appearances', 'playoff-appearances', 'ties'];
+export const RECORD_SLUGS = ['best-seasons', 'worst-seasons', 'best-starts', 'win-streaks', 'worst-starts', 'lopsided-wins', 'worst-losses', 'no-hitters', 'perfect-games', 'triple-plays', 'most-hr-game', 'player-hr-game', 'cycles', 'world-series-appearances', 'playoff-appearances', 'ties'];

@@ -10,11 +10,11 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join, normalize, extname } from 'node:path';
 import { renderPng, renderRecordsPng, renderH2hPng, renderHistoryPng, renderCoachesPng } from './lib/cards.js';
 import { getSeasonState, defaultSeason } from './lib/seasons.js';
-import { records, recordsMeta, isRecordSlug, seasonHistory, historyMeta, registerCycles } from './lib/records.js';
+import { records, recordsMeta, isRecordSlug, seasonHistory, historyMeta, registerBattingFeats } from './lib/records.js';
 import { coaches, coachesMeta } from './lib/coaches.js';
 import { h2h, h2hMeta, isOpponentSlug } from './lib/h2h.js';
 import { esc, parseCurrentNamesCsv, parseBallparksCsv, parseTeamstatsLineScores } from './records-core.js';
-import { buildGameIndex, buildPitchingIndex, buildBattingIndex, buildFieldingIndex, buildPlayerNameMap, buildBoxscore, createScoringPlaysCollector, computeCycles } from './boxscore-core.js';
+import { buildGameIndex, buildPitchingIndex, buildBattingIndex, buildFieldingIndex, buildPlayerNameMap, buildBoxscore, createScoringPlaysCollector, computeBattingFeats } from './boxscore-core.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = __dirname;
@@ -60,21 +60,28 @@ const MIME = {
 
 function copy(state) {
   const s = state.season;
-  const past = s < defaultSeason();
-  const are = past ? 'finished' : 'are';
   switch (state.kind) {
-    case 'undefeated':
-      return { title: `Are the Brewers On TV? YES — ${state.record} (${s})`,
-        desc: `The ${s} Milwaukee Brewers ${past ? 'finished' : 'are'} UNDEFEATED at ${state.record}.` };
     case 'champions':
       return { title: `${s} Milwaukee Brewers — World Series Champions`,
         desc: `The ${s} Milwaukee Brewers won ${state.worldSeriesName || 'the World Series'}.` };
     case 'offseason':
       return { title: `Are the Brewers On TV? — ${s} offseason`,
-        desc: `The ${s} season hasn't started yet. Undefeated for now!` };
-    case 'no':
-      return { title: `Are the Brewers On TV? NO — ${state.record} (${s})`,
-        desc: `The ${s} Milwaukee Brewers ${are} ${state.record}.` };
+        desc: `The ${s} season hasn't started yet. Check back for the schedule.` };
+    case 'tv-yes':
+      return { title: `Are the Brewers On TV? YES — today vs the ${state.opponent}`,
+        desc: `The Brewers (${state.record}) play the ${state.opponent} today and the game is on TV. Channel details inside.` };
+    case 'tv-streaming':
+      return { title: `Are the Brewers On TV? Streaming only — today vs the ${state.opponent}`,
+        desc: `The Brewers (${state.record}) play the ${state.opponent} today, streaming only. Details inside.` };
+    case 'tv-no':
+      return { title: `Are the Brewers On TV? NO — today vs the ${state.opponent}`,
+        desc: `The Brewers (${state.record}) play the ${state.opponent} today, but the game isn't on TV.` };
+    case 'no-game':
+      return { title: `Are the Brewers On TV? No game today — ${state.record} (${s})`,
+        desc: `No Brewers game today. Current record: ${state.record}. Check the full ${s} schedule.` };
+    case 'record':
+      return { title: `${s} Milwaukee Brewers — ${state.record}`,
+        desc: `The ${s} Milwaukee Brewers finished ${state.record}. Full game-by-game schedule and box scores.` };
     default:
       return { title: 'Are the Brewers On TV?',
         desc: 'Are the Milwaukee Brewers on TV today? Check the current schedule.' };
@@ -203,11 +210,43 @@ async function buildBoxIndices() {
   });
   indices.gameNav = new Map();
   ordered.forEach((gid, i) => indices.gameNav.set(gid, { prev: ordered[i - 1] || null, next: ordered[i + 1] || null }));
-  // Cycles need per-player batting lines, which only exist in these indices —
-  // hand them to the records module for the /records page, meta, and cards.
-  registerCycles(computeCycles(indices.batting, indices.playerNames));
+  // Cycles and player HR feats need per-player batting lines, which only
+  // exist in these indices — hand them to the records module for the
+  // /records page, meta, and cards.
+  registerBattingFeats(computeBattingFeats(indices.batting, indices.playerNames));
   console.log(`box score indices built in ${((Date.now() - started) / 1000).toFixed(1)}s`);
   return indices;
+}
+
+// Short-lived cache in front of ESPN's public API. Serves stale data if ESPN
+// is briefly unreachable; only site.api.espn.com API paths are proxied.
+const espnProxyCache = new Map(); // target url -> { at, status, body }
+const ESPN_PROXY_TTL = 30 * 1000;
+const ESPN_PROXY_MAX_ENTRIES = 200;
+async function serveEspnProxy(res, path, search) {
+  if (!path.startsWith('apis/') || !/^[\w/.\-]+$/.test(path)) return notFound(res);
+  const target = `https://site.api.espn.com/${path}${search || ''}`;
+  const sendJson = (status, body, cacheState) => {
+    res.writeHead(status, {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Cache-Control': 'public, max-age=15',
+      'X-Proxy-Cache': cacheState,
+    });
+    res.end(body);
+  };
+  const hit = espnProxyCache.get(target);
+  if (hit && Date.now() - hit.at < ESPN_PROXY_TTL) return sendJson(hit.status, hit.body, 'hit');
+  try {
+    const r = await fetch(target);
+    const body = await r.text();
+    if (espnProxyCache.size >= ESPN_PROXY_MAX_ENTRIES) espnProxyCache.clear();
+    espnProxyCache.set(target, { at: Date.now(), status: r.status, body });
+    return sendJson(r.status, body, 'miss');
+  } catch {
+    if (hit) return sendJson(hit.status, hit.body, 'stale');
+    res.writeHead(502, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ error: 'ESPN unreachable' }));
+  }
 }
 
 async function serveBoxscoreApi(req, res, gid) {
@@ -356,12 +395,20 @@ const server = http.createServer(async (req, res) => {
       return serveVsHtml(req, res, slug);
     }
 
-    // Cycles for the records page — computed server-side from the batting
-    // index (the raw batting CSV is far too large to ship to the browser).
-    if (pathname === '/api/records/cycles') {
+    // ESPN API proxy: browsers hit this instead of ESPN directly, so a page
+    // full of visitors (and 30-second live polling) shares one upstream
+    // request per TTL window instead of each polling ESPN.
+    if (pathname.startsWith('/api/espn/')) {
+      return await serveEspnProxy(res, pathname.slice('/api/espn/'.length), url.search);
+    }
+
+    // Batting feats for the records page — computed server-side from the
+    // batting index (the raw batting CSV is far too large to ship to the
+    // browser).
+    if (pathname === '/api/records/batting') {
       await getBoxIndices();
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=3600' });
-      return res.end(JSON.stringify({ cycles: records.cycles || [] }));
+      return res.end(JSON.stringify({ cycles: records.cycles || [], playerHrGames: records.playerHrGames || [] }));
     }
 
     const boxApi = pathname.match(/^\/api\/boxscore\/(.+)$/);

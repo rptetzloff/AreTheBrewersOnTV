@@ -3,6 +3,12 @@
         import { buildChartSvg } from './history-chart.js';
         import { intentUrls, copyText, flashCopied, wireShareDropdown } from './share-core.js';
 
+        // Parse 'YYYY-MM-DD' at LOCAL midnight. new Date('YYYY-MM-DD') parses as
+        // UTC midnight, which renders as the previous day in US timezones.
+        function parseLocalDate(iso) {
+        	return new Date(`${iso}T00:00:00`);
+        }
+
         function buildSeasonMap(games) {
         	const map = {};
         	games.forEach(g => {
@@ -15,7 +21,7 @@
 
         class BrewersTracker {
         	constructor() {
-        		this.apiUrl = 'https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/teams/mil/schedule';
+        		this.apiUrl = '/api/espn/apis/site/v2/sports/baseball/mlb/teams/mil/schedule';
         		this.countdownInterval = null;
         		this.liveUpdateInterval = null;
         		this.currentSeason = null;
@@ -427,7 +433,7 @@ processCsvSeasonData(season) {
 
  const csvCompletedGames = games
  .filter(g => g.regular_season === '1' && g['Brewers Win'])
- .map(g => ({ result: g['Brewers Win'], date: new Date(g.date) }));
+ .map(g => ({ result: g['Brewers Win'], date: parseLocalDate(g.date) }));
  this.updateStreakBanner(csvCompletedGames, season !== this.latestSeason);
 }
 
@@ -515,7 +521,7 @@ createCsvGameItem(g, showH2h = false) {
         		const location = g.location; // HOME / AWAY / NEUTRAL
         		const brewersScore = parseInt(g.brewers_score) || 0;
         		const opponentScore = parseInt(g.opponent_score) || 0;
-        		const date = new Date(g.date);
+        		const date = parseLocalDate(g.date);
         		const isWorldSeries = g.worldseries && g.worldseries.trim() !== '';
 
         		const gameItem = document.createElement('div');
@@ -587,7 +593,7 @@ createCsvGameItem(g, showH2h = false) {
         	async fetchLiveGameScore(liveGame, scheduleData) {
         		try {
         			const gameId = liveGame.id;
-        			const scoreboardUrl = `https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard`;
+        			const scoreboardUrl = `/api/espn/apis/site/v2/sports/baseball/mlb/scoreboard`;
         			const response = await fetch(scoreboardUrl);
         			const scoreboardData = await response.json();
 
@@ -613,7 +619,7 @@ createCsvGameItem(g, showH2h = false) {
         					};
         				}
         			} else {
-        				const boxscoreUrl = `https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/summary?event=${gameId}`;
+        				const boxscoreUrl = `/api/espn/apis/site/v2/sports/baseball/mlb/summary?event=${gameId}`;
         				const boxResponse = await fetch(boxscoreUrl);
         				const boxscoreData = await boxResponse.json();
 
@@ -1357,31 +1363,77 @@ async copyLink() {
     await copyText(shareText);
 }
 
+// How noteworthy was this game? Blowouts, slugfests, extra innings, playoff
+// games, homer barrages, and no-hitters float to the top of On This Day.
+_otdInterest(c) {
+  const g = c.game;
+  let score = 0;
+  const bs = parseInt(g.brewers_score, 10), os = parseInt(g.opponent_score, 10);
+  if (Number.isFinite(bs) && Number.isFinite(os)) {
+    const diff = Math.abs(bs - os), total = bs + os;
+    if (diff >= 10) score += 6; else if (diff >= 7) score += 4; else if (diff >= 5) score += 2;
+    if (total >= 20) score += 3; else if (total >= 15) score += 2;
+    if (g['Brewers Win'] === 'WIN') { score += 1; if (os === 0) score += 1; }
+  }
+  if (g.worldseries && g.worldseries.trim()) score += 8;
+  else if (g.playoff === '1') score += 5;
+  const ls = g.gid ? this.lineScores?.get(g.gid) : null;
+  if (ls?.visitor && ls?.home) {
+    const inns = Math.max(
+      ls.visitor.inns.filter(x => x !== '').length,
+      ls.home.inns.filter(x => x !== '').length);
+    if (inns >= 13) score += 5; else if (inns >= 10) score += 3;
+    const mil = BREWERS_IDS.has(ls.home.team) ? ls.home : ls.visitor;
+    const opp = mil === ls.home ? ls.visitor : ls.home;
+    if (mil.hr >= 4) score += 5; else if (mil.hr >= 3) score += 3;
+    if (mil.hr + opp.hr >= 6) score += 2;
+    if (opp.h === 0 && inns >= 9) score += 12;   // no-hitter
+    else if (opp.h === 0 || mil.h === 0) score += 6;
+  }
+  return score;
+}
+
+// Random pick weighted by interest — ordinary games still show up, just less.
+_otdPick(pool, exclude) {
+  const items = exclude ? pool.filter(c => c !== exclude) : pool;
+  if (!items.length) return null;
+  const weights = items.map(c => 1 + (c.interest || 0) * 2);
+  let r = Math.random() * weights.reduce((a, b) => a + b, 0);
+  for (let i = 0; i < items.length; i++) {
+    r -= weights[i];
+    if (r <= 0) return items[i];
+  }
+  return items[items.length - 1];
+}
+
 buildOnThisDay() {
   const el = document.getElementById('on-this-day');
   if (!el) return;
 
   const dateParam = new URLSearchParams(window.location.search).get('otd');
-  const today = dateParam ? new Date(`2000-${dateParam}`) : new Date();
+  const today = dateParam ? parseLocalDate(`2000-${dateParam}`) : new Date();
   const todayMonth = isNaN(today) ? new Date().getMonth() : today.getMonth();
   const todayDay = isNaN(today) ? new Date().getDate() : today.getDate();
 
+  // Exact calendar date only — with 50+ seasons of daily baseball there is
+  // nearly always a game on this date, no ±3-day window needed.
   const candidates = [];
   for (const [yr, games] of Object.entries(this.csvBySeason)) {
      for (const g of games) {
         if (!g.date) continue;
-        const d = new Date(g.date);
+        const d = parseLocalDate(g.date);
         if (isNaN(d)) continue;
-        const diff = Math.abs((d.getMonth() * 31 + d.getDate()) - (todayMonth * 31 + todayDay));
-        if (diff <= 3) candidates.push({ game: g, season: parseInt(yr), date: d });
+        if (d.getMonth() === todayMonth && d.getDate() === todayDay) {
+          const c = { game: g, season: parseInt(yr), date: d };
+          c.interest = this._otdInterest(c);
+          candidates.push(c);
+        }
     }
 }
 
 if (candidates.length === 0) { el.hidden = true; return; }
 
-const withPhotos = candidates.filter(c => this.photosBySeason[c.season]);
-const pool = withPhotos.length > 0 ? withPhotos : candidates;
-this._renderOnThisDay(el, pool[Math.floor(Math.random() * pool.length)], pool);
+this._renderOnThisDay(el, this._otdPick(candidates), candidates);
 }
 
 _renderOnThisDay(el, pick, pool) {
@@ -1424,8 +1476,9 @@ _renderOnThisDay(el, pick, pool) {
         					</div>
         					<div class="otd-game-row">
         						<span class="otd-result-badge ${resultClass}">${resultLabel}</span>
-        						<span class="otd-matchup">vs. ${opponent}</span>
-    ${scoreText ? `<span class="otd-score">${scoreText}</span>` : ''}
+    ${game.gid
+        ? `<a class="otd-matchup otd-game-link" href="/game/${game.gid}" title="Full box score">vs. ${opponent}${scoreText ? ` <span class="otd-score">${scoreText}</span>` : ''}</a>`
+        : `<span class="otd-matchup">vs. ${opponent}</span>${scoreText ? `<span class="otd-score">${scoreText}</span>` : ''}`}
         					</div>
         					<div class="otd-date">${dateStr}, ${season}</div>
         				</div>
@@ -1435,8 +1488,7 @@ el.hidden = false;
 
 document.getElementById('otd-refresh')?.addEventListener('click', () => {
  if (pool.length > 1) {
-    const next = pool.filter(c => c !== pick)[Math.floor(Math.random() * (pool.length - 1))];
-    this._renderOnThisDay(el, next, pool);
+    this._renderOnThisDay(el, this._otdPick(pool, pick), pool);
 }
 });
 }
@@ -1517,6 +1569,24 @@ if (!firstLoss) {
     const streakText = winStreak === 1 ? '1-game' : `${winStreak}-game`;
     html = `The Brewers started the season undefeated for <strong>${gamesText}</strong> (${daysText}). Currently on a <strong>${streakText}</strong> win streak.`;
 }
+
+// Recent form: last 10 games and the current calendar month.
+const recordOf = (games) => {
+    let w = 0, l = 0, t = 0;
+    for (const g of games) {
+        if (g.result === 'WIN') w++;
+        else if (g.result === 'LOSS') l++;
+        else t++;
+    }
+    return t > 0 ? `${w}-${l}-${t}` : `${w}-${l}`;
+};
+const now = new Date();
+const monthGames = sorted.filter(g => g.date.getMonth() === now.getMonth() && g.date.getFullYear() === now.getFullYear());
+const parts = [];
+if (sorted.length >= 10) parts.push(`Last 10: <strong>${recordOf(sorted.slice(-10))}</strong>`);
+if (monthGames.length) parts.push(`${now.toLocaleDateString('en-US', { month: 'long' })}: <strong>${recordOf(monthGames)}</strong>`);
+if (parts.length) html += `<div class="streak-extra">${parts.join(' &middot; ')}</div>`;
+
 el.innerHTML = html;
 el.hidden = false;
 }
@@ -2212,8 +2282,8 @@ async openStandingsModal() {
 
   try {
     const [alData, nlData] = await Promise.all([
-      fetch('https://site.api.espn.com/apis/v2/sports/baseball/mlb/standings?group=7').then(r => r.json()),
-      fetch('https://site.api.espn.com/apis/v2/sports/baseball/mlb/standings?group=8').then(r => r.json()),
+      fetch('/api/espn/apis/v2/sports/baseball/mlb/standings?group=7').then(r => r.json()),
+      fetch('/api/espn/apis/v2/sports/baseball/mlb/standings?group=8').then(r => r.json()),
     ]);
     this._standingsData = { alData, nlData };
     body.innerHTML = this._buildStandingsShell();
@@ -2405,7 +2475,7 @@ openLinescoreModal(g) {
   const visLabel = brewersIsHome ? oppLabel : brewersLabel;
   const homLabel = brewersIsHome ? brewersLabel : oppLabel;
 
-  const date = new Date(g.date);
+  const date = parseLocalDate(g.date);
   const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
   const playerName = (id) => (id && this.playerNames?.get(id)) || null;
   const pitchers = {
@@ -2443,7 +2513,7 @@ openLinescoreFromEvent(event) {
   // The schedule endpoint omits inning-by-inning runs and H/E; the summary endpoint has them.
   this._renderLinescore(title, { inns: [], r: 0, h: 0, e: 0 }, { inns: [], r: 0, h: 0, e: 0 }, visLabel, homLabel, milIsHome, boxScoreUrl, true);
 
-  fetch(`https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/summary?event=${event.id}`)
+  fetch(`/api/espn/apis/site/v2/sports/baseball/mlb/summary?event=${event.id}`)
     .then(r => r.json())
     .then(data => {
       const comp = data.header?.competitions?.[0];

@@ -1,0 +1,49 @@
+// Adds a "Data & licenses" link to the footer disclaimer on every page and
+// injects the modal it opens: the required Retrosheet notice plus ESPN usage.
+(() => {
+	function init() {
+		const disclaimer = document.querySelector('.footer-disclaimer');
+		if (!disclaimer) return;
+
+		const link = document.createElement('button');
+		link.type = 'button';
+		link.className = 'license-link';
+		link.textContent = 'Data & licenses';
+		disclaimer.append(' · ', link);
+
+		const overlay = document.createElement('div');
+		overlay.className = 'license-overlay';
+		overlay.hidden = true;
+		overlay.innerHTML = `
+			<div class="license-modal" role="dialog" aria-modal="true" aria-label="Data and licenses">
+				<button class="license-close" aria-label="Close"><i class="mdi mdi-close"></i></button>
+				<h2><i class="mdi mdi-license"></i> Data &amp; Licenses</h2>
+				<h3>Retrosheet</h3>
+				<p>The information used here was obtained free of charge from and is copyrighted
+				by Retrosheet. Interested parties may contact Retrosheet at 20 Sunset Rd.,
+				Newark, DE 19711.</p>
+				<p>All historical game, player, and box score data (1969–present) comes from
+				<a href="https://www.retrosheet.org" target="_blank" rel="noopener noreferrer">retrosheet.org</a>.</p>
+				<h3>ESPN</h3>
+				<p>Live schedule, score, standings, and broadcast information for the current
+				season is retrieved from ESPN's publicly available API. This site is not
+				affiliated with, sponsored by, or endorsed by ESPN or Major League Baseball.</p>
+				<p>Channel information is based on publicly available channel listings; check
+				your local channel guide for the most accurate broadcast information.</p>
+				<h3>Site</h3>
+				<p>The site's code is open source under the MIT License
+				(<a href="https://github.com/rptetzloff/AreTheBrewersOnTV" target="_blank" rel="noopener noreferrer">GitHub</a>).
+				Bundled Liberation Sans fonts are © Red Hat, Inc., licensed under the SIL Open Font License 1.1.</p>
+			</div>`;
+		document.body.appendChild(overlay);
+
+		const close = () => { overlay.hidden = true; };
+		link.addEventListener('click', () => { overlay.hidden = false; });
+		overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+		overlay.querySelector('.license-close').addEventListener('click', close);
+		document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !overlay.hidden) close(); });
+	}
+
+	if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+	else init();
+})();
