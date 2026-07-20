@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Packers All-Time Head-to-Head</title>
-    <meta name="description" content="The Green Bay Packers' all-time record against every opponent they've ever faced.">
-    <meta property="og:title" content="Packers All-Time Head-to-Head">
-    <meta property="og:description" content="The Green Bay Packers' all-time record against every opponent they've ever faced.">
+    <title>Brewers All-Time Head-to-Head</title>
+    <meta name="description" content="The Milwaukee Brewers' all-time record against every opponent they've ever faced.">
+    <meta property="og:title" content="Brewers All-Time Head-to-Head">
+    <meta property="og:description" content="The Milwaukee Brewers' all-time record against every opponent they've ever faced.">
     <meta property="og:type" content="website">
     <meta name="twitter:card" content="summary_large_image">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
@@ -15,7 +15,7 @@
 </head>
 <body>
     <div class="container records-container">
-        <a href="/" class="records-back"><i class="mdi mdi-arrow-left"></i> Are the Packers Undefeated?</a>
+        <a href="/" class="records-back"><i class="mdi mdi-arrow-left"></i> Are the Brewers On TV?</a>
         <h1 class="records-title">Head-to-Head</h1>
         <p id="h2h-subtitle" class="records-subtitle"></p>
         <div id="h2h-focus"></div>
@@ -31,7 +31,6 @@
                 <option value="regular">Regular season</option>
                 <option value="playoffs">Playoffs</option>
             </select>
-            <label class="h2h-check"><input type="checkbox" id="h2h-current"> Current franchises only</label>
         </div>
         <p id="h2h-count" class="h2h-count"></p>
         <div id="h2h-table-wrap" class="h2h-table-wrap">
@@ -40,7 +39,21 @@
     </div>
 
     <footer class="site-footer">
-        <a href="https://github.com/rptetzloff/AreThePackersUndefeated" target="_blank" rel="noopener noreferrer" class="github-link">
+        <nav class="footer-nav">
+            <a href="/" class="footer-nav-link"><i class="mdi mdi-home-outline"></i> Home</a>
+            <a href="/records.html" class="footer-nav-link"><i class="mdi mdi-trophy-outline"></i> Records</a>
+            <a href="/vs.html" class="footer-nav-link"><i class="mdi mdi-sword-cross"></i> Head-to-Head</a>
+            <a href="/history.html" class="footer-nav-link"><i class="mdi mdi-chart-line"></i> History</a>
+            <a href="/managers.html" class="footer-nav-link"><i class="mdi mdi-whistle-outline"></i> Managers</a>
+            <div class="footer-share-wrap">
+                <button id="footer-share-trigger" class="footer-nav-link footer-share-trigger" type="button" aria-haspopup="true" aria-expanded="false">
+                    <i class="mdi mdi-share-variant"></i> Share <i class="mdi mdi-chevron-down footer-share-caret"></i>
+                </button>
+                <div class="footer-share record-share" id="h2h-share" role="menu" hidden></div>
+            </div>
+        </nav>
+        <p class="footer-disclaimer">Channel information is based on publicly available channel listings. Please check your local channel guide for the most accurate broadcast information.</p>
+        <a href="https://github.com/rptetzloff/AreTheBrewersOnTV" target="_blank" rel="noopener noreferrer" class="github-link">
             <i class="mdi mdi-github"></i>
             View on GitHub
         </a>

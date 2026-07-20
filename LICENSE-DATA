@@ -1,25 +1,13 @@
-MIT License
+Retrosheet Notice
 
-Copyright (c) 2016 FiveThirtyEight
+The historical game, player, and box score data in the `data/` directory
+(including `gameinfo.csv`, `batting.csv`, `pitching.csv`, `fielding.csv`,
+`teamstats.csv`, `plays.lfs.csv`, `biofile0.csv`, `allplayers.csv`,
+`ballparks.csv`, and `CurrentNames.csv`) was obtained free of charge from
+Retrosheet and is copyrighted by Retrosheet.
 
-The data file `data/packers_games_1921-2020.csv` is derived from the
-FiveThirtyEight NFL ELO game dataset:
-https://github.com/fivethirtyeight/nfl-elo-game
+"The information used here was obtained free of charge from and is copyrighted
+by Retrosheet. Interested parties may contact Retrosheet at 20 Sunset Rd.,
+Newark, DE 19711."
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this data and associated documentation files, to deal in the data without
-restriction, including without limitation the rights to use, copy, modify,
-merge, publish, distribute, sublicense, and/or sell copies of the data, and
-to permit persons to whom the data is furnished to do so, subject to the
-following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the data.
-
-THE DATA IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE DATA OR THE USE OR OTHER DEALINGS IN THE
-DATA.
+See https://www.retrosheet.org for more information.

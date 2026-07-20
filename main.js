@@ -1,6 +1,7 @@
-        import { parseGamesCsv } from './records-core.js';
-        import { computeHeadToHead, canonicalOpponent } from './h2h-core.js';
-        import { intentUrls, copyText, flashCopied } from './share-core.js';
+        import { parseGamesCsv, parseGameinfoCsv, parseCurrentNamesCsv, BREWERS_IDS, computeSeasonHistory, parseTeamstatsLineScores } from './records-core.js';
+        import { computeHeadToHead } from './h2h-core.js';
+        import { buildChartSvg } from './history-chart.js';
+        import { intentUrls, copyText, flashCopied, wireShareDropdown } from './share-core.js';
 
         function buildSeasonMap(games) {
         	const map = {};
@@ -12,35 +13,75 @@
         	return map;
         }
 
-        class PackersTracker {
+        class BrewersTracker {
         	constructor() {
-        		this.apiUrl = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/gb/schedule';
+        		this.apiUrl = 'https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/teams/mil/schedule';
         		this.countdownInterval = null;
         		this.liveUpdateInterval = null;
         		this.currentSeason = null;
         		this.latestSeason = null;
-        		this.earliestSeason = 1921;
+        		this.earliestSeason = 1969;
         		this.csvBySeason = {};
         		this.csvMaxSeason = 2020;
         		this.seasonRecords = {};
         		this.photosBySeason = {};
+        		this.channelMeta = {};
+        		this.providerMeta = {};
+        		this.providerAliasIndex = new Map();
+        		this.selectedProvider = localStorage.getItem('tvProvider') || null;
+        		this.lineScores = null;
         		this.init();
+        	}
+
+        	getTvStatus(game) {
+        		if (!game) return 'no';
+        		const broadcasts = game.competitions?.[0]?.broadcasts || [];
+        		if (broadcasts.length === 0) return 'no';
+        		// Use our channel_lookup/broadcast_channels metadata to classify each
+        		// broadcast: a channel typed broadcast/cable/regional counts as "on TV"
+        		// even when ESPN labels it "Streaming" (e.g. Brewers.TV is carried on
+        		// DirecTV, Spectrum, Xfinity, etc.). Only fall back to ESPN's type when
+        		// the network isn't in our metadata at all.
+        		const tvTypes = new Set(['broadcast', 'cable', 'regional']);
+        		let hasTV = false;
+        		let hasStreaming = false;
+        		for (const b of broadcasts) {
+        			if (!b.media?.shortName) continue;
+        			const ch = this.resolveChannel(b.media.shortName);
+        			if (ch) {
+        				if (tvTypes.has(ch.type)) { hasTV = true; continue; }
+        				if (ch.type === 'streaming') { hasStreaming = true; continue; }
+        			}
+        			// Unknown to our metadata — trust ESPN's type label.
+        			const t = b.type?.shortName || '';
+        			if (t === 'TV') hasTV = true;
+        			else if (t === 'Streaming') hasStreaming = true;
+        		}
+        		if (hasTV) return 'yes';
+        		if (hasStreaming) return 'streaming';
+        		return 'no';
+        	}
+
+        	// Choose the broadcast to show next to the game date in the schedule
+        	// listing. Prefer TV-type channels (broadcast > cable > regional) over
+        	// streaming/radio, since ESPN often lists MLB.TV first even when a
+        	// linear TV channel is available. Uses the same channel metadata
+        	// classification as getTvStatus.
+        	pickPrimaryBroadcast(game) {
+        		const broadcasts = game?.competitions?.[0]?.broadcasts || [];
+        		if (broadcasts.length === 0) return null;
+        		const rank = (b) => {
+        			const name = b.media?.shortName;
+        			if (!name) return 99;
+        			const ch = this.resolveChannel(name);
+        			const type = ch?.type || (b.type?.shortName === 'Streaming' ? 'streaming' : b.type?.shortName === 'Radio' ? 'radio' : 'cable');
+        			return { broadcast: 0, regional: 1, cable: 2, streaming: 3, radio: 4 }[type] ?? 5;
+        		};
+        		return broadcasts.slice().sort((a, b) => rank(a) - rank(b))[0] || null;
         	}
 
         	async init() {
         		try {
-        			const toggle = document.getElementById('emoji-toggle');
-        			toggle.checked = this.showEmojis;
-        			toggle.addEventListener('change', () => {
-        				localStorage.setItem('showEmojis', toggle.checked ? 'true' : 'false');
-        				if (this._isOffseason) {
-        					this.displayOffseasonMessage();
-        				} else if (this._lastResult) {
-        					const { isUndefeated, wins, losses, ties, isPastSeason, superBowlName, postRecord, preRecord } = this._lastResult;
-        					this.displayResult(isUndefeated, wins, losses, ties, isPastSeason, superBowlName, postRecord, preRecord);
-        				}
-        			});
-
         			['streak-details', 'otd-details'].forEach(id => {
         				const details = document.getElementById(id);
         				if (!details) return;
@@ -51,30 +92,73 @@
         				});
         			});
 
-        			const [gamesRes, recordsRes, photosRes] = await Promise.all([
-        				fetch('./data/packers_games.csv'),
-        				fetch('./data/packers_season_records.csv'),
-        				fetch('./data/photos.csv'),
+        			const [gamesRes, namesRes, photosRes, channelsRes, channelLookupRes, providerLookupRes, teamstatsRes, playersRes] = await Promise.all([
+        				fetch('./data/gameinfo.csv'),
+        				fetch('./data/CurrentNames.csv'),
+        				fetch('./data/photos.csv').catch(() => null),
+        				fetch('./data/broadcast_channels.csv'),
+        				fetch('./data/channel_lookup.csv'),
+        				fetch('./data/provider_lookup.csv'),
+        				fetch('./data/teamstats.csv'),
+        				fetch('./data/biofile0.csv'),
         			]);
-        			if (gamesRes.ok) {
-        				const raw = await gamesRes.text();
-        				const games = parseGamesCsv(raw);
+        			if (channelsRes.ok) {
+        				const raw = await channelsRes.text();
+        				parseGamesCsv(raw).forEach(ch => {
+        					this.channelMeta[ch.key] = {
+        						...ch,
+        						providers: ch.providers ? ch.providers.split('|') : [],
+        						sort_order: parseInt(ch.sort_order) || 99,
+        					};
+        				});
+        			}
+        			if (channelLookupRes.ok && providerLookupRes.ok) {
+        				this._loadTvLookup(await channelLookupRes.text(), await providerLookupRes.text());
+        			}
+        			if (gamesRes.ok && namesRes.ok) {
+        				const teamstatsText = teamstatsRes?.ok ? await teamstatsRes.text() : null;
+        				const namesText = await namesRes.text();
+        				const games = parseGameinfoCsv(await gamesRes.text(), namesText, teamstatsText);
+        				this.namesData = parseCurrentNamesCsv(namesText);
+        				this.teamNames = this.namesData.teamNames;
+        				if (playersRes?.ok) {
+        					this.playerNames = new Map(
+        						parseGamesCsv(await playersRes.text()).map(p => [p.id, `${p.usename} ${p.lastname}`.trim()])
+        					);
+        				}
         				this.csvBySeason = buildSeasonMap(games);
-        				// name -> all-time head-to-head entry, for schedule annotations
-        				this.h2hByName = new Map(computeHeadToHead(games).opponents.map(o => [o.name, o]));
+        				if (teamstatsText) this.lineScores = parseTeamstatsLineScores(teamstatsText);
+        				// franchise code -> all-time head-to-head entry, for schedule annotations
+        				this.h2hByFranchise = new Map(computeHeadToHead(games).opponents.map(o => [o.franchise, o]));
+        				// display name -> franchise code, so ESPN's team.displayName (e.g.
+        				// "Chicago Cubs") can resolve to a franchise code for h2h lookup.
+        				// Built from every era name so relocated/rebranded franchises match
+        				// regardless of which name ESPN uses.
+        				this.displayNameToFranchise = new Map();
+        				for (const [fran, eras] of Object.entries(this.namesData.franchiseEras)) {
+        					for (const era of eras) this.displayNameToFranchise.set(era.display, fran);
+        				}
+        				this.seasonHistory = computeSeasonHistory(games);
+        				this.renderHistorySpark();
         				const seasons = Object.keys(this.csvBySeason).map(Number).sort((a, b) => a - b);
         				if (seasons.length) {
         					this.earliestSeason = seasons[0];
         					this.csvMaxSeason = seasons[seasons.length - 1];
         				}
-        			}
-        			if (recordsRes.ok) {
-        				const raw = await recordsRes.text();
-        				parseGamesCsv(raw).forEach(r => {
-        					this.seasonRecords[parseInt(r.season)] = r;
+        				// Build season records from games for undefeated-season lookups
+        				games.forEach(g => {
+        					const yr = parseInt(g.season);
+        					if (!this.seasonRecords[yr]) this.seasonRecords[yr] = { season: yr, reg_w: 0, reg_l: 0, reg_t: 0, post_w: 0, post_l: 0, post_t: 0 };
+        					const sr = this.seasonRecords[yr];
+        					const res = g['Brewers Win'];
+        					if (g.regular_season === '1') {
+        						if (res === 'WIN') sr.reg_w++; else if (res === 'LOSS') sr.reg_l++; else if (res === 'TIE') sr.reg_t++;
+        					} else if (g.playoff === '1') {
+        						if (res === 'WIN') sr.post_w++; else if (res === 'LOSS') sr.post_l++; else if (res === 'TIE') sr.post_t++;
+        					}
         				});
         			}
-        			if (photosRes.ok) {
+        			if (photosRes?.ok) {
         				const raw = await photosRes.text();
         				parseGamesCsv(raw).forEach(p => {
         					const yr = parseInt(p.season);
@@ -83,6 +167,10 @@
         				});
         			}
         			this.initGallery();
+        			this.initWatchModal();
+        			this.initProviderModal();
+        			this.initLinescoreModal();
+        			this.initStandingsModal();
         			this.buildOnThisDay();
         			const params = new URLSearchParams(window.location.search);
         			const seasonParam = params.get('season');
@@ -90,10 +178,10 @@
         			const requestedSeason = seasonParam
                     ? parseInt(seasonParam, 10)
                     : pathMatch ? parseInt(pathMatch[1], 10) : null;
-                    await this.fetchPackersData(requestedSeason || undefined);
+                    await this.fetchBrewersData(requestedSeason || undefined);
                     this.setupSeasonSelector();
                 } catch (error) {
-                 this.showError('Failed to load Packers data');
+                 this.showError('Failed to load Brewers data');
                  console.error('Error:', error);
              }
          }
@@ -141,12 +229,26 @@
       updateSiteTitle() {
           const el = document.getElementById('site-title');
           if (!el) return;
-          const past = this.currentSeason && this.latestSeason && this.currentSeason < this.latestSeason;
-          el.textContent = `${past ? 'Were' : 'Are'} the Packers Undefeated?`;
+          const link = el.querySelector('a');
+          if (link) link.textContent = 'Are the Brewers On TV?';
+      }
+
+      // Compact franchise-history sparkline under the answer; the currently
+      // viewed season gets a white marker. Links through to /history.
+      renderHistorySpark() {
+          const el = document.getElementById('history-spark');
+          if (!el || !this.seasonHistory?.length) return;
+          el.innerHTML = buildChartSvg(this.seasonHistory, {
+              width: 600, height: 80,
+              axes: false,
+              highlight: this.currentSeason,
+          });
       }
 
       updateSeasonSelector() {
           this.updateSiteTitle();
+          this.renderHistorySpark();
+          this.renderScheduleProviderBar();
           const label = document.getElementById('season-label');
           const prevBtn = document.getElementById('season-prev');
           const nextBtn = document.getElementById('season-next');
@@ -198,7 +300,7 @@
      }
 
      try {
-         await this.fetchPackersData(year);
+         await this.fetchBrewersData(year);
      } catch (error) {
          this.showError('Failed to load season data');
      }
@@ -208,12 +310,17 @@
   return season != null && season <= this.csvMaxSeason && this.csvBySeason[season] != null;
 }
 
-async fetchPackersData(season) {
-        		// For seasons covered by the CSV, use local data
-  if (season && this.usesCsvData(season)) {
-     this.processCsvSeasonData(season);
-     return;
- }
+_defaultSeason() {
+  const now = new Date();
+  return now.getMonth() <= 1 ? now.getFullYear() - 1 : now.getFullYear();
+}
+
+async fetchBrewersData(season) {
+  const effectiveSeason = season ?? this._defaultSeason();
+  if (this.usesCsvData(effectiveSeason)) {
+    this.processCsvSeasonData(effectiveSeason);
+    return;
+  }
 
  try {
      const seasonParam = season ? `&season=${season}` : '';
@@ -236,8 +343,8 @@ async fetchPackersData(season) {
      const mergedData = { ...regularData, events: allEvents };
 
         			// If ESPN returns no events and we have CSV data, fall back to CSV
-     if (allEvents.length === 0 && season && this.usesCsvData(season)) {
-        this.processCsvSeasonData(season);
+     if (allEvents.length === 0 && this.usesCsvData(effectiveSeason)) {
+        this.processCsvSeasonData(effectiveSeason);
         return;
     }
 
@@ -253,8 +360,8 @@ async fetchPackersData(season) {
     }
 } catch (error) {
         			// If ESPN fetch fails and we have CSV data for this season, use it
- if (season && this.usesCsvData(season)) {
-    this.processCsvSeasonData(season);
+ if (this.usesCsvData(effectiveSeason)) {
+    this.processCsvSeasonData(effectiveSeason);
 } else {
     this.processScheduleData({ events: [] });
 }
@@ -268,7 +375,7 @@ processCsvSeasonData(season) {
   if (!this.latestSeason) {
         			// Determine latest season from ESPN on first load — but if we're bootstrapping
         			// from a CSV season directly, use the current year as a proxy
-     this.latestSeason = new Date().getFullYear();
+     this.latestSeason = this.csvMaxSeason || new Date().getFullYear();
  }
  this.updateSeasonSelector();
 
@@ -279,7 +386,7 @@ processCsvSeasonData(season) {
  let postWins = 0, postLosses = 0, postTies = 0;
 
  games.forEach(g => {
-     const result = g['Packers Win'];
+     const result = g['Brewers Win'];
      const isPlayoff = g.playoff === '1';
      const isRegular = g.regular_season === '1';
 
@@ -294,40 +401,46 @@ processCsvSeasonData(season) {
     }
 });
 
-        		// Check for Super Bowl win (superbowl column is non-empty)
- let superBowlName = null;
+        		// World Series champions only if the Brewers won the series
+        		// (more WS game wins than losses), not just a single WS game.
+ let wsWins = 0, wsLosses = 0, wsName = '';
  games.forEach(g => {
-     if (g.superbowl && g.superbowl.trim() !== '' && g['Packers Win'] === 'WIN') {
-        superBowlName = `Super Bowl ${g.superbowl.toUpperCase()}`;
+     if (g.worldseries && g.worldseries.trim() !== '') {
+        wsName = `World Series ${g.worldseries.toUpperCase()}`;
+        if (g['Brewers Win'] === 'WIN') wsWins++;
+        else if (g['Brewers Win'] === 'LOSS') wsLosses++;
     }
 });
+ const worldSeriesName = wsWins > wsLosses ? wsName : null;
 
  const isUndefeated = losses === 0 && wins > 0;
  const postRecord = (postWins > 0 || postLosses > 0) ? { w: postWins, l: postLosses, t: postTies } : null;
 
- this.displayResult(isUndefeated, wins, losses, ties, true, superBowlName, postRecord, null);
+ this.displayResult(isUndefeated, wins, losses, ties, true, worldSeriesName, postRecord, null);
  this.displayCsvSchedule(games, season);
+ this.scrollToGameAnchor();
  this.showLastUpdated();
  this.setDataCredit(true);
  this.updateLastUndefeated(wins, losses);
  this.setupShareButtons();
 
  const csvCompletedGames = games
- .filter(g => g.regular_season === '1' && g['Packers Win'])
- .map(g => ({ result: g['Packers Win'], date: new Date(g.date) }));
+ .filter(g => g.regular_season === '1' && g['Brewers Win'])
+ .map(g => ({ result: g['Brewers Win'], date: new Date(g.date) }));
  this.updateStreakBanner(csvCompletedGames, season !== this.latestSeason);
 }
 
 // All-time head-to-head note linking to the opponent's rivalry page.
 // Returns null for opponents with no CSV history (shouldn't happen).
-h2hNote(opponentName) {
-  const o = this.h2hByName?.get(canonicalOpponent(opponentName));
+h2hNote(franchiseOrName) {
+  const fran = this.displayNameToFranchise?.get(franchiseOrName) || franchiseOrName;
+  const o = this.h2hByFranchise?.get(fran);
   if (!o) return null;
   const note = document.createElement('a');
   note.className = 'game-h2h';
-  note.href = `/vs/${o.slug}`;
+  note.href = `/vs.html?vs=${o.slug}`;
   note.textContent = `All-time: ${o.record}`;
-  note.title = `Packers vs ${o.name} — all-time head-to-head`;
+  note.title = `Brewers vs ${o.name} — all-time head-to-head`;
   return note;
 }
 
@@ -335,8 +448,11 @@ displayCsvSchedule(games, season) {
   const scheduleGrid = document.getElementById('schedule-grid');
   scheduleGrid.innerHTML = '';
 
-  // Head-to-head notes only make sense on the current season's schedule.
-  const showH2h = season === this.latestSeason;
+  // Head-to-head notes show on the current season's schedule. When ESPN
+  // reports a future season (e.g. 2026) that has no games yet, the latest
+  // CSV season (2025) is the most recent one with real game data, so show
+  // notes there too.
+  const showH2h = season === this.latestSeason || season === this.csvMaxSeason;
 
         		// Sort by date
   const sorted = [...games].sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -345,8 +461,28 @@ displayCsvSchedule(games, season) {
   sorted.forEach(g => {
      const isPlayoff = g.playoff === '1';
      const isRegular = g.regular_season === '1';
-     const section = isPlayoff ? 'post' : (isRegular ? 'regular' : 'other');
-     const sectionLabels = { post: 'Playoffs', regular: 'Regular Season', other: 'Other' };
+     let section;
+     if (isRegular) {
+        section = 'regular';
+     } else if (isPlayoff) {
+        const gt = (g.gametype || '').toUpperCase();
+        if (gt === 'W') section = 'ws';
+        else if (gt === 'L' || gt === 'C') section = 'lcs';
+        else if (gt === 'D') section = 'ds';
+        else if (gt === 'F') section = 'wc';
+        else section = 'post';
+     } else {
+        section = 'other';
+     }
+     const sectionLabels = {
+        regular: 'Regular Season',
+        wc: 'Wild Card',
+        ds: 'Division Series',
+        lcs: 'League Championship Series',
+        ws: 'World Series',
+        post: 'Playoffs',
+        other: 'Preseason / Exhibition',
+     };
 
      if (section !== currentSection) {
         currentSection = section;
@@ -360,18 +496,31 @@ displayCsvSchedule(games, season) {
 });
 }
 
+scrollToGameAnchor() {
+  const hash = window.location.hash;
+  if (!hash || !hash.startsWith('#g-')) return;
+  const el = document.getElementById(hash.slice(1));
+  if (!el) return;
+  const grid = document.getElementById('schedule-grid');
+  const top = el.offsetTop - (grid.clientHeight / 2) + (el.offsetHeight / 2);
+  grid.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+  el.classList.add('highlight');
+  setTimeout(() => el.classList.remove('highlight'), 2500);
+}
+
 createCsvGameItem(g, showH2h = false) {
-        		const result = g['Packers Win']; // WIN / LOSS / TIE
+        		const result = g['Brewers Win']; // WIN / LOSS / TIE
         		const opponent = g.Opponent;
         		const location = g.location; // HOME / AWAY / NEUTRAL
-        		const packersScore = parseInt(g.packers_score) || 0;
+        		const brewersScore = parseInt(g.brewers_score) || 0;
         		const opponentScore = parseInt(g.opponent_score) || 0;
         		const date = new Date(g.date);
-        		const isSuperBowl = g.superbowl && g.superbowl.trim() !== '';
+        		const isWorldSeries = g.worldseries && g.worldseries.trim() !== '';
 
         		const gameItem = document.createElement('div');
         		gameItem.className = 'game-item completed';
 
+        		if (g.gid) gameItem.id = `g-${g.gid}`;
         		if (result === 'WIN') gameItem.classList.add('win');
         		else if (result === 'LOSS') gameItem.classList.add('loss');
 
@@ -396,14 +545,14 @@ createCsvGameItem(g, showH2h = false) {
         		gameDetails.appendChild(dateDiv);
 
         		if (showH2h) {
-        			const h2h = this.h2hNote(opponent);
+        			const h2h = this.h2hNote(g.franchise);
         			if (h2h) gameDetails.appendChild(h2h);
         		}
 
-        		if (isSuperBowl) {
+        		if (isWorldSeries) {
         			const sbLabel = document.createElement('div');
         			sbLabel.className = 'game-status';
-        			sbLabel.textContent = `Super Bowl ${g.superbowl.toUpperCase()}`;
+        			sbLabel.textContent = `World Series ${g.worldseries.toUpperCase()}`;
         			gameDetails.appendChild(sbLabel);
         		}
 
@@ -416,10 +565,19 @@ createCsvGameItem(g, showH2h = false) {
         		else if (result === 'LOSS') scoreDiv.classList.add('loss');
 
         		const resultPrefix = result === 'WIN' ? 'W ' : result === 'LOSS' ? 'L ' : 'T ';
-        		scoreDiv.textContent = `${resultPrefix}${packersScore}-${opponentScore}`;
+        		scoreDiv.textContent = `${resultPrefix}${brewersScore}-${opponentScore}`;
         		scoreDiv.style.textAlign = 'center';
         		scoreDiv.style.marginTop = '0.5rem';
         		scoreDiv.style.width = '100%';
+
+        		if (this.lineScores?.has(g.gid)) {
+        			scoreDiv.classList.add('linescore-trigger');
+        			scoreDiv.title = 'Click for line score';
+        			scoreDiv.addEventListener('click', (e) => {
+        				e.stopPropagation();
+        				this.openLinescoreModal(g);
+        			});
+        		}
 
         		gameItem.appendChild(scoreDiv);
         		return gameItem;
@@ -428,7 +586,7 @@ createCsvGameItem(g, showH2h = false) {
         	async fetchLiveGameScore(liveGame, scheduleData) {
         		try {
         			const gameId = liveGame.id;
-        			const scoreboardUrl = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard`;
+        			const scoreboardUrl = `https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard`;
         			const response = await fetch(scoreboardUrl);
         			const scoreboardData = await response.json();
 
@@ -454,7 +612,7 @@ createCsvGameItem(g, showH2h = false) {
         					};
         				}
         			} else {
-        				const boxscoreUrl = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${gameId}`;
+        				const boxscoreUrl = `https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/summary?event=${gameId}`;
         				const boxResponse = await fetch(boxscoreUrl);
         				const boxscoreData = await boxResponse.json();
 
@@ -523,16 +681,16 @@ createCsvGameItem(g, showH2h = false) {
         			let w = 0, l = 0, t = 0;
         			gameList.forEach(event => {
         				const competitors = event.competitions[0].competitors;
-        				let packersScore = 0, opponentScore = 0;
+        				let brewersScore = 0, opponentScore = 0;
         				competitors.forEach(competitor => {
-        					if (competitor.team.abbreviation === 'GB') {
-        						packersScore = parseInt(competitor.score.value) || 0;
+        					if (competitor.team.abbreviation === 'MIL') {
+        						brewersScore = parseInt(competitor.score.value) || 0;
         					} else {
         						opponentScore = parseInt(competitor.score.value) || 0;
         					}
         				});
-        				if (packersScore > opponentScore) w++;
-        				else if (packersScore < opponentScore) l++;
+        				if (brewersScore > opponentScore) w++;
+        				else if (brewersScore < opponentScore) l++;
         				else t++;
         			});
         			return { w, l, t };
@@ -557,22 +715,47 @@ createCsvGameItem(g, showH2h = false) {
         		const { w: wins, l: losses, t: ties } = countRecord(completedRegular);
         		const postRecord = countRecord(completedPost);
 
-        		let superBowlName = null;
+        		// World Series champions only if the Brewers won the series,
+        		// not just a single WS game. Tally wins vs losses across all
+        		// WS competitions in the schedule.
+        		let wsWins = 0, wsLosses = 0, wsName = null;
         		completedPost.forEach(event => {
         			const notes = event.competitions?.[0]?.notes || [];
-        			const sbNote = notes.find(n => /super bowl/i.test(n.headline || ''));
+        			const sbNote = notes.find(n => /world series/i.test(n.headline || ''));
         			if (!sbNote) return;
         			const competitors = event.competitions[0].competitors;
-        			let packersScore = 0, opponentScore = 0;
+        			let brewersScore = 0, opponentScore = 0;
         			competitors.forEach(c => {
-        				if (c.team.abbreviation === 'GB') packersScore = parseInt(c.score?.value) || 0;
+        				if (c.team.abbreviation === 'MIL') brewersScore = parseInt(c.score?.value) || 0;
         				else opponentScore = parseInt(c.score?.value) || 0;
         			});
-        			if (packersScore > opponentScore) superBowlName = sbNote.headline;
+        			wsName = wsName || sbNote.headline;
+        			if (brewersScore > opponentScore) wsWins++;
+        			else if (brewersScore < opponentScore) wsLosses++;
         		});
+        		const worldSeriesName = wsWins > wsLosses ? wsName : null;
 
         		const isUndefeated = losses === 0 && wins > 0;
-        		this.displayResult(isUndefeated, wins, losses, ties, isPastSeason, superBowlName, postRecord, preRecord);
+
+        		// Determine TV status for today's game (current season only)
+        		let tvStatus = null;
+        		let tvGame = null;
+        		if (!isPastSeason) {
+        			const now = new Date();
+        			const liveNow = events.find(e => {
+        				const s = e.competitions?.[0]?.status?.type?.name;
+        				return s === 'STATUS_IN_PROGRESS' || s === 'STATUS_HALFTIME' ||
+        					s === 'STATUS_DELAYED' || s === 'STATUS_BREAK' ||
+        					s === 'STATUS_TIMEOUT' || s === 'STATUS_END_PERIOD' || s === 'STATUS_RAIN_DELAY';
+        			});
+        			const nextScheduled = events
+        				.filter(e => new Date(e.date) > now && e.competitions?.[0]?.status?.type?.name === 'STATUS_SCHEDULED')
+        				.sort((a, b) => new Date(a.date) - new Date(b.date))[0];
+        			tvGame = liveNow || nextScheduled;
+        			tvStatus = this.getTvStatus(tvGame);
+        		}
+
+        		this.displayResult(isUndefeated, wins, losses, ties, isPastSeason, worldSeriesName, postRecord, preRecord, tvStatus, tvGame);
         		this.displaySchedule(events, isPastSeason);
         		this.showLastUpdated();
         		this.setDataCredit(false);
@@ -581,12 +764,12 @@ createCsvGameItem(g, showH2h = false) {
 
         		const espnCompletedGames = completedRegular.map(event => {
         			const competitors = event.competitions[0].competitors;
-        			let packersScore = 0, opponentScore = 0;
+        			let brewersScore = 0, opponentScore = 0;
         			competitors.forEach(c => {
-        				if (c.team.abbreviation === 'GB') packersScore = parseInt(c.score?.value || c.score || 0);
+        				if (c.team.abbreviation === 'MIL') brewersScore = parseInt(c.score?.value || c.score || 0);
         				else opponentScore = parseInt(c.score?.value || c.score || 0);
         			});
-        			const result = packersScore > opponentScore ? 'WIN' : packersScore < opponentScore ? 'LOSS' : 'TIE';
+        			const result = brewersScore > opponentScore ? 'WIN' : brewersScore < opponentScore ? 'LOSS' : 'TIE';
         			return { result, date: new Date(event.date) };
         		});
         		this.updateStreakBanner(espnCompletedGames, isPastSeason);
@@ -603,7 +786,7 @@ createCsvGameItem(g, showH2h = false) {
 
         	isOffseason(events) {
         		const now = new Date();
-        		const isOffseasonMonth = now.getMonth() >= 2 && now.getMonth() <= 7;
+        		const isOffseasonMonth = now.getMonth() >= 10 || now.getMonth() <= 2;
         		const thirtyDaysFromNow = new Date(now.getTime() + (30 * 24 * 60 * 60 * 1000));
         		const hasUpcomingGames = events.some(event => {
         			const gameDate = new Date(event.date);
@@ -617,19 +800,14 @@ createCsvGameItem(g, showH2h = false) {
         		const answerEl = document.getElementById('answer');
         		const recordEl = document.getElementById('record');
 
-        		const footballHtml = this.showEmojis ? '🏈<br>' : '';
         		this._lastResult = null;
         		this._isOffseason = true;
-        		answerEl.innerHTML = `${footballHtml}OFFSEASON`;
+        		answerEl.innerHTML = `OFFSEASON`;
         		answerEl.className = 'answer offseason';
         		document.body.classList.remove('undefeated');
         		document.body.classList.add('offseason');
 
         		recordEl.textContent = 'The season hasn\'t started yet!';
-        	}
-
-        	get showEmojis() {
-        		return localStorage.getItem('showEmojis') !== 'false';
         	}
 
         	emojiRowHtml(emoji, count) {
@@ -638,30 +816,58 @@ createCsvGameItem(g, showH2h = false) {
         		return `<div class="emoji-row">${spans}</div>`;
         	}
 
-        	displayResult(isUndefeated, wins, losses, ties, isPastSeason = false, superBowlName = null, postRecord = null, preRecord = null) {
+        	displayResult(isUndefeated, wins, losses, ties, isPastSeason = false, worldSeriesName = null, postRecord = null, preRecord = null, tvStatus = null, tvGame = null) {
         		const answerEl = document.getElementById('answer');
         		const recordEl = document.getElementById('record');
 
-        		this._lastResult = { isUndefeated, wins, losses, ties, isPastSeason, superBowlName, postRecord, preRecord };
+        		this._lastResult = { isUndefeated, wins, losses, ties, isPastSeason, worldSeriesName, postRecord, preRecord, tvStatus };
         		this._isOffseason = false;
 
-        		const emojis = this.showEmojis;
-
-        		if (isUndefeated) {
-        			const cheeseHtml = emojis && wins > 0 ? this.emojiRowHtml('🧀', wins) : '';
-        			const footballHtml = emojis && !isPastSeason ? this.emojiRowHtml('🏈', 1) : '';
-        			answerEl.innerHTML = `${cheeseHtml}YES!!!${footballHtml}`;
-        			answerEl.className = 'answer yes';
-        			document.body.classList.add('undefeated');
-        		} else if (superBowlName) {
-        			answerEl.innerHTML = `🏆🏈🧀<br>${superBowlName.toUpperCase()}<br>CHAMPIONS!<br>🎉🎊🎉`;
+        		if (worldSeriesName) {
+        			answerEl.innerHTML = `🏆🍺<br>${worldSeriesName.toUpperCase()}<br>CHAMPIONS!<br>🎉`;
         			answerEl.className = 'answer champions';
         			document.body.classList.remove('undefeated');
+        		} else if (!isPastSeason && tvStatus !== null) {
+        			// Current season: answer based on whether today's game is on TV.
+        			// The badge is clickable when we have broadcast data for the
+        			// game it refers to, opening the same Where-to-watch modal the
+        			// schedule's watch button uses.
+        			const hasBroadcasts = tvGame && (tvGame.competitions?.[0]?.broadcasts || []).some(b => b.media?.shortName);
+        			if (tvStatus === 'yes') {
+        				answerEl.innerHTML = `YES!!!`;
+        				answerEl.className = 'answer yes';
+        				document.body.classList.add('undefeated');
+        			} else if (tvStatus === 'streaming') {
+        				answerEl.innerHTML = `STREAMING ONLY`;
+        				answerEl.className = 'answer streaming';
+        				document.body.classList.remove('undefeated');
+        			} else {
+        				answerEl.innerHTML = `NO`;
+        				answerEl.className = 'answer no';
+        				document.body.classList.remove('undefeated');
+        			}
+        			if (hasBroadcasts) {
+        				answerEl.style.cursor = 'pointer';
+        				answerEl.title = 'Click to see where to watch';
+        				answerEl.onclick = () => this.openWatchModal(tvGame);
+        			} else {
+        				answerEl.style.cursor = '';
+        				answerEl.title = '';
+        				answerEl.onclick = null;
+        			}
+        		} else if (isUndefeated) {
+        			const beerHtml = !isPastSeason ? this.emojiRowHtml('🍺', 1) : '';
+        			answerEl.innerHTML = `YES!!!${beerHtml}`;
+        			answerEl.className = 'answer yes';
+        			document.body.classList.add('undefeated');
+        		} else if (isPastSeason) {
+        			// Past seasons: show no YES/NO/streaming answer, just the record.
+        			answerEl.innerHTML = '';
+        			answerEl.className = 'answer past';
+        			document.body.classList.remove('undefeated');
         		} else {
-        			const cheeseHtml = emojis && wins > 0 ? this.emojiRowHtml('🧀', wins) : '';
-        			const footballHtml = emojis && !isPastSeason ? this.emojiRowHtml('🏈', 1) : '';
-        			const frownHtml = emojis && losses > 0 ? this.emojiRowHtml('😢', losses) : '';
-        			answerEl.innerHTML = `${cheeseHtml}NO${footballHtml}${frownHtml}`;
+        			const beerHtml = this.emojiRowHtml('🍺', 1);
+        			answerEl.innerHTML = `NO${beerHtml}`;
         			answerEl.className = 'answer no';
         			document.body.classList.remove('undefeated');
         		}
@@ -688,9 +894,17 @@ createCsvGameItem(g, showH2h = false) {
 
              let html = '';
              if (preText) html += `<span class="preseason-record">${preText}</span><br>`;
-             html += regularText;
+             if (!isPastSeason) {
+               html += `<span class="record-standings-link" title="Click to view standings">${regularText}</span>`;
+             } else {
+               html += regularText;
+             }
              if (postText) html += `<br><span class="playoff-record">${postText}</span>`;
              recordEl.innerHTML = html;
+             if (!isPastSeason) {
+               const link = recordEl.querySelector('.record-standings-link');
+               if (link) link.addEventListener('click', () => this.openStandingsModal());
+             }
          }
 
          displaySchedule(events, isPastSeason = false) {
@@ -717,6 +931,11 @@ createCsvGameItem(g, showH2h = false) {
          });
 
           scheduleGrid.innerHTML = '';
+
+          // Cache so the schedule can be re-rendered when the selected TV
+          // provider changes (channel numbers depend on the provider).
+          this._lastScheduleEvents = sortedEvents;
+          this._lastIsPastSeason = isPastSeason;
 
           const sectionLabels = { pre: 'Preseason', regular: 'Regular Season', post: 'Playoffs' };
           let currentSection = null;
@@ -761,9 +980,9 @@ createCsvGameItem(g, showH2h = false) {
 }
 
 if (mostRecentCompletedIndex >= 0) {
- const gameItems = scheduleGrid.children;
- if (gameItems[mostRecentCompletedIndex]) {
-    const gameItem = gameItems[mostRecentCompletedIndex];
+  const targetEvent = sortedEvents[mostRecentCompletedIndex];
+  const gameItem = scheduleGrid.querySelector(`[data-event-id="${targetEvent.id}"]`);
+  if (gameItem) {
     const containerHeight = scheduleGrid.clientHeight;
     const itemHeight = gameItem.offsetHeight;
     const itemTop = gameItem.offsetTop;
@@ -773,7 +992,7 @@ if (mostRecentCompletedIndex >= 0) {
        top: Math.max(0, scrollTop),
        behavior: 'smooth'
    });
-}
+  }
 }
 }
 
@@ -785,14 +1004,14 @@ createGameItem(event, nextGame, liveGame, now) {
 
   const isLive = liveGame && event.id === liveGame.id;
 
-  let packersScore = 0;
+  let brewersScore = 0;
   let opponentScore = 0;
   let opponent = '';
   let isHome = false;
 
   competitors.forEach(competitor => {
-     if (competitor.team.abbreviation === 'GB') {
-        packersScore = parseInt(
+     if (competitor.team.abbreviation === 'MIL') {
+        brewersScore = parseInt(
            competitor.score?.value ||
            competitor.score?.displayValue ||
            competitor.score ||
@@ -812,6 +1031,7 @@ createGameItem(event, nextGame, liveGame, now) {
 
   const gameItem = document.createElement('div');
   gameItem.className = 'game-item';
+  gameItem.dataset.eventId = event.id;
 
   const isNext = nextGame && event.id === nextGame.id && !isLive;
   const isCompleted = status.type.name === 'STATUS_FINAL';
@@ -829,9 +1049,9 @@ createGameItem(event, nextGame, liveGame, now) {
      gameItem.classList.add('next');
  } else if (isCompleted) {
      gameItem.classList.add('completed');
-     if (packersScore > opponentScore) {
+     if (brewersScore > opponentScore) {
         gameItem.classList.add('win');
-    } else if (packersScore < opponentScore) {
+    } else if (brewersScore < opponentScore) {
         gameItem.classList.add('loss');
     }
 }
@@ -846,35 +1066,60 @@ const opponentDiv = document.createElement('div');
 opponentDiv.className = 'game-opponent';
 opponentDiv.textContent = `${isHome ? 'vs' : '@'} ${opponent}`;
 
+const primaryBroadcast = this.pickPrimaryBroadcast(event) || {};
+const network = primaryBroadcast.media?.shortName || '';
+const channelNum = this.scheduleChannelNumber(primaryBroadcast);
+const hasBroadcasts = (competition?.broadcasts || []).some(b => b.media?.shortName);
+const gameIsCompleted = status.type.name === 'STATUS_FINAL';
+const canWatch = hasBroadcasts && !gameIsCompleted && this.currentSeason === this.latestSeason;
+
+gameDetails.appendChild(opponentDiv);
+
+// All-time head-to-head sits right below the opponent.
+if (this.currentSeason === this.latestSeason) {
+ const h2h = this.h2hNote(opponent);
+ if (h2h) gameDetails.appendChild(h2h);
+}
+
 const dateDiv = document.createElement('div');
 dateDiv.className = 'game-date';
-
-const network = competition.broadcasts?.[0]?.media?.shortName || '';
-
 if (isLive || isInProgress) {
- dateDiv.innerHTML = `<span class="live-indicator-small"></span>LIVE NOW${network ? ` · <span class="game-network">${network}</span>` : ''}`;
+ dateDiv.innerHTML = `<span class="live-indicator-small"></span>LIVE NOW`;
 } else {
- const dateText = date.toLocaleDateString('en-US', {
+ dateDiv.textContent = date.toLocaleDateString('en-US', {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit'
 });
- dateDiv.innerHTML = network
- ? `${dateText} · <span class="game-network">${network}</span>`
- : dateText;
 }
-
-gameDetails.appendChild(opponentDiv);
 gameDetails.appendChild(dateDiv);
 
-// H2H notes only on the current season's schedule (offseason included —
-// displaySchedule's isPastSeason arg also covers "don't autoscroll", so
-// key off the season instead).
-if (this.currentSeason === this.latestSeason) {
- const h2h = this.h2hNote(opponent);
- if (h2h) gameDetails.appendChild(h2h);
+// Channel/network on its own line below the date. Clickable to open the
+// "Where to watch" modal when full broadcast data is available.
+// Completed games don't need a TV listing.
+if ((network || canWatch) && !gameIsCompleted) {
+ const channelLine = document.createElement('div');
+ channelLine.className = 'game-channel';
+ let html = '';
+ if (isLive || isInProgress) html += `<span class="live-indicator-small"></span>`;
+ if (network) {
+   html += `<span class="game-network">${network}${channelNum ? ` <span class="game-channum">Ch. ${channelNum}</span>` : ''}</span>`;
+ }
+ if (canWatch && !network) {
+   html += `<i class="mdi mdi-television-play"></i> Where to watch`;
+ }
+ channelLine.innerHTML = html;
+ if (canWatch) {
+   channelLine.classList.add('game-channel-watchable');
+   channelLine.title = 'Click for where to watch';
+   channelLine.addEventListener('click', (e) => {
+     e.stopPropagation();
+     this.openWatchModal(event);
+   });
+ }
+ gameDetails.appendChild(channelLine);
 }
 
 if (isLive || isInProgress) {
@@ -932,7 +1177,7 @@ if (isNext) {
 
     countdownDiv.textContent = countdownText;
 } else {
-    countdownDiv.textContent = '🏈 Game Time!';
+    countdownDiv.textContent = '⏰ Game Time!';
 }
 
 gameDetails.appendChild(countdownDiv);
@@ -946,42 +1191,49 @@ if (isCompleted) {
  scoreDiv.className = 'game-score';
 
  let resultIndicator = '';
- if (packersScore > opponentScore) {
+ if (brewersScore > opponentScore) {
     scoreDiv.classList.add('win');
     resultIndicator = 'W ';
-} else if (packersScore < opponentScore) {
+} else if (brewersScore < opponentScore) {
     scoreDiv.classList.add('loss');
     resultIndicator = 'L ';
 } else {
     resultIndicator = 'T ';
 }
 
-const scoreLink = document.createElement('a');
-scoreLink.href = `https://www.espn.com/nfl/game/_/gameId/${event.id}`;
-scoreLink.target = '_blank';
-scoreLink.rel = 'noopener noreferrer';
-scoreLink.textContent = `${resultIndicator}${packersScore}-${opponentScore}`;
-scoreLink.style.color = 'inherit';
-scoreLink.style.textDecoration = 'none';
+const hasLinescore = (competition.linescores && competition.linescores.length > 0) ||
+  competitors.some(c => c.linescores && c.linescores.length > 0);
 
-scoreDiv.appendChild(scoreLink);
+if (hasLinescore) {
+  scoreDiv.classList.add('linescore-trigger');
+  scoreDiv.title = 'Click for line score';
+  scoreDiv.textContent = `${resultIndicator}${brewersScore}-${opponentScore}`;
+  scoreDiv.addEventListener('click', (e) => {
+    e.stopPropagation();
+    this.openLinescoreFromEvent(event);
+  });
+} else {
+  scoreDiv.classList.add('linescore-trigger');
+  scoreDiv.title = 'Click for line score';
+  scoreDiv.textContent = `${resultIndicator}${brewersScore}-${opponentScore}`;
+  scoreDiv.addEventListener('click', (e) => {
+    e.stopPropagation();
+    this.openLinescoreFromEvent(event);
+  });
+}
 scoreDiv.style.textAlign = 'center';
 scoreDiv.style.marginTop = '0.5rem';
 scoreDiv.style.width = '100%';
 gameItem.appendChild(scoreDiv);
 } else if (isLive || isInProgress) {
  const scoreDiv = document.createElement('div');
- scoreDiv.className = 'game-score live';
-
- const scoreLink = document.createElement('a');
- scoreLink.href = `https://www.espn.com/nfl/game/_/gameId/${event.id}`;
- scoreLink.target = '_blank';
- scoreLink.rel = 'noopener noreferrer';
- scoreLink.textContent = `${packersScore}-${opponentScore}`;
- scoreLink.style.color = 'inherit';
- scoreLink.style.textDecoration = 'none';
-
- scoreDiv.appendChild(scoreLink);
+ scoreDiv.className = 'game-score live linescore-trigger';
+ scoreDiv.title = 'Click for line score';
+ scoreDiv.textContent = `${brewersScore}-${opponentScore}`;
+ scoreDiv.addEventListener('click', (e) => {
+   e.stopPropagation();
+   this.openLinescoreFromEvent(event);
+ });
  scoreDiv.style.textAlign = 'center';
  scoreDiv.style.marginTop = '0.5rem';
  scoreDiv.style.width = '100%';
@@ -997,7 +1249,7 @@ startLiveUpdates() {
 
   this.liveUpdateInterval = setInterval(async () => {
      try {
-        await this.fetchPackersData();
+        await this.fetchBrewersData();
     } catch (error) {
         console.error('Error updating live game:', error);
     }
@@ -1041,6 +1293,7 @@ setupShareButtons() {
   copyBtn.addEventListener('click', () => this.copyLink());
 
   this.updateIntentLinks();
+  wireShareDropdown();
 }
 
 getShareMessage() {
@@ -1048,30 +1301,30 @@ getShareMessage() {
   const isPast = season && this.latestSeason && season < this.latestSeason;
 
   if (this._isOffseason) {
-     return `🏈 Green Bay Packers offseason - can't wait for the ${season} season! #GoPackGo`;
+     return `⚾ Milwaukee Brewers offseason - can't wait for the ${season} season! #ThisIsMyCrew`;
  }
 
- if (!this._lastResult) return `Green Bay Packers ${season} season #GoPackGo`;
+ if (!this._lastResult) return `Milwaukee Brewers ${season} season #ThisIsMyCrew`;
 
- const { isUndefeated, wins, losses, ties, superBowlName } = this._lastResult;
+ const { isUndefeated, wins, losses, ties, worldSeriesName } = this._lastResult;
 
- if (superBowlName) {
-     return `🏆 The ${season} Green Bay Packers won ${superBowlName.toUpperCase()}! #GoPackGo`;
+ if (worldSeriesName) {
+     return `🏆 The ${season} Milwaukee Brewers won ${worldSeriesName.toUpperCase()}! #ThisIsMyCrew`;
  }
 
  const recordText = ties > 0 ? `${wins}-${losses}-${ties}` : `${wins}-${losses}`;
 
  if (isPast) {
      if (isUndefeated) {
-        return `🧀 The ${season} Green Bay Packers finished the regular season UNDEFEATED at ${recordText}! #GoPackGo`;
+        return `⚾ The ${season} Milwaukee Brewers finished the regular season UNDEFEATED at ${recordText}! #ThisIsMyCrew`;
     } else {
-        return `The ${season} Green Bay Packers finished ${recordText}. #GoPackGo`;
+        return `The ${season} Milwaukee Brewers finished ${recordText}. #ThisIsMyCrew`;
     }
 } else {
  if (isUndefeated) {
-    return `🧀 The Green Bay Packers are UNDEFEATED so far in ${season}! ${recordText} 🧀 #GoPackGo`;
+    return `⚾ The Milwaukee Brewers are UNDEFEATED so far in ${season}! ${recordText} ⚾ #ThisIsMyCrew`;
 } else {
-    return `The Green Bay Packers are ${recordText} so far in the ${season} season. #GoPackGo`;
+    return `The Milwaukee Brewers are ${recordText} so far in the ${season} season. #ThisIsMyCrew`;
 }
 }
 }
@@ -1132,17 +1385,17 @@ this._renderOnThisDay(el, pool[Math.floor(Math.random() * pool.length)], pool);
 
 _renderOnThisDay(el, pick, pool) {
   const { game, season, date } = pick;
-  const result = game['Packers Win'];
+  const result = game['Brewers Win'];
   const opponent = game['Opponent'] || game['opponent'] || 'Unknown';
-  const packersScore = game['packers_score'];
+  const brewersScore = game['brewers_score'];
   const oppScore = game['opponent_score'];
   const isPlayoff = game['playoff'] === '1' || game['playoff'] === 'true';
-  const isSuperbowl = game['superbowl'] && game['superbowl'] !== '';
+  const isWorldSeries = game['worldseries'] && game['worldseries'] !== '';
 
   const resultClass = result === 'WIN' ? 'win' : result === 'LOSS' ? 'loss' : 'tie';
   const resultLabel = result === 'WIN' ? 'W' : result === 'LOSS' ? 'L' : 'T';
-  const scoreText = packersScore && oppScore ? `${packersScore}–${oppScore}` : '';
-  const gameTypeLabel = isSuperbowl ? 'Super Bowl' : isPlayoff ? 'Playoff' : 'Regular Season';
+  const scoreText = brewersScore && oppScore ? `${brewersScore}–${oppScore}` : '';
+  const gameTypeLabel = isWorldSeries ? 'World Series' : isPlayoff ? 'Playoff' : 'Regular Season';
   const dateStr = date.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
 
   const photos = this.photosBySeason[season] || [];
@@ -1155,7 +1408,7 @@ _renderOnThisDay(el, pick, pool) {
 
   el.innerHTML = `
         			<div class="otd-header">
-        				<span class="otd-label"><i class="mdi mdi-calendar-today"></i> On This Day in Packers History</span>
+        				<span class="otd-label"><i class="mdi mdi-calendar-today"></i> On This Day in Brewers History</span>
         				<span class="otd-actions">
         					${resetLink}
         					<button class="otd-refresh" id="otd-refresh" aria-label="Show another"><i class="mdi mdi-refresh"></i></button>
@@ -1261,7 +1514,7 @@ if (!firstLoss) {
     const gamesText = openingStreak === 1 ? '1 game' : `${openingStreak} games`;
     const daysText = daysToLoss === 1 ? '1 day' : `${daysToLoss} days`;
     const streakText = winStreak === 1 ? '1-game' : `${winStreak}-game`;
-    html = `The Packers started the season undefeated for <strong>${gamesText}</strong> (${daysText}). Currently on a <strong>${streakText}</strong> win streak.`;
+    html = `The Brewers started the season undefeated for <strong>${gamesText}</strong> (${daysText}). Currently on a <strong>${streakText}</strong> win streak.`;
 }
 el.innerHTML = html;
 el.hidden = false;
@@ -1293,7 +1546,7 @@ if (!lastYear) {
 }
 
 const isCurrent = this.currentSeason === lastYear;
-const suffix = isCurrent ? '' : `The Packers were last undefeated in <a href="/${lastYear}" class="last-undefeated-link">${lastYear}</a>.`;
+const suffix = isCurrent ? '' : `The Brewers were last undefeated in <a href="/${lastYear}" class="last-undefeated-link">${lastYear}</a>.`;
 
 if (currentIsUndefeated && this.currentSeason === this.latestSeason) {
  el.innerHTML = '';
@@ -1302,6 +1555,1055 @@ if (currentIsUndefeated && this.currentSeason === this.latestSeason) {
 } else {
  el.innerHTML = suffix;
 }
+}
+
+resolveChannel(networkName) {
+  if (!networkName) return null;
+  const key = networkName.trim();
+  // exact match first
+  if (this.channelMeta[key]) return this.channelMeta[key];
+  // case-insensitive
+  const lower = key.toLowerCase();
+  for (const [k, ch] of Object.entries(this.channelMeta)) {
+    if (k.toLowerCase() === lower) return ch;
+  }
+  return null;
+}
+
+_loadTvLookup(channelLookupRaw, providerLookupRaw) {
+  const channels = parseGamesCsv(channelLookupRaw);
+  const providers = parseGamesCsv(providerLookupRaw);
+
+  // provider key -> metadata + channel map (key -> channel number string)
+  this.providerMeta = {};
+  this.providerAliasIndex = new Map();
+  for (const p of providers) {
+    const key = p.provider;
+    this.providerMeta[key] = {
+      key,
+      display_name: p.display_name,
+      alternate_name: p.alternate_name || '',
+      website_url: p.website_url || '',
+      channel_lineup: p.channel_lineup || '',
+      service_areas: (p.service_areas || '')
+        .split('|').map(s => s.trim()).filter(Boolean),
+      channels: {},
+    };
+    // index display name + each comma-separated alternate name
+    const names = [p.display_name, ...(p.alternate_name || '').split(',').map(s => s.trim()).filter(Boolean)];
+    for (const n of names) {
+      this.providerAliasIndex.set(n.toLowerCase(), key);
+    }
+  }
+
+  // channel_lookup carries the canonical website_url + description; override
+  // the broadcast_channels entries, which can drift to dead pages.
+  // When broadcast_channels.csv is unavailable (404), channelMeta is empty —
+  // seed it from channel_lookup so resolveChannel still classifies channels
+  // by type (e.g. Brewers.TV as 'regional', not ESPN's 'Streaming' label).
+  for (const ch of channels) {
+    const key = ch.key;
+    if (!key || this.channelMeta[key]) continue;
+    this.channelMeta[key] = {
+      key,
+      display_name: ch.display_name || key,
+      type: ch.type || 'cable',
+      providers: [],
+      description: (ch.description || '').trim() || null,
+      website_url: (ch.website_url || '').trim() || null,
+      sort_order: 99,
+    };
+    if (ch.alias && !this.channelMeta[ch.alias]) {
+      this.channelMeta[ch.alias] = this.channelMeta[key];
+    }
+  }
+  const urlByKey = {};
+  const urlByDisplay = {};
+  for (const ch of channels) {
+    const url = (ch.website_url || '').trim();
+    const desc = (ch.description || '').trim();
+    if (!url && !desc) continue;
+    const entry = { website_url: url || null, description: desc || null };
+    urlByKey[ch.key] = entry;
+    if (ch.alias) urlByKey[ch.alias] = entry;
+    if (ch.display_name) urlByDisplay[ch.display_name] = entry;
+  }
+  for (const [key, meta] of Object.entries(this.channelMeta)) {
+    const hit = urlByKey[key] || urlByDisplay[meta.display_name];
+    if (!hit) continue;
+    if (hit.website_url) meta.website_url = hit.website_url;
+    if (hit.description) meta.description = hit.description;
+  }
+
+  // channel_lookup columns: key,alias,display_name,type,...<provider keys>
+  const providerKeys = Object.keys(this.providerMeta);
+  for (const ch of channels) {
+    const channelKey = ch.key;
+    const alias = ch.alias || '';
+    for (const pk of providerKeys) {
+      const v = (ch[pk] || '').trim();
+      if (v && v.toLowerCase() !== 'varies by market') {
+        // Map both the primary key and alias so both resolve to the same channel.
+        this.providerMeta[pk].channels[channelKey] = v;
+        if (alias) this.providerMeta[pk].channels[alias] = v;
+      }
+    }
+  }
+}
+
+resolveProviderByName(query) {
+  if (!query) return null;
+  const q = query.trim().toLowerCase();
+  if (!q) return null;
+  // exact alias match
+  const hit = this.providerAliasIndex.get(q);
+  if (hit) return this.providerMeta[hit];
+  // partial match (starts-with then includes)
+  for (const [alias, key] of this.providerAliasIndex) {
+    if (alias.startsWith(q)) return this.providerMeta[key];
+  }
+  for (const [alias, key] of this.providerAliasIndex) {
+    if (alias.includes(q)) return this.providerMeta[key];
+  }
+  return null;
+}
+
+resolveProviderChannel(providerKey, networkName, areaIndex) {
+  if (!providerKey || !networkName) return null;
+  const p = this.providerMeta[providerKey];
+  if (!p) return null;
+  const key = networkName.trim();
+  let raw = p.channels[key];
+  if (!raw) {
+    const lower = key.toLowerCase();
+    for (const [k, v] of Object.entries(p.channels)) {
+      if (k.toLowerCase() === lower) { raw = v; break; }
+    }
+  }
+  if (!raw) return null;
+  // If the provider has service areas and the channel cell has per-area
+  // values separated by " | ", pick the one for the selected area. A cell
+  // with no separator is the general listing and is used as-is.
+  if (Array.isArray(p.service_areas) && p.service_areas.length > 1 && raw.includes('|')) {
+    const parts = raw.split('|').map(s => s.trim()).filter(Boolean);
+    if (parts.length > 1) {
+      const idx = (typeof areaIndex === 'number' && areaIndex >= 0 && areaIndex < parts.length) ? areaIndex : 0;
+      return parts[idx] || parts[0] || raw;
+    }
+  }
+  return raw;
+}
+
+selectedServiceAreaIndex(providerKey) {
+  if (!providerKey) return 0;
+  const idx = parseInt(localStorage.getItem(`tvServiceArea.${providerKey}`), 10);
+  return Number.isInteger(idx) && idx >= 0 ? idx : 0;
+}
+
+setServiceAreaIndex(providerKey, idx) {
+  if (!providerKey) return;
+  localStorage.setItem(`tvServiceArea.${providerKey}`, String(idx));
+}
+
+// Channel number to show inline in the schedule for a broadcast, based on
+// the viewer's selected provider. Returns null when no provider is set, the
+// broadcast isn't on linear TV, or the channel isn't in the provider's lineup.
+scheduleChannelNumber(broadcast) {
+  if (!broadcast?.media?.shortName) return null;
+  if (!this.selectedProvider || !this.providerMeta[this.selectedProvider]) return null;
+  const ch = this.resolveChannel(broadcast.media.shortName);
+  // Only show channel numbers for linear TV (broadcast/cable/regional) —
+  // never streaming or radio.
+  const type = ch?.type;
+  if (type !== 'broadcast' && type !== 'cable' && type !== 'regional') return null;
+  const name = ch?.key || broadcast.media.shortName;
+  return this.resolveProviderChannel(this.selectedProvider, name, this.selectedServiceAreaIndex(this.selectedProvider));
+}
+
+_rerenderSchedule() {
+  if (this._lastScheduleEvents) {
+    this.displaySchedule(this._lastScheduleEvents, this._lastIsPastSeason);
+  }
+}
+
+providerOptions() {
+  return Object.values(this.providerMeta)
+    .sort((a, b) => a.display_name.localeCompare(b.display_name));
+}
+
+initWatchModal() {
+  const modal = document.getElementById('watch-modal');
+  const backdrop = modal.querySelector('.watch-backdrop');
+  const closeBtn = document.getElementById('watch-close');
+  backdrop.addEventListener('click', () => this.closeWatchModal());
+  closeBtn.addEventListener('click', () => this.closeWatchModal());
+  document.addEventListener('keydown', (e) => {
+    if (!modal.hidden && e.key === 'Escape') this.closeWatchModal();
+  });
+}
+
+// Shared provider search input (used by the watch modal and the schedule bar).
+// Owns the selectedProvider/localStorage state; calls onChange(match) after
+// every apply so each caller can refresh its own dependents.
+_buildProviderInput({ label, inputId, listId, placeholder, onChange }) {
+  const wrap = document.createElement('div');
+  wrap.className = 'watch-provider-picker';
+
+  if (label) {
+    const lbl = document.createElement('label');
+    lbl.className = 'watch-provider-label';
+    lbl.htmlFor = inputId;
+    lbl.textContent = label;
+    wrap.appendChild(lbl);
+  }
+
+  const inputWrap = document.createElement('div');
+  inputWrap.className = 'watch-provider-input-wrap';
+
+  const input = document.createElement('input');
+  input.type = 'search';
+  input.id = inputId;
+  input.className = 'watch-provider-input';
+  input.placeholder = placeholder;
+  input.setAttribute('list', listId);
+  input.autocomplete = 'off';
+  input.spellcheck = false;
+  if (this.selectedProvider && this.providerMeta[this.selectedProvider]) {
+    input.value = this.providerMeta[this.selectedProvider].display_name;
+  }
+  inputWrap.appendChild(input);
+
+  const clearBtn = document.createElement('button');
+  clearBtn.type = 'button';
+  clearBtn.className = 'watch-provider-clear';
+  clearBtn.setAttribute('aria-label', 'Clear provider');
+  clearBtn.innerHTML = '<i class="mdi mdi-close"></i>';
+  clearBtn.hidden = !input.value;
+  inputWrap.appendChild(clearBtn);
+
+  const list = document.createElement('datalist');
+  list.id = listId;
+  this.providerOptions().forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.display_name;
+    list.appendChild(opt);
+  });
+  inputWrap.appendChild(list);
+
+  wrap.appendChild(inputWrap);
+
+  const hint = document.createElement('div');
+  hint.className = 'watch-provider-hint';
+  hint.hidden = true;
+  wrap.appendChild(hint);
+
+  // Service-area picker — only shown when the selected provider splits its
+  // channel lineup across multiple service areas.
+  const areaSelectId = inputId + '-service-area';
+  const areaWrap = document.createElement('div');
+  areaWrap.className = 'watch-service-area-picker';
+  areaWrap.hidden = true;
+
+  const areaLabel = document.createElement('label');
+  areaLabel.className = 'watch-service-area-label';
+  areaLabel.htmlFor = areaSelectId;
+  areaLabel.textContent = 'Service area';
+  areaWrap.appendChild(areaLabel);
+
+  const areaSelect = document.createElement('select');
+  areaSelect.id = areaSelectId;
+  areaSelect.className = 'watch-service-area-select';
+  areaWrap.appendChild(areaSelect);
+
+  wrap.appendChild(areaWrap);
+
+  const refreshArea = (match) => {
+    const areas = match && Array.isArray(match.service_areas) ? match.service_areas : [];
+    areaSelect.innerHTML = '';
+    if (areas.length > 1) {
+      areas.forEach((name, i) => {
+        const opt = document.createElement('option');
+        opt.value = String(i);
+        opt.textContent = name;
+        areaSelect.appendChild(opt);
+      });
+      const saved = this.selectedServiceAreaIndex(match.key);
+      areaSelect.selectedIndex = Math.min(saved, areas.length - 1);
+      areaWrap.hidden = false;
+    } else {
+      areaWrap.hidden = true;
+    }
+  };
+
+  areaSelect.addEventListener('change', () => {
+    const key = this.selectedProvider;
+    if (key) this.setServiceAreaIndex(key, areaSelect.selectedIndex);
+    onChange(key && this.providerMeta[key] ? this.providerMeta[key] : null);
+  });
+
+  refreshArea(this.selectedProvider && this.providerMeta[this.selectedProvider]
+    ? this.providerMeta[this.selectedProvider] : null);
+
+  const applyMatch = (match, { persistInput = true } = {}) => {
+    if (match) {
+      this.selectedProvider = match.key;
+      localStorage.setItem('tvProvider', match.key);
+      if (persistInput) input.value = match.display_name;
+      hint.hidden = true;
+    } else {
+      this.selectedProvider = null;
+      localStorage.removeItem('tvProvider');
+      hint.hidden = !input.value.trim();
+      hint.textContent = input.value.trim() ? `No provider matching "${input.value.trim()}".` : '';
+    }
+    clearBtn.hidden = !input.value;
+    refreshArea(match);
+    onChange(match);
+  };
+
+  input.addEventListener('input', () => {
+    clearBtn.hidden = !input.value;
+    const v = input.value.trim();
+    if (!v) {
+      applyMatch(null);
+      return;
+    }
+    const exact = this.providerAliasIndex.get(v.toLowerCase());
+    if (exact) {
+      applyMatch(this.providerMeta[exact]);
+    } else {
+      hint.hidden = true;
+    }
+  });
+
+  input.addEventListener('change', () => {
+    const match = this.resolveProviderByName(input.value);
+    applyMatch(match, { persistInput: !!match });
+  });
+
+  clearBtn.addEventListener('click', () => {
+    input.value = '';
+    clearBtn.hidden = true;
+    applyMatch(null);
+    input.focus();
+  });
+
+  return wrap;
+}
+
+_renderProviderPicker(channelsEl) {
+  channelsEl.innerHTML = '';
+  channelsEl.appendChild(this._buildProviderInput({
+    label: 'Your TV provider',
+    inputId: 'watch-provider-input',
+    listId: 'watch-provider-list',
+    placeholder: 'Search providers (e.g. Xfinity, Spectrum, TDS)…',
+    onChange: () => {
+      this._renderWatchChannels(channelsEl, channelsEl._resolved, channelsEl._radioResolved);
+      this._rerenderSchedule();
+      this._refreshScheduleProviderDisplay();
+    },
+  }));
+}
+
+// Compact bar under the schedule showing the selected TV provider with a
+// button that opens a modal to change it. Hidden for historical (CSV-only)
+// seasons, which have no broadcast data.
+renderScheduleProviderBar() {
+  const bar = document.getElementById('schedule-provider-bar');
+  if (!bar) return;
+  const hasProviders = this.providerMeta && Object.keys(this.providerMeta).length > 0;
+  const isCsvSeason = this.usesCsvData(this.currentSeason);
+  bar.hidden = !hasProviders || isCsvSeason;
+  if (bar.hidden) return;
+
+  bar.innerHTML = '';
+
+  const current = this.selectedProvider && this.providerMeta[this.selectedProvider]
+    ? this.providerMeta[this.selectedProvider].display_name : null;
+
+  const display = document.createElement('div');
+  display.className = 'schedule-provider-display';
+
+  const labelSpan = document.createElement('span');
+  labelSpan.className = 'schedule-provider-label';
+  labelSpan.textContent = 'TV provider';
+  display.appendChild(labelSpan);
+
+  const nameSpan = document.createElement('span');
+  nameSpan.className = 'schedule-provider-name';
+  if (current) {
+    nameSpan.textContent = current;
+  } else {
+    nameSpan.classList.add('schedule-provider-none');
+    nameSpan.textContent = 'Not selected';
+  }
+  display.appendChild(nameSpan);
+
+  const changeBtn = document.createElement('button');
+  changeBtn.type = 'button';
+  changeBtn.className = 'schedule-provider-change';
+  changeBtn.innerHTML = current
+    ? '<i class="mdi mdi-pencil"></i> Change'
+    : '<i class="mdi mdi-magnify"></i> Choose';
+  changeBtn.addEventListener('click', () => this.openProviderModal());
+  display.appendChild(changeBtn);
+
+  bar.appendChild(display);
+}
+
+initProviderModal() {
+  const modal = document.getElementById('provider-modal');
+  if (!modal) return;
+  const backdrop = modal.querySelector('.provider-backdrop');
+  const closeBtn = document.getElementById('provider-close');
+  backdrop.addEventListener('click', () => this.closeProviderModal());
+  closeBtn.addEventListener('click', () => this.closeProviderModal());
+  document.addEventListener('keydown', (e) => {
+    if (!modal.hidden && e.key === 'Escape') this.closeProviderModal();
+  });
+}
+
+openProviderModal() {
+  const modal = document.getElementById('provider-modal');
+  if (!modal) return;
+  const container = document.getElementById('provider-picker-container');
+  container.innerHTML = '';
+  container.appendChild(this._buildProviderInput({
+    label: 'Your TV provider',
+    inputId: 'schedule-provider-input',
+    listId: 'schedule-provider-list',
+    placeholder: 'Search providers (e.g. Xfinity, Spectrum, TDS)…',
+    onChange: () => {
+      this._rerenderSchedule();
+      const watchEl = document.getElementById('watch-channels');
+      if (watchEl && watchEl._resolved) {
+        this._renderWatchChannels(watchEl, watchEl._resolved, watchEl._radioResolved);
+      }
+      this._refreshScheduleProviderDisplay();
+    },
+  }));
+  modal.hidden = false;
+  const inp = container.querySelector('input');
+  if (inp) { inp.focus(); inp.select(); }
+}
+
+closeProviderModal() {
+  const modal = document.getElementById('provider-modal');
+  if (modal) modal.hidden = true;
+}
+
+// Update just the name/button text in the schedule bar without rebuilding it
+// (used when the provider changes from elsewhere, e.g. the watch modal).
+_refreshScheduleProviderDisplay() {
+  const bar = document.getElementById('schedule-provider-bar');
+  if (!bar || bar.hidden) return;
+  const nameSpan = bar.querySelector('.schedule-provider-name');
+  const changeBtn = bar.querySelector('.schedule-provider-change');
+  if (!nameSpan || !changeBtn) return;
+  const current = this.selectedProvider && this.providerMeta[this.selectedProvider]
+    ? this.providerMeta[this.selectedProvider].display_name : null;
+  if (current) {
+    nameSpan.textContent = current;
+    nameSpan.classList.remove('schedule-provider-none');
+    changeBtn.innerHTML = '<i class="mdi mdi-pencil"></i> Change';
+  } else {
+    nameSpan.textContent = 'Not selected';
+    nameSpan.classList.add('schedule-provider-none');
+    changeBtn.innerHTML = '<i class="mdi mdi-magnify"></i> Choose provider';
+  }
+}
+
+_renderWatchChannels(channelsEl, resolved, radioResolved) {
+  // Remove previously rendered channel sections (keep the picker).
+  [...channelsEl.querySelectorAll('.watch-channel-section')].forEach(el => el.remove());
+
+  if ((!resolved || resolved.length === 0) && (!radioResolved || radioResolved.length === 0)) {
+    const empty = document.createElement('p');
+  empty.className = 'watch-no-data watch-channel-section';
+  empty.textContent = 'No broadcast information available for this game.';
+  channelsEl.appendChild(empty);
+  return;
+  }
+
+  const typeOrder = ['broadcast', 'cable', 'regional', 'streaming', 'radio'];
+  const typeLabels = { broadcast: 'On TV — Broadcast', cable: 'On TV — Cable', regional: 'Regional TV', streaming: 'Streaming', radio: 'Radio' };
+  const groups = {};
+  resolved.forEach(ch => {
+    const t = typeOrder.includes(ch.type) ? ch.type : 'cable';
+    if (!groups[t]) groups[t] = [];
+    groups[t].push(ch);
+  });
+  (radioResolved || []).forEach(ch => {
+    if (!groups['radio']) groups['radio'] = [];
+    groups['radio'].push(ch);
+  });
+
+  const provider = this.selectedProvider && this.providerMeta[this.selectedProvider] ? this.providerMeta[this.selectedProvider] : null;
+  const showChannelNum = Boolean(provider);
+  // Only show channel numbers for broadcast/cable/regional — never streaming or radio.
+  const numTypes = new Set(['broadcast', 'cable', 'regional']);
+
+  typeOrder.forEach(type => {
+    if (!groups[type]) return;
+    const section = document.createElement('div');
+    section.className = 'watch-channel-section';
+
+    const label = document.createElement('div');
+    label.className = 'watch-group-label';
+    label.textContent = typeLabels[type];
+    section.appendChild(label);
+
+    const list = document.createElement('div');
+    list.className = 'watch-channel-list';
+
+    groups[type].forEach(ch => {
+      const item = document.createElement('div');
+      item.className = 'watch-channel-item';
+
+      const nameDiv = document.createElement('div');
+      nameDiv.className = 'watch-channel-name';
+      if (ch.website_url) {
+        nameDiv.innerHTML = `<a href="${ch.website_url}" target="_blank" rel="noopener noreferrer">${ch.display_name}</a>`;
+      } else {
+        nameDiv.textContent = ch.display_name;
+      }
+      item.appendChild(nameDiv);
+
+      if (ch.description) {
+        const desc = document.createElement('div');
+        desc.className = 'watch-channel-desc';
+        desc.textContent = ch.description;
+        item.appendChild(desc);
+      }
+
+      if (showChannelNum && numTypes.has(type)) {
+        const num = this.resolveProviderChannel(provider.key, ch.key, this.selectedServiceAreaIndex(provider.key));
+        const numDiv = document.createElement('div');
+        numDiv.className = 'watch-channel-num';
+        if (num) {
+          numDiv.innerHTML = `<span class="watch-channel-num-label">${provider.display_name}</span> <span class="watch-channel-num-value">Ch. ${num}</span>`;
+        } else {
+          numDiv.innerHTML = `<span class="watch-channel-num-label watch-channel-num-none">Not listed for ${provider.display_name}</span>`;
+        }
+        item.appendChild(numDiv);
+      }
+
+      const providers = Array.isArray(ch.providers) ? ch.providers : [];
+      // Merge in local providers from our lookup that carry this channel
+      const localProviders = [];
+      for (const pk of Object.keys(this.providerMeta)) {
+        const p = this.providerMeta[pk];
+        if (p.channels && p.channels[ch.key]) {
+          localProviders.push(p.display_name);
+        }
+      }
+      const norm = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const seenProviders = new Set();
+      const merged = [];
+      for (const name of [...providers, ...localProviders]) {
+        const k = norm(name);
+        if (!seenProviders.has(k)) { seenProviders.add(k); merged.push(name); }
+      }
+      if (merged.length > 0) {
+        const pDiv = document.createElement('div');
+        pDiv.className = 'watch-providers';
+        pDiv.textContent = 'Available on: ' + merged.join(', ');
+        item.appendChild(pDiv);
+      }
+
+      list.appendChild(item);
+    });
+
+    section.appendChild(list);
+    channelsEl.appendChild(section);
+  });
+}
+
+async openWatchModal(event) {
+  const modal = document.getElementById('watch-modal');
+  const gameInfoEl = document.getElementById('watch-game-info');
+  const channelsEl = document.getElementById('watch-channels');
+
+  channelsEl.innerHTML = '<p class="watch-no-data">Loading channels…</p>';
+  modal.hidden = false;
+  document.body.style.overflow = 'hidden';
+
+  // Game info line
+  const competition = event.competitions?.[0];
+  const date = new Date(event.date);
+  const dateStr = date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  const competitors = competition?.competitors || [];
+  let opponent = '';
+  let isHome = false;
+  competitors.forEach(c => {
+    if (c.team.abbreviation === 'MIL') isHome = c.homeAway === 'home';
+    else opponent = c.team.displayName;
+  });
+  gameInfoEl.textContent = `${isHome ? 'vs' : '@'} ${opponent} · ${dateStr}`;
+
+  // Extract broadcasts from the ESPN event we already have.
+  // Each broadcast: { type: { shortName: 'TV'|'Streaming'|'Radio' },
+  //                   market: { type: 'National'|'Home'|'Away' },
+  //                   media: { shortName: 'FOX' } }
+  const raw = (competition?.broadcasts || []).filter(b => b.media?.shortName);
+  const tv = raw.filter(b => (b.type?.shortName || '') === 'TV');
+  const streaming = raw.filter(b => (b.type?.shortName || '') === 'Streaming');
+  const radio = raw.filter(b => (b.type?.shortName || '') === 'Radio');
+
+  // Resolve each to our channel metadata; dedupe by display name + type.
+  const resolve = (list) => {
+    const seen = new Set();
+    const out = [];
+    for (const b of list) {
+      const name = b.media.shortName;
+      const ch = this.resolveChannel(name) || {
+        key: name, display_name: name,
+        type: b.type?.shortName === 'Streaming' ? 'streaming'
+          : b.type?.shortName === 'Radio' ? 'radio' : 'cable',
+        providers: [], description: null, website_url: null,
+      };
+      const sig = ch.display_name + '|' + ch.type;
+      if (!seen.has(sig)) { seen.add(sig); out.push(ch); }
+    }
+    return out;
+  };
+
+  const resolved = [...resolve(tv), ...resolve(streaming)];
+  const radioResolved = resolve(radio);
+
+  // Picker (session-persistent provider) + channel sections.
+  this._renderProviderPicker(channelsEl);
+  channelsEl._resolved = resolved;
+  channelsEl._radioResolved = radioResolved;
+  this._renderWatchChannels(channelsEl, resolved, radioResolved);
+}
+
+closeWatchModal() {
+  document.getElementById('watch-modal').hidden = true;
+  document.body.style.overflow = '';
+}
+
+initLinescoreModal() {
+  const modal = document.getElementById('linescore-modal');
+  modal.querySelector('.linescore-backdrop').addEventListener('click', () => this.closeLinescoreModal());
+  document.getElementById('linescore-close').addEventListener('click', () => this.closeLinescoreModal());
+  document.addEventListener('keydown', (e) => {
+    if (!modal.hidden && e.key === 'Escape') this.closeLinescoreModal();
+  });
+}
+
+initStandingsModal() {
+  const modal = document.getElementById('standings-modal');
+  modal.querySelector('.standings-backdrop').addEventListener('click', () => this.closeStandingsModal());
+  document.getElementById('standings-close').addEventListener('click', () => this.closeStandingsModal());
+  document.addEventListener('keydown', (e) => {
+    if (!modal.hidden && e.key === 'Escape') this.closeStandingsModal();
+  });
+}
+
+async openStandingsModal() {
+  const modal = document.getElementById('standings-modal');
+  const body = document.getElementById('standings-body');
+  modal.hidden = false;
+  document.body.style.overflow = 'hidden';
+  body.innerHTML = '<div class="loading">Loading standings...</div>';
+
+  try {
+    const [alData, nlData] = await Promise.all([
+      fetch('https://site.api.espn.com/apis/v2/sports/baseball/mlb/standings?group=7').then(r => r.json()),
+      fetch('https://site.api.espn.com/apis/v2/sports/baseball/mlb/standings?group=8').then(r => r.json()),
+    ]);
+    this._standingsData = { alData, nlData };
+    body.innerHTML = this._buildStandingsShell();
+    this._wireStandingsTabs(body);
+    this._showStandingsTab(body, 'division');
+  } catch {
+    body.innerHTML = '<p class="record-empty">Could not load standings.</p>';
+  }
+}
+
+_buildStandingsShell() {
+  return `
+    <div class="standings-tabs" role="tablist">
+      <button class="standings-tab" data-tab="division" role="tab">Division</button>
+      <button class="standings-tab" data-tab="league" role="tab">League</button>
+      <button class="standings-tab" data-tab="mlb" role="tab">MLB</button>
+      <button class="standings-tab" data-tab="pennant" role="tab">Wild Card</button>
+    </div>
+    <div class="standings-panel"></div>`;
+}
+
+_wireStandingsTabs(body) {
+  body.querySelectorAll('.standings-tab').forEach(btn => {
+    btn.addEventListener('click', () => this._showStandingsTab(body, btn.dataset.tab));
+  });
+}
+
+_showStandingsTab(body, tab) {
+  body.querySelectorAll('.standings-tab').forEach(b => b.classList.toggle('standings-tab-active', b.dataset.tab === tab));
+  const panel = body.querySelector('.standings-panel');
+  panel.innerHTML = this._renderStandingsTab(tab);
+}
+
+_parseDivisions(data) {
+  return (data.children || []).map(div => ({
+    name: div.name,
+    short: div.name.replace('American League ', 'AL ').replace('National League ', 'NL '),
+    isNlCentral: div.name === 'National League Central',
+    entries: div.standings?.entries || [],
+  }));
+}
+
+_stat(entry, abbr) {
+  const s = (entry.stats || []).find(st => st.abbreviation === abbr || st.name === abbr);
+  return s?.displayValue ?? '—';
+}
+
+_parsePct(entry) {
+  const raw = this._stat(entry, 'PCT');
+  return parseFloat(raw.startsWith('.') ? '0' + raw : raw) || 0;
+}
+
+_divisionTableHtml(div, showDivName, cols, playoffTags) {
+  const defaultCols = ['W','L','PCT','GB','STRK','Last Ten'];
+  const activeCols = cols || defaultCols;
+  const colLabels = { W:'W', L:'L', PCT:'PCT', GB:'GB', STRK:'Streak', 'Last Ten':'L10', Home:'Home', AWAY:'Away', DIFF:'Run Diff', MNW:'WC#' };
+
+  const headers = activeCols.map(c => `<th class="standings-num">${colLabels[c] ?? c}</th>`).join('');
+  const rows = div.entries.map((entry) => {
+    const abbr = entry.team?.abbreviation || '';
+    const isMil = abbr === 'MIL';
+    const name = entry.team?.shortDisplayName || entry.team?.displayName || abbr;
+    const cells = activeCols.map(c => `<td class="standings-num">${this._stat(entry, c)}</td>`).join('');
+    const tag = playoffTags?.[entry.team?.id];
+    const tagHtml = tag === 'div' ? ' <span class="standings-tag standings-tag-div">DIV</span>'
+                  : tag === 'wc'  ? ' <span class="standings-tag standings-tag-wc">WC</span>'
+                  : '';
+    return `<tr class="${isMil ? 'standings-brewers' : ''}">
+      <td class="standings-team-cell">${name}${tagHtml}</td>${cells}
+    </tr>`;
+  }).join('');
+
+  const header = showDivName ? `<div class="standings-div-label">${div.short}</div>` : '';
+  return `<div class="standings-block">${header}
+    <div class="standings-scroll">
+      <table class="standings-table">
+        <thead><tr><th class="standings-team-cell">Team</th>${headers}</tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+_renderStandingsTab(tab) {
+  const { alData, nlData } = this._standingsData;
+  const alDivs = this._parseDivisions(alData);
+  const nlDivs = this._parseDivisions(nlData);
+
+  const divOrder = [
+    'American League East','American League Central','American League West',
+    'National League East','National League Central','National League West',
+  ];
+  const sortDivs = (arr) => arr.slice().sort((a,b) => divOrder.indexOf(a.name) - divOrder.indexOf(b.name));
+
+  if (tab === 'division') {
+    const alSorted = sortDivs(alDivs);
+    const nlSorted = sortDivs(nlDivs);
+    return `
+      <div class="standings-league-section">
+        <div class="standings-league-label">National League</div>
+        ${nlSorted.map(d => this._divisionTableHtml(d, true, ['W','L','PCT','GB','STRK','Last Ten'])).join('')}
+      </div>
+      <div class="standings-league-section">
+        <div class="standings-league-label">American League</div>
+        ${alSorted.map(d => this._divisionTableHtml(d, true, ['W','L','PCT','GB','STRK','Last Ten'])).join('')}
+      </div>`;
+  }
+
+  if (tab === 'league') {
+    const sortByPct = (entries) => entries.slice().sort((a, b) => this._parsePct(b) - this._parsePct(a));
+    const alEntries = sortByPct(alDivs.flatMap(d => d.entries));
+    const nlEntries = sortByPct(nlDivs.flatMap(d => d.entries));
+    const alDiv = { short: 'American League', entries: alEntries };
+    const nlDiv = { short: 'National League', entries: nlEntries };
+    return `
+      <div class="standings-league-section">
+        ${this._divisionTableHtml(nlDiv, true, ['W','L','PCT','GB','STRK','Last Ten'])}
+      </div>
+      <div class="standings-league-section">
+        ${this._divisionTableHtml(alDiv, true, ['W','L','PCT','GB','STRK','Last Ten'])}
+      </div>`;
+  }
+
+  if (tab === 'mlb') {
+    const allEntries = [...nlDivs, ...alDivs].flatMap(d => d.entries);
+    allEntries.sort((a, b) => this._parsePct(b) - this._parsePct(a));
+    const fakeSingleDiv = { short: '', entries: allEntries };
+    return this._divisionTableHtml(fakeSingleDiv, false, ['W','L','PCT','GB','STRK','Last Ten','Home','AWAY']);
+  }
+
+  if (tab === 'pennant') {
+    // 6 playoff spots per league: 3 division winners + 3 wild card spots.
+    // No cutoff line — a division winner can sit below a wild card team in
+    // overall winning percentage, so a divider would be misleading.
+    const wcTagged = (divs) => {
+      const divWinnerIds = new Set(divs.map(d => d.entries[0]?.team?.id).filter(Boolean));
+      const all = divs.flatMap(d => d.entries).slice().sort((a, b) => this._parsePct(b) - this._parsePct(a));
+      const tags = {};
+      let wcSlots = 0;
+      const seenDivWinners = new Set();
+      for (let i = 0; i < all.length; i++) {
+        const id = all[i].team?.id;
+        if (divWinnerIds.has(id) && !seenDivWinners.has(id)) {
+          seenDivWinners.add(id);
+          tags[id] = 'div';
+        } else if (!divWinnerIds.has(id) && wcSlots < 3) {
+          tags[id] = 'wc';
+          wcSlots++;
+        }
+      }
+      return { entries: all, tags };
+    };
+    const nl = wcTagged(nlDivs);
+    const al = wcTagged(alDivs);
+    const nlDiv = { short: 'NL Wild Card Race', entries: nl.entries };
+    const alDiv = { short: 'AL Wild Card Race', entries: al.entries };
+    return `
+      <div class="standings-league-section">
+        ${this._divisionTableHtml(nlDiv, true, ['W','L','PCT','STRK','Last Ten','DIFF'], nl.tags)}
+      </div>
+      <div class="standings-league-section">
+        ${this._divisionTableHtml(alDiv, true, ['W','L','PCT','STRK','Last Ten','DIFF'], al.tags)}
+      </div>`;
+  }
+
+  return '';
+}
+
+_renderStandings(alData, nlData) {
+  // kept for compatibility; not called after tab refactor
+  return '';
+}
+
+closeStandingsModal() {
+  document.getElementById('standings-modal').hidden = true;
+  document.body.style.overflow = '';
+}
+
+openLinescoreModal(g) {
+  const ls = this.lineScores?.get(g.gid);
+  if (!ls) return;
+  const { visitor, home } = ls;
+  if (!visitor || !home) return;
+
+  const brewersAbbr = BREWERS_IDS.has(home.team) ? home.team : visitor.team;
+  const brewersIsHome = BREWERS_IDS.has(home.team);
+  const oppLabel = g.Opponent;
+  const brewersLabel = this.teamNames?.[brewersAbbr] || 'Milwaukee Brewers';
+  const visLabel = brewersIsHome ? oppLabel : brewersLabel;
+  const homLabel = brewersIsHome ? brewersLabel : oppLabel;
+
+  const date = new Date(g.date);
+  const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  const playerName = (id) => (id && this.playerNames?.get(id)) || null;
+  const pitchers = {
+    wp: playerName(g.wp),
+    lp: playerName(g.lp),
+    save: playerName(g.save),
+  };
+  const boxScoreUrl = g.gid ? `/game/${g.gid}` : '';
+  this._renderLinescore(`${visLabel} @ ${homLabel} — ${dateStr}`, visitor, home, visLabel, homLabel, !brewersIsHome, boxScoreUrl, false, pitchers);
+}
+
+openLinescoreFromEvent(event) {
+  const competition = event.competitions[0];
+  const competitors = competition.competitors;
+
+  let milC = null, oppC = null;
+  competitors.forEach(c => {
+    if (c.team.abbreviation === 'MIL') milC = c;
+    else oppC = c;
+  });
+  if (!milC || !oppC) return;
+
+  const milIsHome = milC.homeAway === 'home';
+  const visC = milIsHome ? oppC : milC;
+  const homC = milIsHome ? milC : oppC;
+  const visLabel = visC.team.displayName || visC.team.shortDisplayName || visC.team.abbreviation;
+  const homLabel = homC.team.displayName || homC.team.shortDisplayName || homC.team.abbreviation;
+
+  const date = new Date(event.date);
+  const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  const title = `${visLabel} @ ${homLabel} — ${dateStr}`;
+  const boxScoreUrl = event.id ? `https://www.espn.com/mlb/game/_/gameId/${event.id}` : '';
+
+  // Show a loading state while we fetch the full linescore from the summary endpoint.
+  // The schedule endpoint omits inning-by-inning runs and H/E; the summary endpoint has them.
+  this._renderLinescore(title, { inns: [], r: 0, h: 0, e: 0 }, { inns: [], r: 0, h: 0, e: 0 }, visLabel, homLabel, milIsHome, boxScoreUrl, true);
+
+  fetch(`https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/summary?event=${event.id}`)
+    .then(r => r.json())
+    .then(data => {
+      const comp = data.header?.competitions?.[0];
+      if (!comp?.competitors) {
+        this._renderLinescoreFromSchedule(title, visC, homC, visLabel, homLabel, milIsHome, boxScoreUrl);
+        return;
+      }
+      let milS = null, oppS = null;
+      comp.competitors.forEach(c => {
+        if (c.team.abbreviation === 'MIL') milS = c;
+        else oppS = c;
+      });
+      if (!milS || !oppS) {
+        this._renderLinescoreFromSchedule(title, visC, homC, visLabel, homLabel, milIsHome, boxScoreUrl);
+        return;
+      }
+      const visS = milIsHome ? oppS : milS;
+      const homS = milIsHome ? milS : oppS;
+
+      const toInns = (c) => {
+        const ls = c.linescores || [];
+        return ls.map(e => {
+          const v = e.value ?? e.displayValue;
+          return v === null || v === undefined ? '' : String(v);
+        });
+      };
+      const sumHits = (c) => (c.linescores || []).reduce((s, e) => s + (parseInt(e.hits) || 0), 0);
+      const sumErrors = (c) => (c.linescores || []).reduce((s, e) => s + (parseInt(e.errors) || 0), 0);
+
+      const visitor = {
+        inns: toInns(visS),
+        r: parseInt(visS.score?.value ?? visS.score ?? 0),
+        h: sumHits(visS),
+        e: sumErrors(visS),
+      };
+      const home = {
+        inns: toInns(homS),
+        r: parseInt(homS.score?.value ?? homS.score ?? 0),
+        h: sumHits(homS),
+        e: sumErrors(homS),
+      };
+      const featured = comp.status?.featuredAthletes || [];
+      const findP = (name) => featured.find(f => f.name === name);
+      const fmtP = (f) => {
+        if (!f || !f.athlete) return null;
+        const a = f.athlete;
+        let line = a.displayName || a.fullName;
+        if (a.record) line += ` (${a.record})`;
+        return line;
+      };
+      const pitchers = {
+        wp: fmtP(findP('winningPitcher')),
+        lp: fmtP(findP('losingPitcher')),
+        save: fmtP(findP('savingPitcher')),
+      };
+      this._renderLinescore(title, visitor, home, visLabel, homLabel, milIsHome, boxScoreUrl, false, pitchers);
+    })
+    .catch(() => {
+      this._renderLinescoreFromSchedule(title, visC, homC, visLabel, homLabel, milIsHome, boxScoreUrl);
+    });
+}
+
+_renderLinescoreFromSchedule(title, visC, homC, visLabel, homLabel, milIsHome, boxScoreUrl) {
+  const toInns = (c) => {
+    const ls = c.linescores || [];
+    return ls.map(e => {
+      const v = e.value ?? e.displayValue;
+      return v === null || v === undefined ? '' : String(v);
+    });
+  };
+  const sumHits = (c) => (c.linescores || []).reduce((s, e) => s + (parseInt(e.hits) || 0), 0);
+  const sumErrors = (c) => (c.linescores || []).reduce((s, e) => s + (parseInt(e.errors) || 0), 0);
+  const visitor = {
+    inns: toInns(visC),
+    r: parseInt(visC.score?.value ?? visC.score ?? 0),
+    h: sumHits(visC),
+    e: sumErrors(visC),
+  };
+  const home = {
+    inns: toInns(homC),
+    r: parseInt(homC.score?.value ?? homC.score ?? 0),
+    h: sumHits(homC),
+    e: sumErrors(homC),
+  };
+  this._renderLinescore(title, visitor, home, visLabel, homLabel, milIsHome, boxScoreUrl);
+}
+
+_renderLinescore(title, visitor, home, visLabel, homLabel, milIsHome, boxScoreUrl = '', loading = false, pitchers = null) {
+  const modal = document.getElementById('linescore-modal');
+  document.getElementById('linescore-title').textContent = title;
+  const body = document.getElementById('linescore-body');
+
+  if (loading) {
+    body.innerHTML = `<div class="loading">Loading line score…</div>`;
+    modal.hidden = false;
+    document.body.style.overflow = 'hidden';
+    return;
+  }
+
+  const maxInns = Math.max(
+    ...visitor.inns.map((v, i) => (v !== '' ? i + 1 : 0)),
+    ...home.inns.map((v, i) => (v !== '' ? i + 1 : 0)),
+    9
+  );
+
+  const formatCell = (val) => (val === '' || val === undefined || val === null ? 'x' : val);
+
+  const innHeaders = Array.from({ length: maxInns }, (_, i) => `<th>${i + 1}</th>`).join('');
+  const visInns = Array.from({ length: maxInns }, (_, i) => `<td>${formatCell(visitor.inns[i])}</td>`).join('');
+  const homInns = Array.from({ length: maxInns }, (_, i) => `<td>${formatCell(home.inns[i])}</td>`).join('');
+
+  const rheHeaders = `<th class="linescore-rhe">R</th><th class="linescore-rhe">H</th><th class="linescore-rhe">E</th>`;
+  const visRhe = `<td class="linescore-rhe linescore-total">${visitor.r}</td><td class="linescore-rhe">${visitor.h}</td><td class="linescore-rhe">${visitor.e}</td>`;
+  const homRhe = `<td class="linescore-rhe linescore-total">${home.r}</td><td class="linescore-rhe">${home.h}</td><td class="linescore-rhe">${home.e}</td>`;
+
+  body.innerHTML = `
+    <div class="linescore-wrap">
+      <table class="linescore-table">
+        <thead>
+          <tr>
+            <th class="linescore-team-col">Team</th>
+            ${innHeaders}
+            ${rheHeaders}
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="${milIsHome ? '' : 'linescore-brewers'}">
+            <td class="linescore-team-col">${visLabel}</td>
+            ${visInns}
+            ${visRhe}
+          </tr>
+          <tr class="${milIsHome ? 'linescore-brewers' : ''}">
+            <td class="linescore-team-col">${homLabel}</td>
+            ${homInns}
+            ${homRhe}
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    ${pitchers ? this._renderPitchers(pitchers) : ''}
+    ${boxScoreUrl ? (boxScoreUrl.startsWith('/game/')
+      ? `<a class="linescore-box-link" href="${boxScoreUrl}">Full Box Score <i class="mdi mdi-arrow-right"></i></a>`
+      : `<a class="linescore-box-link" href="${boxScoreUrl}" target="_blank" rel="noopener noreferrer">Full Box Score on ESPN <i class="mdi mdi-open-in-new"></i></a>`) : ''}
+  `;
+
+  modal.hidden = false;
+  document.body.style.overflow = 'hidden';
+}
+
+_renderPitchers(pitchers) {
+  const items = [];
+  if (pitchers.wp) items.push(`<span class="linescore-pitcher"><span class="linescore-pitcher-label">WP</span><span class="linescore-pitcher-name">${pitchers.wp}</span></span>`);
+  if (pitchers.lp) items.push(`<span class="linescore-pitcher"><span class="linescore-pitcher-label">LP</span><span class="linescore-pitcher-name">${pitchers.lp}</span></span>`);
+  if (pitchers.save) items.push(`<span class="linescore-pitcher"><span class="linescore-pitcher-label">S</span><span class="linescore-pitcher-name">${pitchers.save}</span></span>`);
+  if (!items.length) return '';
+  return `<div class="linescore-pitchers">${items.join('')}</div>`;
+}
+
+closeLinescoreModal() {
+  document.getElementById('linescore-modal').hidden = true;
+  document.body.style.overflow = '';
 }
 
 initGallery() {
@@ -1433,5 +2735,5 @@ showError(message) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-   new PackersTracker();
+   new BrewersTracker();
 });

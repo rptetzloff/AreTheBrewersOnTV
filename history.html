@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brewers Season-by-Season History</title>
+    <meta name="description" content="Every Milwaukee Brewers season since 1969 in one chart.">
+    <meta property="og:title" content="Brewers Season-by-Season History">
+    <meta property="og:description" content="Every Milwaukee Brewers season since 1969 in one chart.">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+    <!-- Absolute asset paths: this shell is also reachable at /history/, where relative paths would break. -->
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <div class="container records-container">
+        <a href="/" class="records-back"><i class="mdi mdi-arrow-left"></i> Are the Brewers On TV?</a>
+        <h1 class="records-title">Franchise History</h1>
+        <p id="history-subtitle" class="records-subtitle"></p>
+        <div class="history-controls">
+            <div id="history-metrics" class="history-toggle" role="group" aria-label="Chart metrics (choose any)">
+                <button data-metric="winPct" class="history-toggle-btn">Win %</button>
+                <button data-metric="wins" class="history-toggle-btn">Wins</button>
+                <button data-metric="pf" class="history-toggle-btn">Runs Scored</button>
+                <button data-metric="pa" class="history-toggle-btn">Runs Allowed</button>
+            </div>
+            <label class="h2h-check"><input type="checkbox" id="history-playoffs"> Include playoffs</label>
+        </div>
+        <div id="history-chart" class="history-chart">
+            <div class="loading">Loading history...</div>
+        </div>
+        <div id="history-tooltip" class="history-tooltip" hidden></div>
+        <p class="history-legend">
+            <span class="history-legend-item"><span class="legend-glyph legend-wswin">★</span> World Series win</span>
+            <span class="history-legend-item"><span class="legend-glyph legend-wsapp">◆</span> World Series appearance</span>
+            <span class="history-legend-item"><span class="legend-glyph legend-lcs">▲</span> LCS appearance</span>
+            <span class="history-legend-item"><span class="legend-glyph legend-division">■</span> Division Series</span>
+            <span class="history-legend-item"><span class="legend-glyph legend-wildcard">●</span> Wild Card</span>
+            <span class="history-legend-item">Click any season to open it</span>
+        </p>
+        <h2 class="history-section-title">Season-by-Season Records</h2>
+        <div id="history-table-wrap" class="h2h-table-wrap">
+            <div class="loading">Loading history...</div>
+        </div>
+    </div>
+
+    <footer class="site-footer">
+        <nav class="footer-nav">
+            <a href="/" class="footer-nav-link"><i class="mdi mdi-home-outline"></i> Home</a>
+            <a href="/records.html" class="footer-nav-link"><i class="mdi mdi-trophy-outline"></i> Records</a>
+            <a href="/vs.html" class="footer-nav-link"><i class="mdi mdi-sword-cross"></i> Head-to-Head</a>
+            <a href="/history.html" class="footer-nav-link"><i class="mdi mdi-chart-line"></i> History</a>
+            <a href="/managers.html" class="footer-nav-link"><i class="mdi mdi-whistle-outline"></i> Managers</a>
+            <div class="footer-share-wrap">
+                <button id="footer-share-trigger" class="footer-nav-link footer-share-trigger" type="button" aria-haspopup="true" aria-expanded="false">
+                    <i class="mdi mdi-share-variant"></i> Share <i class="mdi mdi-chevron-down footer-share-caret"></i>
+                </button>
+                <div class="footer-share record-share" id="history-share" role="menu" hidden></div>
+            </div>
+        </nav>
+        <p class="footer-disclaimer">Channel information is based on publicly available channel listings. Please check your local channel guide for the most accurate broadcast information.</p>
+        <a href="https://github.com/rptetzloff/AreTheBrewersOnTV" target="_blank" rel="noopener noreferrer" class="github-link">
+            <i class="mdi mdi-github"></i>
+            View on GitHub
+        </a>
+    </footer>
+
+    <script src="/history.js" type="module"></script>
+</body>
+</html>

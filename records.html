@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Packers Records &amp; Superlatives</title>
-    <meta name="description" content="Best starts, perfect seasons, longest win streaks, worst starts, and most lopsided wins in Green Bay Packers history.">
-    <meta property="og:title" content="Packers Records &amp; Superlatives">
-    <meta property="og:description" content="Best starts, perfect seasons, longest win streaks, worst starts, and most lopsided wins in Green Bay Packers history.">
+    <title>Brewers Records &amp; Superlatives</title>
+    <meta name="description" content="Best starts, longest win streaks, worst starts, most lopsided wins, World Series and playoff appearances in Milwaukee Brewers history.">
+    <meta property="og:title" content="Brewers Records &amp; Superlatives">
+    <meta property="og:description" content="Best starts, longest win streaks, worst starts, most lopsided wins, World Series and playoff appearances in Milwaukee Brewers history.">
     <meta property="og:type" content="website">
     <meta name="twitter:card" content="summary_large_image">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
@@ -15,7 +15,7 @@
 </head>
 <body>
     <div class="container records-container">
-        <a href="/" class="records-back"><i class="mdi mdi-arrow-left"></i> Are the Packers Undefeated?</a>
+        <a href="/" class="records-back"><i class="mdi mdi-arrow-left"></i> Are the Brewers On TV?</a>
         <h1 class="records-title">Records &amp; Superlatives</h1>
         <p id="records-subtitle" class="records-subtitle"></p>
         <div id="records-grid" class="records-grid">
@@ -24,7 +24,21 @@
     </div>
 
     <footer class="site-footer">
-        <a href="https://github.com/rptetzloff/AreThePackersUndefeated" target="_blank" rel="noopener noreferrer" class="github-link">
+        <nav class="footer-nav">
+            <a href="/" class="footer-nav-link"><i class="mdi mdi-home-outline"></i> Home</a>
+            <a href="/records.html" class="footer-nav-link"><i class="mdi mdi-trophy-outline"></i> Records</a>
+            <a href="/vs.html" class="footer-nav-link"><i class="mdi mdi-sword-cross"></i> Head-to-Head</a>
+            <a href="/history.html" class="footer-nav-link"><i class="mdi mdi-chart-line"></i> History</a>
+            <a href="/managers.html" class="footer-nav-link"><i class="mdi mdi-whistle-outline"></i> Managers</a>
+            <div class="footer-share-wrap">
+                <button id="footer-share-trigger" class="footer-nav-link footer-share-trigger" type="button" aria-haspopup="true" aria-expanded="false">
+                    <i class="mdi mdi-share-variant"></i> Share <i class="mdi mdi-chevron-down footer-share-caret"></i>
+                </button>
+                <div class="footer-share record-share" id="records-share" role="menu" hidden></div>
+            </div>
+        </nav>
+        <p class="footer-disclaimer">Channel information is based on publicly available channel listings. Please check your local channel guide for the most accurate broadcast information.</p>
+        <a href="https://github.com/rptetzloff/AreTheBrewersOnTV" target="_blank" rel="noopener noreferrer" class="github-link">
             <i class="mdi mdi-github"></i>
             View on GitHub
         </a>

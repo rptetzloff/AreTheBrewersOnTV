@@ -3,25 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Are the Packers Undefeated?</title>
-    <meta name="description" content="The only question that matters: are the Green Bay Packers undefeated this season? Browse every season from 1921 to the present.">
-    <meta property="og:title" content="Are the Packers Undefeated?">
-    <meta property="og:description" content="The only question that matters: are the Green Bay Packers undefeated this season?">
-    <meta property="og:image" content="https://arethepackersundefeated.com/og-default.png">
-    <meta property="og:url" content="https://arethepackersundefeated.com">
+    <title>Are the Brewers On TV?</title>
+    <meta name="description" content="Are the Milwaukee Brewers on TV today? Check the current schedule and browse every season from 1969 to the present.">
+    <meta property="og:title" content="Are the Brewers On TV?">
+    <meta property="og:description" content="Are the Milwaukee Brewers on TV today? Check the current schedule.">
+    <meta property="og:image" content="https://arethebrewersontv.com/og-default.png">
+    <meta property="og:url" content="https://arethebrewersontv.com">
     <meta property="og:type" content="website">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Are the Packers Undefeated?">
-    <meta name="twitter:description" content="The only question that matters: are the Green Bay Packers undefeated this season?">
-    <meta name="twitter:image" content="https://arethepackersundefeated.com/og-default.png">
+    <meta name="twitter:title" content="Are the Brewers On TV?">
+    <meta name="twitter:description" content="Are the Milwaukee Brewers on TV today? Check the current schedule.">
+    <meta name="twitter:image" content="https://arethebrewersontv.com/og-default.png">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="container">
-        <h1 id="site-title" class="site-title">Are the Packers Undefeated?</h1>
+        <h1 id="site-title" class="site-title"><a href="/" class="site-title-link">Are the Brewers On TV?</a></h1>
         <div id="answer" class="answer loading">Loading...</div>
         <div id="record" class="record"></div>
+        <a id="history-spark" class="history-spark" href="/history.html" aria-label="Franchise history, season by season" title="Franchise history, season by season"></a>
         <details id="streak-details" class="collapsible-section" open>
             <summary class="collapsible-summary">Streak</summary>
             <div id="streak-banner" class="streak-banner" hidden></div>
@@ -47,51 +48,49 @@
             <div id="schedule-grid" class="schedule-grid">
                 <div class="loading">Loading schedule...</div>
             </div>
+            <div id="schedule-provider-bar" class="schedule-provider-bar" hidden></div>
         </div>
-        
+
         <div id="last-updated" class="last-updated"></div>
-        <div id="data-credit" class="data-credit" style="display:none">Historical data provided by <a href="https://github.com/nflverse/nflverse-data" target="_blank" rel="noopener noreferrer">nflverse</a> and <a href="https://github.com/fivethirtyeight/nfl-elo-game" target="_blank" rel="noopener noreferrer">FiveThirtyEight</a></div>
+        <div id="data-credit" class="data-credit" style="display:none">Historical data obtained free of charge from and copyrighted by <a href="https://www.retrosheet.org/" target="_blank" rel="noopener noreferrer">Retrosheet</a>. Contact: 20 Sunset Rd., Newark, DE 19711.</div>
 
         <div id="last-undefeated" class="last-undefeated"></div>
 
-        <!-- .html links work under both server.js (meta-injected, clean canonical) and static dev servers -->
-        <a href="/records.html" class="share-btn records-link"><i class="mdi mdi-trophy-outline"></i> Records &amp; Superlatives</a>
-        <a href="/vs.html" class="share-btn records-link"><i class="mdi mdi-sword-cross"></i> Head-to-Head</a>
-
-        <div class="share-section">
-            <button id="share-native" class="share-btn" hidden>
-                <i class="mdi mdi-share-variant share-icon"></i>
-                Share
-            </button>
-            <a id="share-x" class="share-btn" href="#" target="_blank" rel="noopener noreferrer" hidden>
-                <i class="mdi mdi-twitter share-icon"></i>
-                Post on X
-            </a>
-            <a id="share-bsky" class="share-btn" href="#" target="_blank" rel="noopener noreferrer" hidden>
-                <i class="mdi mdi-butterfly share-icon"></i>
-                Post on Bluesky
-            </a>
-            <a id="share-fb" class="share-btn" href="#" target="_blank" rel="noopener noreferrer" hidden>
-                <i class="mdi mdi-facebook share-icon"></i>
-                Share on Facebook
-            </a>
-            <a id="share-reddit" class="share-btn" href="#" target="_blank" rel="noopener noreferrer" hidden>
-                <i class="mdi mdi-reddit share-icon"></i>
-                Post on Reddit
-            </a>
-            <button id="share-copy" class="share-btn" hidden>
-                <i class="mdi mdi-clipboard-outline share-icon"></i>
-                Copy
-            </button>
-        </div>
-    </div>
-    
     <footer class="site-footer">
-        <label class="emoji-toggle-label">
-            <input type="checkbox" id="emoji-toggle">
-            Show record emojis
-        </label>
-        <a href="https://github.com/rptetzloff/AreThePackersUndefeated" target="_blank" rel="noopener noreferrer" class="github-link">
+        <nav class="footer-nav">
+            <a href="/" class="footer-nav-link"><i class="mdi mdi-home-outline"></i> Home</a>
+            <a href="/records.html" class="footer-nav-link"><i class="mdi mdi-trophy-outline"></i> Records</a>
+            <a href="/vs.html" class="footer-nav-link"><i class="mdi mdi-sword-cross"></i> Head-to-Head</a>
+            <a href="/history.html" class="footer-nav-link"><i class="mdi mdi-chart-line"></i> History</a>
+            <a href="/managers.html" class="footer-nav-link"><i class="mdi mdi-whistle-outline"></i> Managers</a>
+            <div class="footer-share-wrap">
+                <button id="footer-share-trigger" class="footer-nav-link footer-share-trigger" type="button" aria-haspopup="true" aria-expanded="false">
+                    <i class="mdi mdi-share-variant"></i> Share <i class="mdi mdi-chevron-down footer-share-caret"></i>
+                </button>
+                <div class="footer-share" id="footer-share" role="menu" hidden>
+                    <button id="share-native" class="footer-share-item" type="button" role="menuitem" hidden>
+                        <i class="mdi mdi-share-variant"></i> Share
+                    </button>
+                    <a id="share-x" class="footer-share-item" href="#" target="_blank" rel="noopener noreferrer" role="menuitem" hidden>
+                        <i class="mdi mdi-twitter"></i> Post on X
+                    </a>
+                    <a id="share-bsky" class="footer-share-item" href="#" target="_blank" rel="noopener noreferrer" role="menuitem" hidden>
+                        <i class="mdi mdi-butterfly"></i> Post on Bluesky
+                    </a>
+                    <a id="share-fb" class="footer-share-item" href="#" target="_blank" rel="noopener noreferrer" role="menuitem" hidden>
+                        <i class="mdi mdi-facebook"></i> Share on Facebook
+                    </a>
+                    <a id="share-reddit" class="footer-share-item" href="#" target="_blank" rel="noopener noreferrer" role="menuitem" hidden>
+                        <i class="mdi mdi-reddit"></i> Post on Reddit
+                    </a>
+                    <button id="share-copy" class="footer-share-item" type="button" role="menuitem" hidden>
+                        <i class="mdi mdi-clipboard-outline"></i> Copy link
+                    </button>
+                </div>
+            </div>
+        </nav>
+        <p class="footer-disclaimer">Channel information is based on publicly available channel listings. Please check your local channel guide for the most accurate broadcast information.</p>
+        <a href="https://github.com/rptetzloff/AreTheBrewersOnTV" target="_blank" rel="noopener noreferrer" class="github-link">
             <i class="mdi mdi-github"></i>
             View on GitHub
         </a>
@@ -116,6 +115,55 @@
                 <button id="gallery-close" class="gallery-close" aria-label="Close gallery"><i class="mdi mdi-close"></i></button>
             </div>
             <div id="gallery-grid" class="gallery-grid"></div>
+        </div>
+    </div>
+
+    <div id="watch-modal" class="gallery-modal" role="dialog" aria-modal="true" aria-label="Where to watch" hidden>
+        <div class="watch-backdrop"></div>
+        <div class="watch-dialog">
+            <div class="gallery-header">
+                <h2 id="watch-title" class="gallery-title">Where to Watch</h2>
+                <button id="watch-close" class="gallery-close" aria-label="Close"><i class="mdi mdi-close"></i></button>
+            </div>
+            <p id="watch-game-info" class="watch-game-info"></p>
+            <div id="watch-channels" class="watch-channels"></div>
+            <p class="watch-disclaimer">Channel information is based on publicly available channel listings. Please check your local channel guide for the most accurate broadcast information.</p>
+        </div>
+    </div>
+
+    <div id="provider-modal" class="gallery-modal" role="dialog" aria-modal="true" aria-label="Change TV provider" hidden>
+        <div class="provider-backdrop"></div>
+        <div class="provider-dialog">
+            <div class="gallery-header">
+                <h2 class="gallery-title">TV Provider</h2>
+                <button id="provider-close" class="gallery-close" aria-label="Close"><i class="mdi mdi-close"></i></button>
+            </div>
+            <p class="watch-game-info">Choose your TV provider to see channel numbers in the schedule.</p>
+            <div id="provider-picker-container" class="watch-channels"></div>
+        </div>
+    </div>
+
+    <div id="linescore-modal" class="gallery-modal" role="dialog" aria-modal="true" aria-label="Line score" hidden>
+        <div class="linescore-backdrop"></div>
+        <div class="linescore-dialog">
+            <div class="gallery-header">
+                <h2 id="linescore-title" class="gallery-title"></h2>
+                <button id="linescore-close" class="gallery-close" aria-label="Close"><i class="mdi mdi-close"></i></button>
+            </div>
+            <div id="linescore-body" class="linescore-body"></div>
+        </div>
+    </div>
+
+    <div id="standings-modal" class="gallery-modal" role="dialog" aria-modal="true" aria-label="MLB Standings" hidden>
+        <div class="linescore-backdrop standings-backdrop"></div>
+        <div class="standings-dialog">
+            <div class="gallery-header">
+                <h2 class="gallery-title">MLB Standings</h2>
+                <button id="standings-close" class="gallery-close" aria-label="Close"><i class="mdi mdi-close"></i></button>
+            </div>
+            <div id="standings-body" class="standings-body">
+                <div class="loading">Loading standings...</div>
+            </div>
         </div>
     </div>
 
