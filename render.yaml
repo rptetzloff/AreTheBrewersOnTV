@@ -9,3 +9,8 @@ services:
     startCommand: node server.js
     autoDeploy: true
     healthCheckPath: /
+    envVars:
+      # The box score indices need more heap than Node's default cap on a
+      # 512MB instance (~256MB); leave the rest for native/system overhead.
+      - key: NODE_OPTIONS
+        value: --max-old-space-size=400

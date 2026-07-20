@@ -157,44 +157,40 @@ function getBoxIndices() {
 
 async function buildBoxIndices() {
   const started = Date.now();
-  const { promises: p } = await import('fs');
+  const { promises: p, createReadStream } = await import('node:fs');
+  const { createInterface } = await import('node:readline');
   const read = async (f) => {
-    try { return await p.readFile(f, 'utf8'); } catch { return ''; }
+    try { return await p.readFile(join(ROOT, f), 'utf8'); } catch { return ''; }
   };
-  const [gameinfoRaw, namesRaw, teamstatsRaw, bioRaw, pitchingRaw, battingRaw, fieldingRaw, parksRaw] = await Promise.all([
-    read(join(ROOT, 'data/gameinfo.csv')),
-    read(join(ROOT, 'data/CurrentNames.csv')),
-    read(join(ROOT, 'data/teamstats.csv')),
-    read(join(ROOT, 'data/biofile0.csv')),
-    read(join(ROOT, 'data/pitching.csv')),
-    read(join(ROOT, 'data/batting.csv')),
-    read(join(ROOT, 'data/fielding.csv')),
-    read(join(ROOT, 'data/ballparks.csv')),
-  ]);
-  // The play-by-play file is ~400MB, far too large to hold as one string, so
-  // it is streamed line by line and only scoring plays are kept. If the file
-  // is missing or is an unfetched Git LFS pointer the index is simply empty
-  // and the box score omits the scoring summary.
+  // The multi-megabyte CSVs are streamed line by line, one file at a time —
+  // reading them as whole strings (plus split() copies) pushed the build past
+  // the ~256MB heap that small hosts give Node. A missing file just yields
+  // nothing (e.g. an unfetched Git LFS pointer parses as an empty index).
+  async function* fileLines(f) {
+    try {
+      const rl = createInterface({ input: createReadStream(join(ROOT, f), 'utf8'), crlfDelay: Infinity });
+      yield* rl;
+    } catch { /* file missing or unreadable */ }
+  }
   const readScoringPlays = async () => {
     const collector = createScoringPlaysCollector();
-    try {
-      const { createReadStream } = await import('node:fs');
-      const { createInterface } = await import('node:readline');
-      const rl = createInterface({ input: createReadStream(join(ROOT, 'data/plays.lfs.csv'), 'utf8'), crlfDelay: Infinity });
-      for await (const line of rl) collector.line(line);
-    } catch { /* no plays data available */ }
+    for await (const line of fileLines('data/plays.lfs.csv')) collector.line(line);
     return collector.result();
   };
 
-  const namesData = parseCurrentNamesCsv(namesRaw);
+  const [namesRaw, teamstatsRaw, parksRaw] = await Promise.all([
+    read('data/CurrentNames.csv'),
+    read('data/teamstats.csv'),
+    read('data/ballparks.csv'),
+  ]);
   const indices = {
     ...(await readScoringPlays()),
-    games: buildGameIndex(gameinfoRaw),
-    pitching: buildPitchingIndex(pitchingRaw),
-    batting: buildBattingIndex(battingRaw),
-    fielding: buildFieldingIndex(fieldingRaw),
-    playerNames: buildPlayerNameMap(bioRaw),
-    namesData,
+    games: await buildGameIndex(fileLines('data/gameinfo.csv')),
+    pitching: await buildPitchingIndex(fileLines('data/pitching.csv')),
+    batting: await buildBattingIndex(fileLines('data/batting.csv')),
+    fielding: await buildFieldingIndex(fileLines('data/fielding.csv')),
+    playerNames: await buildPlayerNameMap(fileLines('data/biofile0.csv')),
+    namesData: parseCurrentNamesCsv(namesRaw),
     parks: parseBallparksCsv(parksRaw),
     lineScores: parseTeamstatsLineScores(teamstatsRaw),
   };

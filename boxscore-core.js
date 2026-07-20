@@ -7,19 +7,44 @@ import { splitCsvLine, parseCurrentNamesCsv, nameForFranchiseAt, parseBallparksC
 const POS_NAMES = { 1:'P', 2:'C', 3:'1B', 4:'2B', 5:'3B', 6:'SS', 7:'LF', 8:'CF', 9:'RF', 10:'DH', 11:'PH', 12:'PR' };
 const num = (v) => parseInt(v, 10) || 0;
 
+// Play-event flags, packed into a bitmask on scoring plays (bit i = FLAG_COLS[i]).
+const FLAG_COLS = ['single','double','triple','hr','sh','sf','hbp','walk','k','xi','roe','fc','othout','ground','fly','line','iw','gdp','wp','pb','bk','sbh'];
+function flagsFromMask(mask) {
+  const f = {};
+  for (let i = 0; i < FLAG_COLS.length; i++) f[FLAG_COLS[i]] = !!(mask & (1 << i));
+  return f;
+}
+
 export function isLfsPointer(raw) {
   return !raw || raw.startsWith('version https://git-lfs.github.com/spec/v1');
 }
 
-export function buildPlayerNameMap(raw) {
+// The index builders accept either a raw CSV string or an (async) iterable of
+// lines. The server streams the multi-megabyte files line by line — holding
+// them as whole strings (plus split() copies) blows past the ~256MB heap that
+// small hosts give Node.
+async function* linesOf(input) {
+  if (input == null) return;
+  if (typeof input === 'string') {
+    yield* input.split('\n');
+    return;
+  }
+  yield* input;
+}
+
+export async function buildPlayerNameMap(input) {
   const names = new Map();
-  if (isLfsPointer(raw)) return names;
-  const lines = raw.split('\n');
-  const h = splitCsvLine(lines[0]);
-  const idI = h.indexOf('id'), lastI = h.indexOf('lastname'), useI = h.indexOf('usename'), fullI = h.indexOf('fullname');
-  for (let i = 1; i < lines.length; i++) {
-    if (!lines[i].trim()) continue;
-    const v = splitCsvLine(lines[i]);
+  let idI, lastI, useI, fullI, header = false;
+  for await (const line of linesOf(input)) {
+    if (!line.trim()) continue;
+    if (!header) {
+      if (isLfsPointer(line)) return names;
+      const h = splitCsvLine(line);
+      idI = h.indexOf('id'); lastI = h.indexOf('lastname'); useI = h.indexOf('usename'); fullI = h.indexOf('fullname');
+      header = true;
+      continue;
+    }
+    const v = splitCsvLine(line);
     const id = v[idI]?.trim();
     if (!id) continue;
     const name = [v[useI]?.trim(), v[lastI]?.trim()].filter(Boolean).join(' ') || (fullI >= 0 && v[fullI]?.trim()) || '';
@@ -28,21 +53,37 @@ export function buildPlayerNameMap(raw) {
   return names;
 }
 
-function indexByGid(raw, cols, rowFn) {
+// Dedupe repeated strings (player/team ids appear in hundreds of thousands of
+// rows; splitCsvLine allocates a fresh copy each time).
+function makeIntern() {
+  const pool = new Map();
+  return (s) => {
+    if (!s) return s;
+    const hit = pool.get(s);
+    if (hit !== undefined) return hit;
+    pool.set(s, s);
+    return s;
+  };
+}
+
+async function indexByGid(input, cols, rowFn) {
   const map = new Map();
-  if (isLfsPointer(raw)) return map;
-  const lines = raw.split('\n');
-  const h = splitCsvLine(lines[0]);
-  const idx = {};
-  for (const c of cols) idx[c] = h.indexOf(c);
-  const gidI = idx.gid;
-  if (gidI < 0) return map;
-  for (let i = 1; i < lines.length; i++) {
-    if (!lines[i].trim()) continue;
-    const v = splitCsvLine(lines[i]);
-    const gid = v[gidI]?.trim();
+  const intern = makeIntern();
+  let idx = null;
+  for await (const line of linesOf(input)) {
+    if (!line.trim()) continue;
+    if (!idx) {
+      if (isLfsPointer(line)) return map;
+      const h = splitCsvLine(line);
+      idx = {};
+      for (const c of cols) idx[c] = h.indexOf(c);
+      if (idx.gid < 0) return map;
+      continue;
+    }
+    const v = splitCsvLine(line);
+    const gid = v[idx.gid]?.trim();
     if (!gid) continue;
-    const row = rowFn(v, idx);
+    const row = rowFn(v, idx, intern);
     if (!row) continue;
     if (!map.has(gid)) map.set(gid, []);
     map.get(gid).push(row);
@@ -50,61 +91,63 @@ function indexByGid(raw, cols, rowFn) {
   return map;
 }
 
-export function buildPitchingIndex(raw) {
-  return indexByGid(raw, [
-    'gid','id','team','p_seq','p_ipouts','p_noout','p_bfp','p_h','p_d','p_t','p_hr',
-    'p_r','p_er','p_w','p_iw','p_k','p_hbp','p_wp','p_bk','p_sh','p_sf','p_sb','p_cs',
-    'p_pb','wp','lp','save','p_gs','p_gf','p_cg',
-  ], (v, i) => ({
-    id: v[i.id], team: v[i.team], seq: num(v[i.p_seq]),
+export function buildPitchingIndex(input) {
+  return indexByGid(input, [
+    'gid','id','team','p_seq','p_ipouts','p_bfp','p_h','p_hr',
+    'p_r','p_er','p_w','p_k','p_hbp','p_wp','p_bk',
+    'wp','lp','save','p_gs','p_gf',
+  ], (v, i, intern) => ({
+    id: intern(v[i.id]), team: intern(v[i.team]), seq: num(v[i.p_seq]),
     ipouts: num(v[i.p_ipouts]), bf: num(v[i.p_bfp]),
-    h: num(v[i.p_h]), d: num(v[i.p_d]), t: num(v[i.p_t]), hr: num(v[i.p_hr]),
-    r: num(v[i.p_r]), er: num(v[i.p_er]), bb: num(v[i.p_w]), ibb: num(v[i.p_iw]),
+    h: num(v[i.p_h]), hr: num(v[i.p_hr]),
+    r: num(v[i.p_r]), er: num(v[i.p_er]), bb: num(v[i.p_w]),
     k: num(v[i.p_k]), hbp: num(v[i.p_hbp]), wp: num(v[i.p_wp]), bk: num(v[i.p_bk]),
-    sh: num(v[i.p_sh]), sf: num(v[i.p_sf]), sb: num(v[i.p_sb]), cs: num(v[i.p_cs]),
     isWp: v[i.wp] === '1', isLp: v[i.lp] === '1', isSave: v[i.save] === '1',
-    gs: v[i.p_gs] === '1', gf: v[i.p_gf] === '1', cg: v[i.p_cg] === '1',
+    gs: v[i.p_gs] === '1', gf: v[i.p_gf] === '1',
   }));
 }
 
-export function buildBattingIndex(raw) {
-  return indexByGid(raw, [
+export function buildBattingIndex(input) {
+  return indexByGid(input, [
     'gid','id','team','b_lp','b_seq','b_pa','b_ab','b_r','b_h','b_d','b_t','b_hr',
-    'b_rbi','b_sh','b_sf','b_hbp','b_w','b_iw','b_k','b_sb','b_cs','b_gdp','b_xi',
-    'b_roe','dh','ph','pr',
-  ], (v, i) => ({
-    id: v[i.id], team: v[i.team], lp: num(v[i.b_lp]), seq: num(v[i.b_seq]),
+    'b_rbi','b_sh','b_sf','b_hbp','b_w','b_k','b_sb','b_cs','b_gdp',
+    'dh','ph','pr',
+  ], (v, i, intern) => ({
+    id: intern(v[i.id]), team: intern(v[i.team]), lp: num(v[i.b_lp]), seq: num(v[i.b_seq]),
     pa: num(v[i.b_pa]), ab: num(v[i.b_ab]), r: num(v[i.b_r]), h: num(v[i.b_h]),
     d: num(v[i.b_d]), t: num(v[i.b_t]), hr: num(v[i.b_hr]), rbi: num(v[i.b_rbi]),
     sh: num(v[i.b_sh]), sf: num(v[i.b_sf]), hbp: num(v[i.b_hbp]), bb: num(v[i.b_w]),
-    ibb: num(v[i.b_iw]), k: num(v[i.b_k]), sb: num(v[i.b_sb]), cs: num(v[i.b_cs]),
-    gdp: num(v[i.b_gdp]), xi: num(v[i.b_xi]), roe: num(v[i.b_roe]),
+    k: num(v[i.b_k]), sb: num(v[i.b_sb]), cs: num(v[i.b_cs]),
+    gdp: num(v[i.b_gdp]),
     isDh: v[i.dh] === '1', isPh: v[i.ph] === '1', isPr: v[i.pr] === '1',
   }));
 }
 
-export function buildFieldingIndex(raw) {
-  return indexByGid(raw, [
-    'gid','id','team','d_seq','d_pos','d_ifouts','d_po','d_a','d_e','d_dp','d_tp',
-    'd_pb','d_wp','d_sb','d_cs','d_gs',
-  ], (v, i) => ({
-    id: v[i.id], team: v[i.team], seq: num(v[i.d_seq]), pos: num(v[i.d_pos]),
-    ifouts: num(v[i.d_ifouts]), po: num(v[i.d_po]), a: num(v[i.d_a]), e: num(v[i.d_e]),
+export function buildFieldingIndex(input) {
+  return indexByGid(input, [
+    'gid','id','team','d_seq','d_pos','d_po','d_a','d_e','d_dp','d_tp',
+    'd_pb','d_gs',
+  ], (v, i, intern) => ({
+    id: intern(v[i.id]), team: intern(v[i.team]), seq: num(v[i.d_seq]), pos: num(v[i.d_pos]),
+    po: num(v[i.d_po]), a: num(v[i.d_a]), e: num(v[i.d_e]),
     dp: num(v[i.d_dp]), tp: num(v[i.d_tp]), pb: num(v[i.d_pb]), gs: v[i.d_gs] === '1',
   }));
 }
 
-export function buildGameIndex(raw) {
+export async function buildGameIndex(input) {
   const map = new Map();
-  if (isLfsPointer(raw)) return map;
-  const lines = raw.split('\n');
-  const h = splitCsvLine(lines[0]);
-  const idx = {};
-  for (const c of ['gid','visteam','hometeam','site','date','number','starttime','daynight','innings','usedh','timeofgame','attendance','fieldcond','precip','sky','temp','winddir','windspeed','wp','lp','save','gametype','vruns','hruns','wteam','lteam','season','umphome','ump1b','ump2b','ump3b','umplf','umprf'])
-    idx[c] = h.indexOf(c);
-  for (let i = 1; i < lines.length; i++) {
-    if (!lines[i].trim()) continue;
-    const v = splitCsvLine(lines[i]);
+  let idx = null;
+  for await (const line of linesOf(input)) {
+    if (!line.trim()) continue;
+    if (!idx) {
+      if (isLfsPointer(line)) return map;
+      const h = splitCsvLine(line);
+      idx = {};
+      for (const c of ['gid','visteam','hometeam','site','date','number','starttime','daynight','innings','usedh','timeofgame','attendance','fieldcond','precip','sky','temp','winddir','windspeed','wp','lp','save','gametype','vruns','hruns','wteam','lteam','season','umphome','ump1b','ump2b','ump3b','umplf','umprf'])
+        idx[c] = h.indexOf(c);
+      continue;
+    }
+    const v = splitCsvLine(line);
     const gid = v[idx.gid]?.trim();
     if (!gid) continue;
     map.set(gid, {
@@ -138,16 +181,18 @@ export function createScoringPlaysCollector() {
   const pitchCounts = new Map();
   const firstPa = new Map();
   const risp = new Map();
+  const intern = makeIntern();
   let idx = null;
   const COLS = ['gid','inning','top_bot','batteam','score_v','score_h','batter','pitcher',
     'single','double','triple','hr','sh','sf','hbp','walk','k','xi','roe','fc','othout',
     'ground','fly','line','iw','gdp','wp','pb','bk','sbh','runs','run_b','run1','run2','run3',
     'nump','pa','pitches','ab','bip','outs_pre','br2_pre','br3_pre'];
-  const FLAG_COLS = ['single','double','triple','hr','sh','sf','hbp','walk','k','xi','roe','fc','othout','ground','fly','line','iw','gdp','wp','pb','bk','sbh'];
-  const readFlags = (v) => {
-    const flags = {};
-    for (const f of FLAG_COLS) flags[f] = v[idx[f]] === '1';
-    return flags;
+  // Flags are packed into a bitmask — tens of thousands of scoring plays each
+  // carrying a 22-property object is real memory on a small host.
+  const readMask = (v) => {
+    let mask = 0;
+    for (let i = 0; i < FLAG_COLS.length; i++) if (v[idx[FLAG_COLS[i]]] === '1') mask |= 1 << i;
+    return mask;
   };
   const line = (text) => {
     if (!text || !text.trim()) return;
@@ -166,7 +211,7 @@ export function createScoringPlaysCollector() {
     // low) pitch count, so the box score only shows NP when every PA has data.
     const np = num(v[idx.nump]);
     const isPa = v[idx.pa] === '1';
-    const pitcherId = v[idx.pitcher]?.trim();
+    const pitcherId = intern(v[idx.pitcher]?.trim());
     if (pitcherId && (np || isPa || v[idx.bip] === '1')) {
       if (!pitchCounts.has(gid)) pitchCounts.set(gid, new Map());
       const m = pitchCounts.get(gid);
@@ -208,8 +253,8 @@ export function createScoringPlaysCollector() {
     // Team hitting with runners in scoring position (at-bats only).
     const isHit = v[idx.single] === '1' || v[idx.double] === '1' || v[idx.triple] === '1' || v[idx.hr] === '1';
     if (v[idx.ab] === '1' && (v[idx.br2_pre]?.trim() || v[idx.br3_pre]?.trim())) {
-      const team = v[idx.batteam];
-      const batterId = v[idx.batter]?.trim();
+      const team = intern(v[idx.batteam]);
+      const batterId = intern(v[idx.batter]?.trim());
       if (team && batterId) {
         if (!risp.has(gid)) risp.set(gid, new Map());
         const rm = risp.get(gid);
@@ -222,13 +267,15 @@ export function createScoringPlaysCollector() {
       }
     }
     // First plate appearance per batter — enough to write pinch-hit notes.
+    // Packed as inning*100 + verb code to keep ~200k entries cheap.
     if (isPa) {
-      const batterId = v[idx.batter]?.trim();
+      const batterId = intern(v[idx.batter]?.trim());
       if (batterId) {
         if (!firstPa.has(gid)) firstPa.set(gid, new Map());
         const fm = firstPa.get(gid);
         if (!fm.has(batterId)) {
-          fm.set(batterId, { inning: num(v[idx.inning]), verb: playVerb(readFlags(v), num(v[idx.runs])) || 'batted' });
+          const code = playVerbCode(flagsFromMask(readMask(v)), num(v[idx.runs]));
+          fm.set(batterId, num(v[idx.inning]) * 100 + (code < 0 ? 21 : code));
         }
       }
     }
@@ -237,14 +284,14 @@ export function createScoringPlaysCollector() {
     const play = {
       inning: num(v[idx.inning]),
       top: v[idx.top_bot] === '0',
-      team: v[idx.batteam],
-      batter: v[idx.batter]?.trim() || '',
+      team: intern(v[idx.batteam]),
+      batter: intern(v[idx.batter]?.trim()) || '',
       pitcher: pitcherId || '',
       preV: num(v[idx.score_v]), preH: num(v[idx.score_h]),
       runs,
       outs: num(v[idx.outs_pre]),
-      scorers: [v[idx.run_b], v[idx.run1], v[idx.run2], v[idx.run3]].map(s => s?.trim()).filter(Boolean),
-      flags: readFlags(v),
+      scorers: [v[idx.run_b], v[idx.run1], v[idx.run2], v[idx.run3]].map(s => intern(s?.trim())).filter(Boolean),
+      flags: readMask(v),
     };
     if (!map.has(gid)) map.set(gid, []);
     map.get(gid).push(play);
@@ -252,23 +299,34 @@ export function createScoringPlaysCollector() {
   return { line, result: () => ({ scoring: map, pitchCounts, firstPa, risp }) };
 }
 
+// Play verbs by code — firstPa entries pack a verb code and inning into one
+// number instead of a per-batter object.
+const VERBS = ['homered','hit a two-run home run','hit a three-run home run','hit a grand slam',
+  'tripled','doubled','singled','walked','was intentionally walked','was hit by a pitch',
+  'hit a sacrifice fly','laid down a sacrifice bunt','grounded into a double play',
+  'reached on catcher’s interference','reached on an error','reached on a fielder’s choice',
+  'struck out','grounded out','flied out','lined out','was put out','batted'];
+function playVerbCode(f, runs) {
+  if (f.hr) return runs >= 4 ? 3 : runs === 3 ? 2 : runs === 2 ? 1 : 0;
+  if (f.triple) return 4;
+  if (f.double) return 5;
+  if (f.single) return 6;
+  if (f.walk) return f.iw ? 8 : 7;
+  if (f.hbp) return 9;
+  if (f.sf) return 10;
+  if (f.sh) return 11;
+  if (f.gdp) return 12;
+  if (f.xi) return 13;
+  if (f.roe) return 14;
+  if (f.fc) return 15;
+  if (f.k) return 16;
+  if (f.othout) return f.ground ? 17 : f.fly ? 18 : f.line ? 19 : 20;
+  return -1;
+}
 // Turn a scoring play's flag columns into a readable sentence fragment.
 function playVerb(f, runs) {
-  if (f.hr) return runs >= 4 ? 'hit a grand slam' : runs === 3 ? 'hit a three-run home run' : runs === 2 ? 'hit a two-run home run' : 'homered';
-  if (f.triple) return 'tripled';
-  if (f.double) return 'doubled';
-  if (f.single) return 'singled';
-  if (f.walk) return f.iw ? 'was intentionally walked' : 'walked';
-  if (f.hbp) return 'was hit by a pitch';
-  if (f.sf) return 'hit a sacrifice fly';
-  if (f.sh) return 'laid down a sacrifice bunt';
-  if (f.gdp) return 'grounded into a double play';
-  if (f.xi) return 'reached on catcher’s interference';
-  if (f.roe) return 'reached on an error';
-  if (f.fc) return 'reached on a fielder’s choice';
-  if (f.k) return 'struck out';
-  if (f.othout) return f.ground ? 'grounded out' : f.fly ? 'flied out' : f.line ? 'lined out' : 'was put out';
-  return null;
+  const c = playVerbCode(f, runs);
+  return c < 0 ? null : VERBS[c];
 }
 
 // Events where runs score without a batter event.
@@ -356,8 +414,12 @@ export function buildBoxscore(gid, { games, pitching, batting, fielding, playerN
     let letterIdx = 0;
     const phNotes = [];
     const letters = new Map();
+    const firstPaOf = (id) => {
+      const packed = gameFirstPa?.get(id);
+      return packed == null ? null : { inning: Math.floor(packed / 100), verb: VERBS[packed % 100] };
+    };
     const subs = teamBat.filter(b => b.isPh || b.isPr)
-      .sort((a, b) => (gameFirstPa?.get(a.id)?.inning ?? 99) - (gameFirstPa?.get(b.id)?.inning ?? 99));
+      .sort((a, b) => (firstPaOf(a.id)?.inning ?? 99) - (firstPaOf(b.id)?.inning ?? 99));
     for (const b of subs) {
       const letter = String.fromCharCode(97 + letterIdx++);
       letters.set(b.id, letter);
@@ -366,7 +428,7 @@ export function buildBoxscore(gid, { games, pitching, batting, fielding, playerN
       if (b.isPr) {
         phNotes.push(`${letter} - ran${forWhom}`);
       } else {
-        const fp = gameFirstPa?.get(b.id);
+        const fp = firstPaOf(b.id);
         const did = fp ? fp.verb : 'batted';
         const when = fp ? ` in the ${ordinal(fp.inning)}` : '';
         phNotes.push(`${letter} - ${did}${forWhom}${when}`);
@@ -374,7 +436,7 @@ export function buildBoxscore(gid, { games, pitching, batting, fielding, playerN
     }
     // Home run details from the play-by-play ("off Fairbanks, 2 on, 1 out").
     const hrDetails = gameScoring
-      ? gameScoring.filter(p => p.team === teamId && p.flags.hr).map(p => {
+      ? gameScoring.filter(p => p.team === teamId && flagsFromMask(p.flags).hr).map(p => {
           const on = p.runs - 1;
           return `${playerName(p.batter)} (${ordinal(p.inning)} inning off ${playerName(p.pitcher)}, ${on} on, ${p.outs} out)`;
         })
@@ -485,11 +547,12 @@ export function buildBoxscore(gid, { games, pitching, batting, fielding, playerN
   // isn't available, e.g. an unfetched LFS pointer).
   const scoringRows = scoring?.get(gid);
   const scoringPlays = scoringRows ? scoringRows.map(p => {
+    const f = flagsFromMask(p.flags);
     const batterName = p.batter ? playerName(p.batter) : '';
-    const verb = playVerb(p.flags, p.runs);
+    const verb = playVerb(f, p.runs);
     // On a home run the batter is one of the scorers; naming them again is noise.
-    const scorers = (p.flags.hr ? p.scorers.filter(id => id !== p.batter) : p.scorers).map(playerName);
-    let desc = verb ? `${batterName} ${verb}` : nonBatterEvent(p.flags);
+    const scorers = (f.hr ? p.scorers.filter(id => id !== p.batter) : p.scorers).map(playerName);
+    let desc = verb ? `${batterName} ${verb}` : nonBatterEvent(f);
     if (scorers.length) desc += ` — ${scorers.join(', ')} scored`;
     return {
       inning: p.inning, top: p.top, team: p.team, desc, runs: p.runs,
