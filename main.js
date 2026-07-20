@@ -438,7 +438,7 @@ h2hNote(franchiseOrName) {
   if (!o) return null;
   const note = document.createElement('a');
   note.className = 'game-h2h';
-  note.href = `/vs/${o.slug}`;
+  note.href = `/vs.html?vs=${o.slug}`;
   note.textContent = `All-time: ${o.record}`;
   note.title = `Brewers vs ${o.name} — all-time head-to-head`;
   return note;
