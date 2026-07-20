@@ -14,7 +14,7 @@ import { records, recordsMeta, isRecordSlug, seasonHistory, historyMeta } from '
 import { coaches, coachesMeta } from './lib/coaches.js';
 import { h2h, h2hMeta, isOpponentSlug } from './lib/h2h.js';
 import { esc, parseCurrentNamesCsv, parseBallparksCsv, parseTeamstatsLineScores } from './records-core.js';
-import { buildGameIndex, buildPitchingIndex, buildBattingIndex, buildFieldingIndex, buildPlayerNameMap, buildBoxscore } from './boxscore-core.js';
+import { buildGameIndex, buildPitchingIndex, buildBattingIndex, buildFieldingIndex, buildPlayerNameMap, buildBoxscore, createScoringPlaysCollector } from './boxscore-core.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = __dirname;
@@ -143,35 +143,68 @@ function serveVsHtml(req, res, slug) {
 
 // --- Box score data (server-side CSV indices, built once and cached) ---
 
-let _boxIndices = null;
-async function getBoxIndices() {
-  if (_boxIndices) return _boxIndices;
-  const { promises: p } = await import('fs');
+// Memoized as a promise so concurrent cold-start requests (the /game page
+// and its /api/boxscore fetch arrive nearly together) share one build instead
+// of each streaming the 400MB plays file.
+let _boxIndicesPromise = null;
+let _boxIndicesReady = null;
+function getBoxIndices() {
+  if (!_boxIndicesPromise) {
+    _boxIndicesPromise = buildBoxIndices().then((idx) => { _boxIndicesReady = idx; return idx; });
+  }
+  return _boxIndicesPromise;
+}
+
+async function buildBoxIndices() {
+  const started = Date.now();
+  const { promises: p, createReadStream } = await import('node:fs');
+  const { createInterface } = await import('node:readline');
   const read = async (f) => {
-    try { return await p.readFile(f, 'utf8'); } catch { return ''; }
+    try { return await p.readFile(join(ROOT, f), 'utf8'); } catch { return ''; }
   };
-  const [gameinfoRaw, namesRaw, teamstatsRaw, bioRaw, pitchingRaw, battingRaw, fieldingRaw, parksRaw] = await Promise.all([
-    read(join(ROOT, 'data/gameinfo.csv')),
-    read(join(ROOT, 'data/CurrentNames.csv')),
-    read(join(ROOT, 'data/teamstats.csv')),
-    read(join(ROOT, 'data/biofile0.csv')),
-    read(join(ROOT, 'data/pitching.csv')),
-    read(join(ROOT, 'data/batting.csv')),
-    read(join(ROOT, 'data/fielding.csv')),
-    read(join(ROOT, 'data/ballparks.csv')),
+  // The multi-megabyte CSVs are streamed line by line, one file at a time —
+  // reading them as whole strings (plus split() copies) pushed the build past
+  // the ~256MB heap that small hosts give Node. A missing file just yields
+  // nothing (e.g. an unfetched Git LFS pointer parses as an empty index).
+  async function* fileLines(f) {
+    try {
+      const rl = createInterface({ input: createReadStream(join(ROOT, f), 'utf8'), crlfDelay: Infinity });
+      yield* rl;
+    } catch { /* file missing or unreadable */ }
+  }
+  const readScoringPlays = async () => {
+    const collector = createScoringPlaysCollector();
+    for await (const line of fileLines('data/plays.lfs.csv')) collector.line(line);
+    return collector.result();
+  };
+
+  const [namesRaw, teamstatsRaw, parksRaw] = await Promise.all([
+    read('data/CurrentNames.csv'),
+    read('data/teamstats.csv'),
+    read('data/ballparks.csv'),
   ]);
-  const namesData = parseCurrentNamesCsv(namesRaw);
-  _boxIndices = {
-    games: buildGameIndex(gameinfoRaw),
-    pitching: buildPitchingIndex(pitchingRaw),
-    batting: buildBattingIndex(battingRaw),
-    fielding: buildFieldingIndex(fieldingRaw),
-    playerNames: buildPlayerNameMap(bioRaw),
-    namesData,
+  const indices = {
+    ...(await readScoringPlays()),
+    games: await buildGameIndex(fileLines('data/gameinfo.csv')),
+    pitching: await buildPitchingIndex(fileLines('data/pitching.csv')),
+    batting: await buildBattingIndex(fileLines('data/batting.csv')),
+    fielding: await buildFieldingIndex(fileLines('data/fielding.csv')),
+    playerNames: await buildPlayerNameMap(fileLines('data/biofile0.csv')),
+    namesData: parseCurrentNamesCsv(namesRaw),
     parks: parseBallparksCsv(parksRaw),
     lineScores: parseTeamstatsLineScores(teamstatsRaw),
   };
-  return _boxIndices;
+  // Chronological neighbors for prev/next navigation between games.
+  const ordered = [...indices.games.keys()].sort((a, b) => {
+    const ga = indices.games.get(a), gb = indices.games.get(b);
+    return (parseInt(ga.date, 10) - parseInt(gb.date, 10))
+      || (parseInt(ga.number, 10) || 0) - (parseInt(gb.number, 10) || 0)
+      || a.localeCompare(b);
+  });
+  indices.gameNav = new Map();
+  ordered.forEach((gid, i) => indices.gameNav.set(gid, { prev: ordered[i - 1] || null, next: ordered[i + 1] || null }));
+  console.log(`box score indices built in ${((Date.now() - started) / 1000).toFixed(1)}s`);
+  return indices;
 }
 
 async function serveBoxscoreApi(req, res, gid) {
@@ -185,8 +218,10 @@ async function serveBoxscoreApi(req, res, gid) {
 async function serveGameHtml(req, res, gid) {
   const origin = originOf(req);
   const canonical = `${origin}/game/${gid}`;
-  const idx = await getBoxIndices();
-  const box = buildBoxscore(gid, idx);
+  // Never block the page on the index build — the shell renders its own
+  // loading state and the /api/boxscore fetch waits instead. Only a cold
+  // start serves generic meta tags here.
+  const box = _boxIndicesReady ? buildBoxscore(gid, _boxIndicesReady) : null;
   const title = box ? `${box.game.visName} @ ${box.game.homeName} — ${box.game.date}` : 'Box Score';
   const desc = box ? `Full box score: ${box.game.visName} ${box.game.visScore}, ${box.game.homeName} ${box.game.homeScore} (${box.game.date}). Milwaukee Brewers historical game.` : 'Milwaukee Brewers historical game box score.';
   sendPage(res, GAME_VERSIONED, { title, desc, img: `${origin}/og/default.png`, canonical });
@@ -332,4 +367,9 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, () => console.log(`listening on :${PORT}`));
+server.listen(PORT, () => {
+  console.log(`listening on :${PORT}`);
+  // Warm the box score indices in the background so the first visitor after
+  // a deploy or spin-down doesn't pay the full CSV/plays parse on request.
+  getBoxIndices().catch((err) => console.error('box index warmup failed:', err));
+});
