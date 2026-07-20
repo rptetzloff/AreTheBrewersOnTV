@@ -1098,7 +1098,8 @@ gameDetails.appendChild(dateDiv);
 
 // Channel/network on its own line below the date. Clickable to open the
 // "Where to watch" modal when full broadcast data is available.
-if (network || canWatch) {
+// Completed games don't need a TV listing.
+if ((network || canWatch) && !gameIsCompleted) {
  const channelLine = document.createElement('div');
  channelLine.className = 'game-channel';
  let html = '';
