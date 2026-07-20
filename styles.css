@@ -2477,6 +2477,12 @@ details:not([open]) > .collapsible-summary::before {
     font-style: italic;
 }
 
+.watch-channel-num-note {
+    font-size: 0.75rem;
+    font-style: italic;
+    color: rgba(255, 255, 255, 0.5);
+}
+
 /* ── Line score modal ── */
 .linescore-backdrop {
     position: fixed;

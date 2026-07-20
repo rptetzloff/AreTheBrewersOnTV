@@ -1317,7 +1317,7 @@ _shareTvLine() {
   if (network && this.selectedProvider) {
     const num = this.resolveProviderChannel(this.selectedProvider, ch?.key || name, this.selectedServiceAreaIndex(this.selectedProvider));
     const provider = this.providerMeta[this.selectedProvider]?.display_name;
-    if (num && provider) watch = ` on ${network} (ch. ${num} on ${provider})`;
+    if (num && provider) watch = ` on ${network} (ch. ${this.formatChannelNum(num).text} on ${provider})`;
   }
   const vs = opp ? ` vs the ${opp}` : '';
   return tvStatus === 'yes'
@@ -1761,6 +1761,20 @@ resolveProviderByName(query) {
   return null;
 }
 
+// Channel cells use two notations that need spelling out for display:
+// "A or B" — available listings disagree, the channel is one of these;
+// "A / B" — an SD / HD channel pair. Returns { text, ambiguous }.
+formatChannelNum(raw) {
+  if (!raw) return { text: raw, ambiguous: false };
+  const fmtPart = (part) => {
+    const m = part.trim().match(/^(\d+)\s*\/\s*(\d+)\s*(\(.*\))?$/);
+    if (m) return `${m[1]} (SD) / ${m[2]} (HD)${m[3] ? ` ${m[3]}` : ''}`;
+    return part.trim();
+  };
+  const orParts = raw.split(/\s+or\s+/i);
+  return { text: orParts.map(fmtPart).join(' or '), ambiguous: orParts.length > 1 };
+}
+
 resolveProviderChannel(providerKey, networkName, areaIndex) {
   if (!providerKey || !networkName) return null;
   const p = this.providerMeta[providerKey];
@@ -1810,7 +1824,8 @@ scheduleChannelNumber(broadcast) {
   const type = ch?.type;
   if (type !== 'broadcast' && type !== 'cable' && type !== 'regional') return null;
   const name = ch?.key || broadcast.media.shortName;
-  return this.resolveProviderChannel(this.selectedProvider, name, this.selectedServiceAreaIndex(this.selectedProvider));
+  const raw = this.resolveProviderChannel(this.selectedProvider, name, this.selectedServiceAreaIndex(this.selectedProvider));
+  return raw ? this.formatChannelNum(raw).text : raw;
 }
 
 _rerenderSchedule() {
@@ -2178,7 +2193,9 @@ _renderWatchChannels(channelsEl, resolved, radioResolved) {
         const numDiv = document.createElement('div');
         numDiv.className = 'watch-channel-num';
         if (num) {
-          numDiv.innerHTML = `<span class="watch-channel-num-label">${provider.display_name}</span> <span class="watch-channel-num-value">Ch. ${num}</span>`;
+          const fmt = this.formatChannelNum(num);
+          const note = fmt.ambiguous ? ` <span class="watch-channel-num-note">(listings vary — check your guide)</span>` : '';
+          numDiv.innerHTML = `<span class="watch-channel-num-label">${provider.display_name}</span> <span class="watch-channel-num-value">Ch. ${fmt.text}</span>${note}`;
         } else {
           numDiv.innerHTML = `<span class="watch-channel-num-label watch-channel-num-none">Not listed for ${provider.display_name}</span>`;
         }
@@ -2831,5 +2848,6 @@ showError(message) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-   new BrewersTracker();
+   // Exposed for debugging in the console.
+   window.__brewersTracker = new BrewersTracker();
 });
