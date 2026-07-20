@@ -14,7 +14,7 @@ import { records, recordsMeta, isRecordSlug, seasonHistory, historyMeta } from '
 import { coaches, coachesMeta } from './lib/coaches.js';
 import { h2h, h2hMeta, isOpponentSlug } from './lib/h2h.js';
 import { esc, parseCurrentNamesCsv, parseBallparksCsv, parseTeamstatsLineScores } from './records-core.js';
-import { buildGameIndex, buildPitchingIndex, buildBattingIndex, buildFieldingIndex, buildPlayerNameMap, buildBoxscore } from './boxscore-core.js';
+import { buildGameIndex, buildPitchingIndex, buildBattingIndex, buildFieldingIndex, buildPlayerNameMap, buildBoxscore, createScoringPlaysCollector } from './boxscore-core.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = __dirname;
@@ -160,8 +160,24 @@ async function getBoxIndices() {
     read(join(ROOT, 'data/fielding.csv')),
     read(join(ROOT, 'data/ballparks.csv')),
   ]);
+  // The play-by-play file is ~400MB, far too large to hold as one string, so
+  // it is streamed line by line and only scoring plays are kept. If the file
+  // is missing or is an unfetched Git LFS pointer the index is simply empty
+  // and the box score omits the scoring summary.
+  const readScoringPlays = async () => {
+    const collector = createScoringPlaysCollector();
+    try {
+      const { createReadStream } = await import('node:fs');
+      const { createInterface } = await import('node:readline');
+      const rl = createInterface({ input: createReadStream(join(ROOT, 'data/plays.lfs.csv'), 'utf8'), crlfDelay: Infinity });
+      for await (const line of rl) collector.line(line);
+    } catch { /* no plays data available */ }
+    return collector.result();
+  };
+
   const namesData = parseCurrentNamesCsv(namesRaw);
   _boxIndices = {
+    ...(await readScoringPlays()),
     games: buildGameIndex(gameinfoRaw),
     pitching: buildPitchingIndex(pitchingRaw),
     batting: buildBattingIndex(battingRaw),

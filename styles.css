@@ -2738,10 +2738,17 @@ details:not([open]) > .collapsible-summary::before {
 .boxscore-matchup {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 0.6rem;
     flex-wrap: wrap;
     font-size: 1.3rem;
     font-weight: 700;
+}
+
+/* On the box score page the WP/LP/S line sits between centered sections;
+   center it there (the season-page line score modal keeps it left-aligned). */
+#boxscore-root .linescore-pitchers {
+    justify-content: center;
 }
 
 .boxscore-team {
@@ -2866,9 +2873,164 @@ details:not([open]) > .collapsible-summary::before {
     letter-spacing: 0.02em;
 }
 
+.boxscore-umps {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.55);
+}
+
+.boxscore-umps-label {
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    letter-spacing: 0.06em;
+    color: rgba(255, 255, 255, 0.45);
+    margin-right: 0.3rem;
+}
+
+.boxscore-ump-pos {
+    font-weight: 700;
+    color: rgba(255, 197, 47, 0.75);
+    font-size: 0.72rem;
+}
+
+.boxscore-scoring td {
+    text-align: left;
+}
+
+.boxscore-scoring-inn {
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.6);
+    font-variant-numeric: tabular-nums;
+    width: 2.6rem;
+    white-space: nowrap;
+}
+
+.boxscore-scoring-inn .mdi {
+    color: rgba(255, 197, 47, 0.85);
+    font-size: 0.9rem;
+    margin-right: 0.1rem;
+    vertical-align: -0.08em;
+}
+
+.boxscore-scoring-desc {
+    white-space: normal;
+    min-width: 200px;
+}
+
+.boxscore-scoring-score {
+    font-variant-numeric: tabular-nums;
+    color: rgba(255, 255, 255, 0.6);
+    white-space: nowrap;
+}
+
+.boxscore-scoring-brewers .boxscore-scoring-desc {
+    color: #FFC52F;
+}
+
+.boxscore-notes {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.7);
+    text-align: left;
+    padding: 0.2rem 0.1rem 0;
+}
+
+.boxscore-note-ph {
+    font-style: italic;
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 0.75rem;
+}
+
+.boxscore-note-label {
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    letter-spacing: 0.05em;
+    color: rgba(255, 197, 47, 0.8);
+}
+
+.boxscore-teamtabs {
+    display: flex;
+    gap: 0.5rem;
+    border-bottom: 1px solid rgba(255, 197, 47, 0.25);
+}
+
+.boxscore-teamtab {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: none;
+    border-radius: 8px 8px 0 0;
+    color: rgba(255, 255, 255, 0.65);
+    font-size: 0.9rem;
+    font-weight: 600;
+    padding: 0.55rem 0.75rem;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+
+.boxscore-teamtab:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.boxscore-teamtab.active {
+    background: rgba(255, 197, 47, 0.15);
+    border-color: rgba(255, 197, 47, 0.4);
+    color: #FFC52F;
+}
+
+.boxscore-teampanel {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+/* display:flex above would defeat the hidden attribute's UA display:none,
+   leaving both team panels stacked and the tabs seemingly dead. */
+.boxscore-teampanel[hidden] {
+    display: none;
+}
+
+.boxscore-subtabs {
+    display: flex;
+    gap: 0.4rem;
+}
+
+.boxscore-subtab {
+    background: none;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 999px;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.3rem 0.9rem;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+
+.boxscore-subtab:hover {
+    color: rgba(255, 255, 255, 0.85);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.boxscore-subtab.active {
+    background: rgba(255, 197, 47, 0.15);
+    border-color: rgba(255, 197, 47, 0.5);
+    color: #FFC52F;
+}
+
 @media (max-width: 540px) {
     .boxscore-matchup {
         font-size: 1.1rem;
+    }
+    .boxscore-teamtab {
+        font-size: 0.78rem;
+        padding: 0.45rem 0.4rem;
     }
     .boxscore-score {
         font-size: 1.25rem;

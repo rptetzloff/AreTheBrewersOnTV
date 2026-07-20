@@ -41,6 +41,11 @@ export function parseGamesCsv(raw) {
 //     game shows "Sacramento Athletics" (not "Oakland Athletics").
 export function parseCurrentNamesCsv(raw) {
 	const teamNames = {};
+	// Franchise/alternate codes mapped into the team-name namespace. Kept
+	// separate during the loop so a real teamName row always wins the key:
+	// e.g. the SE1 Pilots row (franchise MIL) precedes the MIL rows and must
+	// not claim teamNames['MIL'] as "Seattle Pilots".
+	const aliasNames = {};
 	const teamToFranchise = {};
 	const franchiseEras = {};
 	const lines = raw.trim().split('\n');
@@ -67,7 +72,7 @@ export function parseCurrentNamesCsv(raw) {
 			if (!teamNames[id]) teamNames[id] = display;
 			const fran = franIdx >= 0 ? p[franIdx]?.trim() : '';
 			if (fran) {
-				if (fran !== id && !teamNames[fran]) teamNames[fran] = display;
+				if (fran !== id && !aliasNames[fran]) aliasNames[fran] = display;
 				const era = { start: toYyyymmdd(p[startIdx]?.trim()), end: toYyyymmdd(p[endIdx]?.trim()), display };
 				if (!franchiseEras[fran]) franchiseEras[fran] = [];
 				franchiseEras[fran].push(era);
@@ -75,11 +80,12 @@ export function parseCurrentNamesCsv(raw) {
 			if (fran) teamToFranchise[id] = fran;
 			const alt = altIdx >= 0 ? p[altIdx]?.trim() : '';
 			if (alt) {
-				if (alt !== id && !teamNames[alt]) teamNames[alt] = display;
+				if (alt !== id && !aliasNames[alt]) aliasNames[alt] = display;
 				if (fran) teamToFranchise[alt] = fran;
 			}
 		}
 	}
+	for (const k of Object.keys(aliasNames)) if (!teamNames[k]) teamNames[k] = aliasNames[k];
 	for (const k of Object.keys(franchiseEras)) franchiseEras[k].sort((a, b) => a.start - b.start);
 	return { teamNames, teamToFranchise, franchiseEras };
 }
@@ -755,6 +761,9 @@ export function parseTeamstatsLineScores(raw) {
 	const runI = headers.indexOf('b_r');
 	const hitI = headers.indexOf('b_h');
 	const errI = headers.indexOf('d_e');
+	const lobI = headers.indexOf('lob');
+	const dpI = headers.indexOf('d_dp');
+	const tpI = headers.indexOf('d_tp');
 	const innIdxs = [];
 	for (let i = 1; i <= 28; i++) {
 		innIdxs.push(headers.indexOf(`inn${i}`));
@@ -773,6 +782,9 @@ export function parseTeamstatsLineScores(raw) {
 			r: parseInt(v[runI], 10) || 0,
 			h: parseInt(v[hitI], 10) || 0,
 			e: parseInt(v[errI], 10) || 0,
+			lob: lobI >= 0 ? parseInt(v[lobI], 10) || 0 : 0,
+			dp: dpI >= 0 ? parseInt(v[dpI], 10) || 0 : 0,
+			tp: tpI >= 0 ? parseInt(v[tpI], 10) || 0 : 0,
 		};
 		if (vh === 'v') entry.visitor = side;
 		else if (vh === 'h') entry.home = side;
