@@ -130,6 +130,14 @@
         				if (teamstatsText) this.lineScores = parseTeamstatsLineScores(teamstatsText);
         				// franchise code -> all-time head-to-head entry, for schedule annotations
         				this.h2hByFranchise = new Map(computeHeadToHead(games).opponents.map(o => [o.franchise, o]));
+        				// display name -> franchise code, so ESPN's team.displayName (e.g.
+        				// "Chicago Cubs") can resolve to a franchise code for h2h lookup.
+        				// Built from every era name so relocated/rebranded franchises match
+        				// regardless of which name ESPN uses.
+        				this.displayNameToFranchise = new Map();
+        				for (const [fran, eras] of Object.entries(this.namesData.franchiseEras)) {
+        					for (const era of eras) this.displayNameToFranchise.set(era.display, fran);
+        				}
         				this.seasonHistory = computeSeasonHistory(games);
         				this.renderHistorySpark();
         				const seasons = Object.keys(this.csvBySeason).map(Number).sort((a, b) => a - b);
@@ -424,8 +432,9 @@ processCsvSeasonData(season) {
 
 // All-time head-to-head note linking to the opponent's rivalry page.
 // Returns null for opponents with no CSV history (shouldn't happen).
-h2hNote(franchise) {
-  const o = this.h2hByFranchise?.get(franchise);
+h2hNote(franchiseOrName) {
+  const fran = this.displayNameToFranchise?.get(franchiseOrName) || franchiseOrName;
+  const o = this.h2hByFranchise?.get(fran);
   if (!o) return null;
   const note = document.createElement('a');
   note.className = 'game-h2h';
