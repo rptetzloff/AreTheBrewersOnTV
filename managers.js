@@ -2,9 +2,22 @@
 // record, derived from gameinfo.csv + teamstats.csv + biofile0.csv.
 import { parseGameinfoCsv, computeSeasonHistory, esc } from './records-core.js';
 import { parseBiofile, parseTeamstatsMgr, parseManagersCsv, computeCoachesFromData, coachesCopy } from './coaches-core.js';
-import { shareButtonsHtml, wireShareRow } from './share-core.js';
+import { shareButtonsHtml, labeledShareButtonsHtml, wireShareRow, wireShareDropdown } from './share-core.js';
+import { sortableHeadHtml, sortRows, wireSortable } from './sortable.js';
 
 const pct = (p) => (p >= 1 ? '1.000' : p.toFixed(3).replace(/^0/, ''));
+
+const MANAGER_COLUMNS = [
+	{ key: '_photo',  label: '',        nosort: true },
+	{ key: 'name',    label: 'Manager' },
+	{ key: 'firstSeason', label: 'Tenure', title: 'Tenure', num: true, sortKey: (c) => c.firstSeason, defaultDir: -1 },
+	{ key: 'record',  label: 'Record',  title: 'Win-Loss-Tie', num: true, sortKey: (c) => c.winPct, defaultDir: -1 },
+	{ key: 'winPct',  label: 'Win %',   title: 'Winning percentage', num: true, defaultDir: -1 },
+	{ key: 'playoffRecord', label: 'Playoffs', title: 'Playoff record', num: true, sortKey: (c) => c.playoffGames, defaultDir: -1 },
+	{ key: 'titles',  label: 'Titles',  title: 'Championships', num: true, defaultDir: -1 },
+];
+let managerSort = { key: 'firstSeason', dir: -1 };
+let managerData = []; // currently displayed coaches
 
 function photoHtml(c) {
 	if (!c.image) return '<span class="coach-photo coach-photo-none"><i class="mdi mdi-account"></i></span>';
@@ -13,19 +26,22 @@ function photoHtml(c) {
 	</a>`;
 }
 
+function rowHtml(c) {
+	return `<tr>
+		<td class="coach-photo-cell">${photoHtml(c)}</td>
+		<td>${esc(c.name)}${c.interim ? '<span class="coach-interim" title="Interim">*</span>' : ''}</td>
+		<td class="h2h-num"><a href="/${c.firstSeason}">${esc(c.tenure)}</a></td>
+		<td class="h2h-num">${esc(c.record)}</td>
+		<td class="h2h-num">${pct(c.winPct)}</td>
+		<td class="h2h-num">${c.playoffRecord ? esc(c.playoffRecord) : '—'}</td>
+		<td class="h2h-num">${c.titles || '—'}</td>
+	</tr>`;
+}
+
 function tableHtml(coaches) {
-	const rows = coaches.map((c) => `
-		<tr>
-			<td class="coach-photo-cell">${photoHtml(c)}</td>
-			<td>${esc(c.name)}${c.interim ? '<span class="coach-interim" title="Interim">*</span>' : ''}</td>
-			<td class="h2h-num"><a href="/${c.firstSeason}">${esc(c.tenure)}</a></td>
-			<td class="h2h-num">${esc(c.record)}</td>
-			<td class="h2h-num">${pct(c.winPct)}</td>
-			<td class="h2h-num">${c.playoffRecord ? esc(c.playoffRecord) : '—'}</td>
-			<td class="h2h-num">${c.titles || '—'}</td>
-		</tr>`).join('');
-	return `<table class="h2h-table coaches-table">
-		<thead><tr><th></th><th>Manager</th><th class="h2h-num">Tenure</th><th class="h2h-num">Record</th><th class="h2h-num">Win %</th><th class="h2h-num">Playoffs</th><th class="h2h-num">Titles</th></tr></thead>
+	const rows = sortRows(coaches, MANAGER_COLUMNS, managerSort).map(rowHtml).join('');
+	return `<table class="h2h-table coaches-table sortable-table">
+		<thead><tr>${sortableHeadHtml(MANAGER_COLUMNS, managerSort)}</tr></thead>
 		<tbody>${rows}</tbody>
 	</table>`;
 }
@@ -49,13 +65,17 @@ async function init() {
 		const champions = computeSeasonHistory(rows).filter((s) => s.champion).map((s) => s.season);
 		const data = computeCoachesFromData(rows, gidToMgr, mgrNames, champions, officialTenures);
 
-		document.getElementById('coaches-subtitle').textContent =
-			`Milwaukee Brewers · ${data.coaches.length} managers since ${data.coaches[0].firstSeason}`;
-
 		const interimBox = document.getElementById('coaches-interim');
 		interimBox.checked = localStorage.getItem('coachesShowInterim') !== 'false';
+		const subtitle = document.getElementById('coaches-subtitle');
 		const renderTable = () => {
-			wrap.innerHTML = tableHtml(interimBox.checked ? data.coaches : data.coaches.filter((c) => !c.interim));
+			managerData = interimBox.checked ? data.coaches : data.coaches.filter((c) => !c.interim);
+			wrap.innerHTML = tableHtml(managerData);
+			const table = wrap.querySelector('table');
+			if (table) wireSortable(table, MANAGER_COLUMNS, managerSort, renderTable);
+			const interimCount = data.coaches.length - managerData.length;
+			subtitle.textContent = `Milwaukee Brewers · ${managerData.length} managers since ${data.coaches[0].firstSeason}` +
+				(interimCount ? ` · ${interimCount} interim` : '');
 		};
 		interimBox.addEventListener('change', () => {
 			localStorage.setItem('coachesShowInterim', String(interimBox.checked));
@@ -64,8 +84,9 @@ async function init() {
 		renderTable();
 
 		const share = document.getElementById('managers-share');
-		share.innerHTML = shareButtonsHtml('share-btn record-share-btn');
+		share.innerHTML = labeledShareButtonsHtml('footer-share-item');
 		wireShareRow(share, coachesCopy(data).desc, `${window.location.origin}/managers`);
+		wireShareDropdown();
 	} catch (e) {
 		wrap.innerHTML = '<p class="record-empty">Could not load the game data. Try again later.</p>';
 		console.error(e);

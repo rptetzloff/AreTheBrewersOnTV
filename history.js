@@ -6,10 +6,12 @@
 import { parseGameinfoCsv, computeSeasonHistory, historyCopy, parseBallparksCsv, computeFranchiseMilestones } from './records-core.js';
 import { parseBiofile, parseTeamstatsMgr, parseManagersCsv, computeCoachesFromData } from './coaches-core.js';
 import { buildChartSvg, METRICS, POSTSEASON, postseasonTier } from './history-chart.js';
-import { shareButtonsHtml, wireShareRow } from './share-core.js';
+import { shareButtonsHtml, labeledShareButtonsHtml, wireShareRow, wireShareDropdown } from './share-core.js';
+import { sortableHeadHtml, sortRows, wireSortable } from './sortable.js';
 
 const chartEl = document.getElementById('history-chart');
 const tooltip = document.getElementById('history-tooltip');
+const tableWrap = document.getElementById('history-table-wrap');
 
 const pct = (p) => (p >= 1 ? '1.000' : p.toFixed(3).replace(/^0/, ''));
 
@@ -78,6 +80,62 @@ function render(history, coaches, metrics, milestones) {
 	});
 }
 
+const TABLE_COLUMNS = [
+	{ key: 'season',   label: 'Year',   title: 'Season', num: true, defaultDir: -1 },
+	{ key: 'record',   label: 'Record', title: 'Win-Loss-Tie', num: true, sortKey: (s) => s.winPct, defaultDir: -1 },
+	{ key: 'winPct',   label: 'Pct',    title: 'Winning percentage', num: true, fmt: (v) => pct(v), defaultDir: -1 },
+	{ key: 'wins',     label: 'W',      title: 'Wins', num: true, defaultDir: -1 },
+	{ key: 'losses',   label: 'L',      title: 'Losses', num: true, defaultDir: -1 },
+	{ key: 'ties',     label: 'T',      title: 'Ties', num: true, defaultDir: -1 },
+	{ key: 'pf',       label: 'RF',     title: 'Runs scored', num: true, defaultDir: -1 },
+	{ key: 'pa',       label: 'RA',     title: 'Runs allowed', num: true, defaultDir: -1 },
+	{ key: 'diff',     label: 'Diff',   title: 'Run differential (RF - RA)', num: true, sortKey: (s) => s.pf - s.pa, defaultDir: -1 },
+	{ key: 'finish',   label: 'Finish', title: 'Postseason result', sortKey: (s) => s.champion && s.worldseries ? 5 : ({ W: 4, L: 3, D: 2, F: 1 }[s.postseason] || 0), defaultDir: -1 },
+];
+
+let tableSort = { key: 'season', dir: -1 }; // most recent first by default
+let tableHistory = [];
+
+function finishLabel(s) {
+	const tier = postseasonTier(s);
+	if (!tier) return s.undefeated ? 'Undefeated' : '—';
+	return POSTSEASON[tier].label;
+}
+
+function renderHistoryTable() {
+	const rows = tableHistory.map((s) => ({ ...s, diff: s.pf - s.pa, finish: finishLabel(s) }));
+	const sorted = sortRows(rows, TABLE_COLUMNS, tableSort);
+	const head = sortableHeadHtml(TABLE_COLUMNS, tableSort);
+	const body = sorted.map((s) => {
+		const finishTier = postseasonTier(s);
+		const glyph = finishTier ? `<span class="legend-glyph" style="color:${POSTSEASON[finishTier].color}">${POSTSEASON[finishTier].glyph}</span> ` : '';
+		return `<tr data-season="${s.season}">
+			<td class="h2h-num"><a href="/${s.season}">${s.season}</a></td>
+			<td class="h2h-num">${s.record}</td>
+			<td class="h2h-num">${pct(s.winPct)}</td>
+			<td class="h2h-num">${s.wins}</td>
+			<td class="h2h-num">${s.losses}</td>
+			<td class="h2h-num">${s.ties || ''}</td>
+			<td class="h2h-num">${s.pf}</td>
+			<td class="h2h-num">${s.pa}</td>
+			<td class="h2h-num${s.diff > 0 ? ' pos' : s.diff < 0 ? ' neg' : ''}">${s.diff > 0 ? '+' : ''}${s.diff}</td>
+			<td>${glyph}${s.finish}</td>
+		</tr>`;
+	}).join('');
+	tableWrap.innerHTML = `<table class="h2h-table season-table sortable-table">
+		<thead><tr>${head}</tr></thead>
+		<tbody>${body}</tbody>
+	</table>`;
+	const table = tableWrap.querySelector('table');
+	if (table) wireSortable(table, TABLE_COLUMNS, tableSort, renderHistoryTable);
+	tableWrap.querySelectorAll('tbody tr').forEach((tr) => {
+		tr.addEventListener('click', (e) => {
+			if (e.target.closest('a')) return;
+			window.location.href = `/${tr.dataset.season}`;
+		});
+	});
+}
+
 async function init() {
 	try {
 		const [gamesRes, namesRes, teamstatsRes, biofileRes, managersRes, parksRes] = await Promise.all([
@@ -133,6 +191,8 @@ async function init() {
 				chip.style.color = on ? METRICS[key].color : '';
 			}
 			render(histories[playoffsBox.checked ? 'playoffs' : 'regular'], officialCoaches, metrics, milestones);
+			tableHistory = histories[playoffsBox.checked ? 'playoffs' : 'regular'];
+			renderHistoryTable();
 		};
 		for (const chip of chips) {
 			chip.addEventListener('click', () => {
@@ -151,8 +211,9 @@ async function init() {
 		apply();
 
 		const share = document.getElementById('history-share');
-		share.innerHTML = shareButtonsHtml('share-btn record-share-btn');
+		share.innerHTML = labeledShareButtonsHtml('footer-share-item');
 		wireShareRow(share, historyCopy(histories.regular).desc, `${window.location.origin}/history`);
+		wireShareDropdown();
 	} catch (e) {
 		chartEl.innerHTML = '<p class="record-empty">Could not load the game data. Try again later.</p>';
 		console.error(e);

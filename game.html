@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Box Score — Milwaukee Brewers</title>
+    <meta name="description" content="Full historical box score for a Milwaukee Brewers game.">
+    <meta property="og:title" content="Brewers Box Score">
+    <meta property="og:description" content="Full historical box score for a Milwaukee Brewers game.">
+    <meta property="og:image" content="/og/default.png">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1 id="site-title" class="site-title"><a href="/" class="site-title-link">Are the Brewers On TV?</a></h1>
+        <div id="boxscore-loading" class="loading">Loading box score…</div>
+        <div id="boxscore-error" class="answer" hidden></div>
+        <div id="boxscore-root"></div>
+    </div>
+    <footer class="site-footer">
+        <nav class="footer-nav">
+            <a href="/" class="footer-nav-link"><i class="mdi mdi-home-outline"></i> Home</a>
+            <a href="/records.html" class="footer-nav-link"><i class="mdi mdi-trophy-outline"></i> Records</a>
+            <a href="/vs.html" class="footer-nav-link"><i class="mdi mdi-sword-cross"></i> Head-to-Head</a>
+            <a href="/history.html" class="footer-nav-link"><i class="mdi mdi-chart-line"></i> History</a>
+            <a href="/managers.html" class="footer-nav-link"><i class="mdi mdi-whistle-outline"></i> Managers</a>
+        </nav>
+        <p class="footer-disclaimer">Historical data obtained free of charge from and copyrighted by <a href="https://www.retrosheet.org/" target="_blank" rel="noopener noreferrer">Retrosheet</a>. Contact: 20 Sunset Rd., Newark, DE 19711.</p>
+        <a href="https://github.com/rptetzloff/AreTheBrewersUndefeated" target="_blank" rel="noopener noreferrer" class="github-link">
+            <i class="mdi mdi-github"></i>
+            View on GitHub
+        </a>
+    </footer>
+    <script src="game.js" type="module"></script>
+</body>
+</html>

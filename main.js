@@ -1,7 +1,7 @@
         import { parseGamesCsv, parseGameinfoCsv, parseCurrentNamesCsv, BREWERS_IDS, computeSeasonHistory, parseTeamstatsLineScores } from './records-core.js';
-        import { computeHeadToHead, canonicalOpponent } from './h2h-core.js';
+        import { computeHeadToHead } from './h2h-core.js';
         import { buildChartSvg } from './history-chart.js';
-        import { intentUrls, copyText, flashCopied } from './share-core.js';
+        import { intentUrls, copyText, flashCopied, wireShareDropdown } from './share-core.js';
 
         function buildSeasonMap(games) {
         	const map = {};
@@ -119,7 +119,8 @@
         				const teamstatsText = teamstatsRes?.ok ? await teamstatsRes.text() : null;
         				const namesText = await namesRes.text();
         				const games = parseGameinfoCsv(await gamesRes.text(), namesText, teamstatsText);
-        				this.teamNames = parseCurrentNamesCsv(namesText);
+        				this.namesData = parseCurrentNamesCsv(namesText);
+        				this.teamNames = this.namesData.teamNames;
         				if (playersRes?.ok) {
         					this.playerNames = new Map(
         						parseGamesCsv(await playersRes.text()).map(p => [p.id, `${p.usename} ${p.lastname}`.trim()])
@@ -127,8 +128,16 @@
         				}
         				this.csvBySeason = buildSeasonMap(games);
         				if (teamstatsText) this.lineScores = parseTeamstatsLineScores(teamstatsText);
-        				// name -> all-time head-to-head entry, for schedule annotations
-        				this.h2hByName = new Map(computeHeadToHead(games).opponents.map(o => [o.name, o]));
+        				// franchise code -> all-time head-to-head entry, for schedule annotations
+        				this.h2hByFranchise = new Map(computeHeadToHead(games).opponents.map(o => [o.franchise, o]));
+        				// display name -> franchise code, so ESPN's team.displayName (e.g.
+        				// "Chicago Cubs") can resolve to a franchise code for h2h lookup.
+        				// Built from every era name so relocated/rebranded franchises match
+        				// regardless of which name ESPN uses.
+        				this.displayNameToFranchise = new Map();
+        				for (const [fran, eras] of Object.entries(this.namesData.franchiseEras)) {
+        					for (const era of eras) this.displayNameToFranchise.set(era.display, fran);
+        				}
         				this.seasonHistory = computeSeasonHistory(games);
         				this.renderHistorySpark();
         				const seasons = Object.keys(this.csvBySeason).map(Number).sort((a, b) => a - b);
@@ -366,7 +375,7 @@ processCsvSeasonData(season) {
   if (!this.latestSeason) {
         			// Determine latest season from ESPN on first load — but if we're bootstrapping
         			// from a CSV season directly, use the current year as a proxy
-     this.latestSeason = new Date().getFullYear();
+     this.latestSeason = this.csvMaxSeason || new Date().getFullYear();
  }
  this.updateSeasonSelector();
 
@@ -423,12 +432,13 @@ processCsvSeasonData(season) {
 
 // All-time head-to-head note linking to the opponent's rivalry page.
 // Returns null for opponents with no CSV history (shouldn't happen).
-h2hNote(opponentName) {
-  const o = this.h2hByName?.get(canonicalOpponent(opponentName));
+h2hNote(franchiseOrName) {
+  const fran = this.displayNameToFranchise?.get(franchiseOrName) || franchiseOrName;
+  const o = this.h2hByFranchise?.get(fran);
   if (!o) return null;
   const note = document.createElement('a');
   note.className = 'game-h2h';
-  note.href = `/vs/${o.slug}`;
+  note.href = `/vs.html?vs=${o.slug}`;
   note.textContent = `All-time: ${o.record}`;
   note.title = `Brewers vs ${o.name} — all-time head-to-head`;
   return note;
@@ -438,8 +448,11 @@ displayCsvSchedule(games, season) {
   const scheduleGrid = document.getElementById('schedule-grid');
   scheduleGrid.innerHTML = '';
 
-  // Head-to-head notes only make sense on the current season's schedule.
-  const showH2h = season === this.latestSeason;
+  // Head-to-head notes show on the current season's schedule. When ESPN
+  // reports a future season (e.g. 2026) that has no games yet, the latest
+  // CSV season (2025) is the most recent one with real game data, so show
+  // notes there too.
+  const showH2h = season === this.latestSeason || season === this.csvMaxSeason;
 
         		// Sort by date
   const sorted = [...games].sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -532,7 +545,7 @@ createCsvGameItem(g, showH2h = false) {
         		gameDetails.appendChild(dateDiv);
 
         		if (showH2h) {
-        			const h2h = this.h2hNote(opponent);
+        			const h2h = this.h2hNote(g.franchise);
         			if (h2h) gameDetails.appendChild(h2h);
         		}
 
@@ -1085,7 +1098,8 @@ gameDetails.appendChild(dateDiv);
 
 // Channel/network on its own line below the date. Clickable to open the
 // "Where to watch" modal when full broadcast data is available.
-if (network || canWatch) {
+// Completed games don't need a TV listing.
+if ((network || canWatch) && !gameIsCompleted) {
  const channelLine = document.createElement('div');
  channelLine.className = 'game-channel';
  let html = '';
@@ -1279,6 +1293,7 @@ setupShareButtons() {
   copyBtn.addEventListener('click', () => this.copyLink());
 
   this.updateIntentLinks();
+  wireShareDropdown();
 }
 
 getShareMessage() {
@@ -2397,7 +2412,8 @@ openLinescoreModal(g) {
     lp: playerName(g.lp),
     save: playerName(g.save),
   };
-  this._renderLinescore(`${visLabel} @ ${homLabel} — ${dateStr}`, visitor, home, visLabel, homLabel, !brewersIsHome, '', false, pitchers);
+  const boxScoreUrl = g.gid ? `/game/${g.gid}` : '';
+  this._renderLinescore(`${visLabel} @ ${homLabel} — ${dateStr}`, visitor, home, visLabel, homLabel, !brewersIsHome, boxScoreUrl, false, pitchers);
 }
 
 openLinescoreFromEvent(event) {
@@ -2567,7 +2583,9 @@ _renderLinescore(title, visitor, home, visLabel, homLabel, milIsHome, boxScoreUr
       </table>
     </div>
     ${pitchers ? this._renderPitchers(pitchers) : ''}
-    ${boxScoreUrl ? `<a class="linescore-box-link" href="${boxScoreUrl}" target="_blank" rel="noopener noreferrer">Full Box Score on ESPN <i class="mdi mdi-open-in-new"></i></a>` : ''}
+    ${boxScoreUrl ? (boxScoreUrl.startsWith('/game/')
+      ? `<a class="linescore-box-link" href="${boxScoreUrl}">Full Box Score <i class="mdi mdi-arrow-right"></i></a>`
+      : `<a class="linescore-box-link" href="${boxScoreUrl}" target="_blank" rel="noopener noreferrer">Full Box Score on ESPN <i class="mdi mdi-open-in-new"></i></a>`) : ''}
   `;
 
   modal.hidden = false;
