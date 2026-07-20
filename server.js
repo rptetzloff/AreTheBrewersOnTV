@@ -13,7 +13,8 @@ import { getSeasonState, defaultSeason } from './lib/seasons.js';
 import { records, recordsMeta, isRecordSlug, seasonHistory, historyMeta } from './lib/records.js';
 import { coaches, coachesMeta } from './lib/coaches.js';
 import { h2h, h2hMeta, isOpponentSlug } from './lib/h2h.js';
-import { esc } from './records-core.js';
+import { esc, parseCurrentNamesCsv, parseBallparksCsv, parseTeamstatsLineScores } from './records-core.js';
+import { buildGameIndex, buildPitchingIndex, buildBattingIndex, buildFieldingIndex, buildPlayerNameMap, buildBoxscore } from './boxscore-core.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = __dirname;
@@ -45,6 +46,7 @@ function loadShell(file, assets) {
 const INDEX_VERSIONED = loadShell('index.html', ['main.js', 'styles.css']);
 const RECORDS_VERSIONED = loadShell('records.html', ['records.js', 'styles.css']);
 const VS_VERSIONED = loadShell('vs.html', ['vs.js', 'styles.css']);
+const GAME_VERSIONED = loadShell('game.html', ['game.js', 'styles.css']);
 const HISTORY_VERSIONED = loadShell('history.html', ['history.js', 'styles.css']);
 const MANAGERS_VERSIONED = loadShell('managers.html', ['managers.js', 'styles.css']);
 
@@ -137,6 +139,57 @@ function serveVsHtml(req, res, slug) {
   const canonical = slug ? `${origin}/vs/${slug}` : `${origin}/vs`;
   const img = `${origin}/og/vs/${slug || 'overview'}.png`;
   sendPage(res, VS_VERSIONED, { title, desc, img, canonical });
+}
+
+// --- Box score data (server-side CSV indices, built once and cached) ---
+
+let _boxIndices = null;
+async function getBoxIndices() {
+  if (_boxIndices) return _boxIndices;
+  const { promises: p } = await import('fs');
+  const read = async (f) => {
+    try { return await p.readFile(f, 'utf8'); } catch { return ''; }
+  };
+  const [gameinfoRaw, namesRaw, teamstatsRaw, bioRaw, pitchingRaw, battingRaw, fieldingRaw, parksRaw] = await Promise.all([
+    read(join(ROOT, 'data/gameinfo.csv')),
+    read(join(ROOT, 'data/CurrentNames.csv')),
+    read(join(ROOT, 'data/teamstats.csv')),
+    read(join(ROOT, 'data/biofile0.csv')),
+    read(join(ROOT, 'data/pitching.csv')),
+    read(join(ROOT, 'data/batting.lfs.csv')),
+    read(join(ROOT, 'data/fielding.lfs.csv')),
+    read(join(ROOT, 'data/ballparks.csv')),
+  ]);
+  const namesData = parseCurrentNamesCsv(namesRaw);
+  _boxIndices = {
+    games: buildGameIndex(gameinfoRaw),
+    pitching: buildPitchingIndex(pitchingRaw),
+    batting: buildBattingIndex(battingRaw),
+    fielding: buildFieldingIndex(fieldingRaw),
+    playerNames: buildPlayerNameMap(bioRaw),
+    namesData,
+    parks: parseBallparksCsv(parksRaw),
+    lineScores: parseTeamstatsLineScores(teamstatsRaw),
+  };
+  return _boxIndices;
+}
+
+async function serveBoxscoreApi(req, res, gid) {
+  const idx = await getBoxIndices();
+  const box = buildBoxscore(gid, idx);
+  if (!box) { res.writeHead(404, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ error: 'Game not found' })); }
+  res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=86400' });
+  res.end(JSON.stringify(box));
+}
+
+async function serveGameHtml(req, res, gid) {
+  const origin = originOf(req);
+  const canonical = `${origin}/game/${gid}`;
+  const idx = await getBoxIndices();
+  const box = buildBoxscore(gid, idx);
+  const title = box ? `${box.game.visName} @ ${box.game.homeName} — ${box.game.date}` : 'Box Score';
+  const desc = box ? `Full box score: ${box.game.visName} ${box.game.visScore}, ${box.game.homeName} ${box.game.homeScore} (${box.game.date}). Milwaukee Brewers historical game.` : 'Milwaukee Brewers historical game box score.';
+  sendPage(res, GAME_VERSIONED, { title, desc, img: `${origin}/og/default.png`, canonical });
 }
 
 const staticImgCache = new Map();
@@ -264,6 +317,12 @@ const server = http.createServer(async (req, res) => {
       if (!isOpponentSlug(slug)) return notFound(res);
       return serveVsHtml(req, res, slug);
     }
+
+    const boxApi = pathname.match(/^\/api\/boxscore\/(.+)$/);
+    if (boxApi) return await serveBoxscoreApi(req, res, boxApi[1]);
+
+    const gameRoute = pathname.match(/^\/game\/(.+)$/);
+    if (gameRoute) return await serveGameHtml(req, res, gameRoute[1]);
 
     return await serveStatic(req, res, pathname);
   } catch (e) {

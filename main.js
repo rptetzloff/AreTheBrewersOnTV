@@ -2412,7 +2412,8 @@ openLinescoreModal(g) {
     lp: playerName(g.lp),
     save: playerName(g.save),
   };
-  this._renderLinescore(`${visLabel} @ ${homLabel} — ${dateStr}`, visitor, home, visLabel, homLabel, !brewersIsHome, '', false, pitchers);
+  const boxScoreUrl = g.gid ? `/game/${g.gid}` : '';
+  this._renderLinescore(`${visLabel} @ ${homLabel} — ${dateStr}`, visitor, home, visLabel, homLabel, !brewersIsHome, boxScoreUrl, false, pitchers);
 }
 
 openLinescoreFromEvent(event) {
@@ -2582,7 +2583,9 @@ _renderLinescore(title, visitor, home, visLabel, homLabel, milIsHome, boxScoreUr
       </table>
     </div>
     ${pitchers ? this._renderPitchers(pitchers) : ''}
-    ${boxScoreUrl ? `<a class="linescore-box-link" href="${boxScoreUrl}" target="_blank" rel="noopener noreferrer">Full Box Score on ESPN <i class="mdi mdi-open-in-new"></i></a>` : ''}
+    ${boxScoreUrl ? (boxScoreUrl.startsWith('/game/')
+      ? `<a class="linescore-box-link" href="${boxScoreUrl}">Full Box Score <i class="mdi mdi-arrow-right"></i></a>`
+      : `<a class="linescore-box-link" href="${boxScoreUrl}" target="_blank" rel="noopener noreferrer">Full Box Score on ESPN <i class="mdi mdi-open-in-new"></i></a>`) : ''}
   `;
 
   modal.hidden = false;
