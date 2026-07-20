@@ -1632,6 +1632,36 @@ details:not([open]) > .collapsible-summary::before {
 .h2h-focus-card {
     margin-bottom: 1.5rem;
     text-align: left;
+    position: relative;
+}
+
+.h2h-focus-close {
+    position: absolute;
+    top: 0.6rem;
+    right: 0.6rem;
+    width: 2rem;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    z-index: 1;
+}
+
+.h2h-focus-close:hover {
+    background: rgba(255, 197, 47, 0.2);
+    color: #FFC52F;
+}
+
+.h2h-focus-close:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(255, 197, 47, 0.6);
 }
 
 .h2h-record {

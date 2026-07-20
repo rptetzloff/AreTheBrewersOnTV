@@ -78,6 +78,9 @@ function focusCardHtml(o, detail) {
 	}
 
 	return `<section class="record-card record-card-focus h2h-focus-card">
+		<button type="button" class="h2h-focus-close" aria-label="Close opponent breakdown" title="Close">
+			<i class="mdi mdi-close"></i>
+		</button>
 		<h2 class="record-card-title"><i class="mdi mdi-sword-cross"></i> vs ${esc(o.name)}</h2>
 		<div class="h2h-record">${esc(o.record)}</div>
 		<p class="record-note">${esc(streakSentence(o))}</p>
@@ -184,6 +187,11 @@ async function init() {
 		wireShareDropdown();
 
 		const focus = document.getElementById('h2h-focus');
+		const clearFocus = ({ pushHistory = false } = {}) => {
+			focus.innerHTML = '';
+			document.title = 'Brewers All-Time Head-to-Head';
+			if (pushHistory) history.pushState({ slug: null }, '', '/vs.html');
+		};
 		const showFocus = (slug, { pushHistory = false, scrollTo = false } = {}) => {
 			const o = allTime.bySlug.get(slug);
 			if (!o) return;
@@ -195,6 +203,7 @@ async function init() {
 				h2hCopy(slug, allTime).desc,
 				`${window.location.origin}/vs/${slug}`,
 			);
+			focus.querySelector('.h2h-focus-close')?.addEventListener('click', () => clearFocus({ pushHistory: true }));
 			if (pushHistory) history.pushState({ slug }, '', `/vs/${slug}`);
 			if (scrollTo) focus.scrollIntoView({ behavior: 'smooth', block: 'start' });
 		};
@@ -215,7 +224,7 @@ async function init() {
 		window.addEventListener('popstate', () => {
 			const slug = requestedSlug(allTime);
 			if (slug) showFocus(slug);
-			else { focus.innerHTML = ''; document.title = 'Brewers All-Time Head-to-Head'; }
+			else clearFocus();
 		});
 
 		const slug = requestedSlug(allTime);
