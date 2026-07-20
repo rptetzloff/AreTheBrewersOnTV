@@ -1208,6 +1208,11 @@ details:not([open]) > .collapsible-summary::before {
     background: rgba(6, 17, 34, 0.75);
 }
 
+/* display:flex above would defeat the hidden attribute's UA display:none. */
+.license-overlay[hidden] {
+    display: none;
+}
+
 .license-modal {
     position: relative;
     max-width: 34rem;
