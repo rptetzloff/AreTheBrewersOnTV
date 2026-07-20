@@ -1,0 +1,33 @@
+name: Validate Brewers Data
+
+on:
+  # Retrosheet CSVs are refreshed manually (see README "Updating Data");
+  # validate whenever the data files or their parsers change.
+  push:
+    paths:
+      - 'data/**'
+      - 'update-data.js'
+      - 'records-core.js'
+  pull_request:
+    paths:
+      - 'data/**'
+      - 'update-data.js'
+      - 'records-core.js'
+  # Allow manual runs from the Actions tab at any time
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate data files
+        run: node update-data.js
