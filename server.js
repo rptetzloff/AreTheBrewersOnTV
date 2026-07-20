@@ -156,8 +156,8 @@ async function getBoxIndices() {
     read(join(ROOT, 'data/teamstats.csv')),
     read(join(ROOT, 'data/biofile0.csv')),
     read(join(ROOT, 'data/pitching.csv')),
-    read(join(ROOT, 'data/batting.lfs.csv')),
-    read(join(ROOT, 'data/fielding.lfs.csv')),
+    read(join(ROOT, 'data/batting.csv')),
+    read(join(ROOT, 'data/fielding.csv')),
     read(join(ROOT, 'data/ballparks.csv')),
   ]);
   const namesData = parseCurrentNamesCsv(namesRaw);
