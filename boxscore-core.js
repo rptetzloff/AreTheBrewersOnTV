@@ -359,7 +359,7 @@ function positionFor(batter, fielders) {
 
 // Assemble the full box score for a game.
 // `indices` = { games, pitching, batting, fielding, playerNames, namesData, parks, lineScores }
-export function buildBoxscore(gid, { games, pitching, batting, fielding, playerNames, namesData, parks, lineScores, scoring, pitchCounts, firstPa, risp }) {
+export function buildBoxscore(gid, { games, pitching, batting, fielding, playerNames, namesData, parks, lineScores, scoring, pitchCounts, firstPa, risp, gameNav }) {
   const game = games.get(gid);
   if (!game) return null;
 
@@ -561,8 +561,14 @@ export function buildBoxscore(gid, { games, pitching, batting, fielding, playerN
     };
   }) : null;
 
+  // Chronological neighbors for prev/next navigation.
+  const navEntry = gameNav?.get(gid);
+  const navFor = (g) => (g ? { gid: g, date: toIso(games.get(g)?.date || '') } : null);
+  const nav = navEntry ? { prev: navFor(navEntry.prev), next: navFor(navEntry.next) } : null;
+
   return {
     gid,
+    nav,
     game: {
       date: isoDate,
       season: parseInt(game.season, 10) || 0,

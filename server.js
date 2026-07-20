@@ -194,6 +194,15 @@ async function buildBoxIndices() {
     parks: parseBallparksCsv(parksRaw),
     lineScores: parseTeamstatsLineScores(teamstatsRaw),
   };
+  // Chronological neighbors for prev/next navigation between games.
+  const ordered = [...indices.games.keys()].sort((a, b) => {
+    const ga = indices.games.get(a), gb = indices.games.get(b);
+    return (parseInt(ga.date, 10) - parseInt(gb.date, 10))
+      || (parseInt(ga.number, 10) || 0) - (parseInt(gb.number, 10) || 0)
+      || a.localeCompare(b);
+  });
+  indices.gameNav = new Map();
+  ordered.forEach((gid, i) => indices.gameNav.set(gid, { prev: ordered[i - 1] || null, next: ordered[i + 1] || null }));
   console.log(`box score indices built in ${((Date.now() - started) / 1000).toFixed(1)}s`);
   return indices;
 }

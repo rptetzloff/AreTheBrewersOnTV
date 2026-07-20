@@ -265,14 +265,24 @@ function render(box) {
 
   const visAbbr = g.visteam, homeAbbr = g.hometeam;
 
+  const shortDate = (iso) => new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const navBtn = (dir, target) => target
+    ? `<a class="boxscore-navbtn" id="bs-${dir}" href="/game/${encodeURIComponent(target.gid)}" title="${dir === 'prev' ? 'Previous' : 'Next'} game — ${esc(shortDate(target.date))}" aria-label="${dir === 'prev' ? 'Previous' : 'Next'} game"><i class="mdi mdi-chevron-${dir === 'prev' ? 'left' : 'right'}"></i></a>`
+    : `<span class="boxscore-navbtn boxscore-navbtn-empty"></span>`;
+
   let html = `
     <div class="boxscore-header">
-      <div class="boxscore-matchup">
-        <span class="boxscore-team">${esc(g.visName)}</span>
-        <span class="boxscore-score">${g.visScore}</span>
-        <span class="boxscore-sep">—</span>
-        <span class="boxscore-team">${esc(g.homeName)}</span>
-        <span class="boxscore-score">${g.homeScore}</span>
+      <a class="boxscore-close" id="bs-close" href="/${g.season}#g-${encodeURIComponent(box.gid)}" title="Back to the ${g.season} season" aria-label="Back to the ${g.season} season"><i class="mdi mdi-close"></i></a>
+      <div class="boxscore-navrow">
+        ${navBtn('prev', box.nav?.prev)}
+        <div class="boxscore-matchup">
+          <span class="boxscore-team">${esc(g.visName)}</span>
+          <span class="boxscore-score">${g.visScore}</span>
+          <span class="boxscore-sep">—</span>
+          <span class="boxscore-team">${esc(g.homeName)}</span>
+          <span class="boxscore-score">${g.homeScore}</span>
+        </div>
+        ${navBtn('next', box.nav?.next)}
       </div>
       <div class="boxscore-date">${esc(fmtDate(g.date))}</div>
       ${gameMeta(g)}
@@ -303,6 +313,16 @@ function render(box) {
 
   const root = document.getElementById('boxscore-root');
   root.innerHTML = html;
+
+  // Close is a plain link to /YYYY#g-<gid>: the season page scrolls to and
+  // highlights that game's row, which lands better than raw scroll restore —
+  // after flipping through games it returns to the game being viewed.
+  // Prev/next: replace instead of push, so flipping through games doesn't
+  // stack history — the browser back button also returns to the season page.
+  for (const id of ['bs-prev', 'bs-next']) {
+    const el = document.getElementById(id);
+    if (el?.href) el.addEventListener('click', (e) => { e.preventDefault(); location.replace(el.href); });
+  }
 
   // Team tab switching
   root.querySelectorAll('.boxscore-teamtab').forEach(btn => {
