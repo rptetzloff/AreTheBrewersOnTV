@@ -439,8 +439,11 @@ displayCsvSchedule(games, season) {
   const scheduleGrid = document.getElementById('schedule-grid');
   scheduleGrid.innerHTML = '';
 
-  // Head-to-head notes only make sense on the current season's schedule.
-  const showH2h = season === this.latestSeason;
+  // Head-to-head notes show on the current season's schedule. When ESPN
+  // reports a future season (e.g. 2026) that has no games yet, the latest
+  // CSV season (2025) is the most recent one with real game data, so show
+  // notes there too.
+  const showH2h = season === this.latestSeason || season === this.csvMaxSeason;
 
         		// Sort by date
   const sorted = [...games].sort((a, b) => new Date(a.date) - new Date(b.date));
