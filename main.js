@@ -39,9 +39,31 @@
         		this.init();
         	}
 
+        	// Local simulcast stations for a game's (Central-time) date, from
+        	// data/simulcasts.csv.
+        	simulcastChannelsFor(game) {
+        		if (!this.simulcastsByDate?.size || !game?.date) return [];
+        		const day = new Date(game.date).toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
+        		return this.simulcastsByDate.get(day) || [];
+        	}
+
+        	// A game's broadcasts plus synthetic TV entries for any local
+        	// simulcast stations that day. Use this instead of reading the ESPN
+        	// broadcasts array directly.
+        	broadcastsFor(game) {
+        		const real = game?.competitions?.[0]?.broadcasts || [];
+        		const extra = this.simulcastChannelsFor(game).map(name => ({
+        			media: { shortName: name },
+        			type: { shortName: 'TV' },
+        			market: { type: 'Home' },
+        			_simulcast: true,
+        		}));
+        		return extra.length ? [...real, ...extra] : real;
+        	}
+
         	getTvStatus(game) {
         		if (!game) return 'no';
-        		const broadcasts = game.competitions?.[0]?.broadcasts || [];
+        		const broadcasts = this.broadcastsFor(game);
         		if (broadcasts.length === 0) return 'no';
         		// Use our channel_lookup/broadcast_channels metadata to classify each
         		// broadcast: a channel typed broadcast/cable/regional counts as "on TV"
@@ -74,7 +96,7 @@
         	// linear TV channel is available. Uses the same channel metadata
         	// classification as getTvStatus.
         	pickPrimaryBroadcast(game) {
-        		const broadcasts = game?.competitions?.[0]?.broadcasts || [];
+        		const broadcasts = this.broadcastsFor(game);
         		if (broadcasts.length === 0) return null;
         		const rank = (b) => {
         			const name = b.media?.shortName;
@@ -98,7 +120,7 @@
         				});
         			});
 
-        			const [gamesRes, namesRes, photosRes, channelsRes, channelLookupRes, providerLookupRes, teamstatsRes, playersRes] = await Promise.all([
+        			const [gamesRes, namesRes, photosRes, channelsRes, channelLookupRes, providerLookupRes, teamstatsRes, playersRes, simulcastsRes] = await Promise.all([
         				fetch('./data/gameinfo.csv'),
         				fetch('./data/CurrentNames.csv'),
         				fetch('./data/photos.csv').catch(() => null),
@@ -107,7 +129,17 @@
         				fetch('./data/provider_lookup.csv'),
         				fetch('./data/teamstats.csv'),
         				fetch('./data/biofile0.csv'),
+        				fetch('./data/simulcasts.csv').catch(() => null),
         			]);
+        			// Local over-the-air simulcast games (hand-maintained; these never
+        			// appear in the ESPN/MLB broadcast feeds, only in press releases).
+        			this.simulcastsByDate = new Map();
+        			if (simulcastsRes?.ok) {
+        				for (const row of parseGamesCsv(await simulcastsRes.text())) {
+        					const chans = (row.channels || '').split('|').map(s => s.trim()).filter(Boolean);
+        					if (row.date?.trim() && chans.length) this.simulcastsByDate.set(row.date.trim(), chans);
+        				}
+        			}
         			if (channelsRes.ok) {
         				const raw = await channelsRes.text();
         				parseGamesCsv(raw).forEach(ch => {
@@ -839,7 +871,7 @@ createCsvGameItem(g, showH2h = false) {
         			// The badge is clickable when we have broadcast data for the
         			// game it refers to, opening the same Where-to-watch modal the
         			// schedule's watch button uses.
-        			const hasBroadcasts = tvGame && (tvGame.competitions?.[0]?.broadcasts || []).some(b => b.media?.shortName);
+        			const hasBroadcasts = tvGame && this.broadcastsFor(tvGame).some(b => b.media?.shortName);
         			if (tvStatus === 'yes') {
         				answerEl.innerHTML = `YES!!!`;
         				answerEl.className = 'answer yes';
@@ -1076,7 +1108,7 @@ opponentDiv.textContent = `${isHome ? 'vs' : '@'} ${opponent}`;
 const primaryBroadcast = this.pickPrimaryBroadcast(event) || {};
 const network = primaryBroadcast.media?.shortName || '';
 const channelNum = this.scheduleChannelNumber(primaryBroadcast);
-const hasBroadcasts = (competition?.broadcasts || []).some(b => b.media?.shortName);
+const hasBroadcasts = this.broadcastsFor(event).some(b => b.media?.shortName);
 const gameIsCompleted = status.type.name === 'STATUS_FINAL';
 const canWatch = hasBroadcasts && !gameIsCompleted && this.currentSeason === this.latestSeason;
 
@@ -2375,7 +2407,7 @@ async openWatchModal(event) {
   // Each broadcast: { type: { shortName: 'TV'|'Streaming'|'Radio' },
   //                   market: { type: 'National'|'Home'|'Away' },
   //                   media: { shortName: 'FOX' } }
-  const raw = (competition?.broadcasts || []).filter(b => b.media?.shortName);
+  const raw = this.broadcastsFor(event).filter(b => b.media?.shortName);
   const tv = raw.filter(b => (b.type?.shortName || '') === 'TV');
   const streaming = raw.filter(b => (b.type?.shortName || '') === 'Streaming');
   const radio = raw.filter(b => (b.type?.shortName || '') === 'Radio');
