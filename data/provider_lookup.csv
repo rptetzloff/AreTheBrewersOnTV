@@ -1,4 +1,4 @@
-provider,display_name,alternate_name,website_url,channel_lineup,service_areas
+provider,display_name,alternate_name,website_url,channel_lineup,service_areas,logo_url,logo_bg
 directv,DirecTV,,https://www.directv.com/,https://www.directv.com/insider/directv-channel-guide-lineup/,
 comcast,Xfinity,Comcast,https://www.xfinity.com/,https://www.xfinity.com/support/local-channel-lineup,
 att_uverse,AT&T Uverse,AT&T,https://www.att.com/,https://www.att.com/idpassets/pdfs/channel_lineups/Uverse_Channel_Lineup.pdf,

@@ -1736,6 +1736,8 @@ _loadTvLookup(channelLookupRaw, providerLookupRaw) {
       channel_lineup: p.channel_lineup || '',
       service_areas: (p.service_areas || '')
         .split('|').map(s => s.trim()).filter(Boolean),
+      logo_url: (p.logo_url || '').trim(),
+      logo_bg: (p.logo_bg || '').trim(),
       channels: {},
     };
     // index display name + each comma-separated alternate name
@@ -1904,6 +1906,24 @@ initWatchModal() {
   document.addEventListener('keydown', (e) => {
     if (!modal.hidden && e.key === 'Escape') this.closeWatchModal();
   });
+}
+
+// Small provider logo element, or null when the provider has none. Logos are
+// often white-on-transparent, so an optional logo_bg color block sits behind
+// them. A failed image load removes the element rather than showing a broken
+// icon.
+providerLogoEl(provider) {
+  if (!provider?.logo_url) return null;
+  const wrap = document.createElement('span');
+  wrap.className = 'provider-logo';
+  if (provider.logo_bg) wrap.style.background = provider.logo_bg;
+  const img = document.createElement('img');
+  img.src = provider.logo_url;
+  img.alt = `${provider.display_name} logo`;
+  img.loading = 'lazy';
+  img.addEventListener('error', () => wrap.remove());
+  wrap.appendChild(img);
+  return wrap;
 }
 
 // Providers matching a query, ranked starts-with before contains, matching
@@ -2089,6 +2109,8 @@ _buildProviderInput({ label, inputId, listId, placeholder, onChange, inline = fa
       row.type = 'button';
       row.className = 'watch-provider-suggestion' + (i === activeIdx ? ' active' : '');
       row.setAttribute('role', 'option');
+      const logo = this.providerLogoEl(m.p);
+      if (logo) row.appendChild(logo);
       const name = document.createElement('span');
       name.className = 'watch-provider-suggestion-name';
       name.textContent = m.p.display_name;
@@ -2207,6 +2229,11 @@ renderScheduleProviderBar() {
   labelSpan.className = 'schedule-provider-label';
   labelSpan.textContent = 'TV provider';
   display.appendChild(labelSpan);
+
+  if (current) {
+    const logo = this.providerLogoEl(this.providerMeta[this.selectedProvider]);
+    if (logo) display.appendChild(logo);
+  }
 
   const nameSpan = document.createElement('span');
   nameSpan.className = 'schedule-provider-name';

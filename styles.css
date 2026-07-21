@@ -2477,8 +2477,7 @@ details:not([open]) > .collapsible-summary::before {
 
 .watch-provider-suggestion {
     display: flex;
-    align-items: baseline;
-    justify-content: space-between;
+    align-items: center;
     gap: 0.6rem;
     padding: 0.5rem 0.7rem;
     border: none;
@@ -2496,6 +2495,7 @@ details:not([open]) > .collapsible-summary::before {
 }
 
 .watch-provider-suggestion-via {
+    margin-left: auto;
     font-size: 0.72rem;
     font-style: italic;
     color: rgba(255, 255, 255, 0.45);
@@ -2503,6 +2503,24 @@ details:not([open]) > .collapsible-summary::before {
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 55%;
+}
+
+/* Optional provider logo, with an optional color block behind it (many
+   provider logos are white-on-transparent and need one). */
+.provider-logo {
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+    padding: 0.15rem 0.3rem;
+    border-radius: 4px;
+    line-height: 0;
+}
+
+.provider-logo img {
+    display: block;
+    height: 16px;
+    max-width: 72px;
+    object-fit: contain;
 }
 
 /* Inline mode (the dedicated provider dialog): the list is in-flow dialog
