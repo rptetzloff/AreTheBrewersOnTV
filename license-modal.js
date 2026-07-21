@@ -18,6 +18,11 @@
 			<div class="license-modal" role="dialog" aria-modal="true" aria-label="Data and licenses">
 				<button class="license-close" aria-label="Close"><i class="mdi mdi-close"></i></button>
 				<h2><i class="mdi mdi-license"></i> Data &amp; Licenses</h2>
+				<p>This is an independent fan site. Unless otherwise noted, it is not
+				affiliated with, sponsored by, or endorsed by the Milwaukee Brewers,
+				Major League Baseball, any data provider, or any TV service provider
+				named on this site. All team names, logos, and trademarks belong to
+				their respective owners.</p>
 				<h3>Retrosheet</h3>
 				<p>The information used here was obtained free of charge from and is copyrighted
 				by Retrosheet. Interested parties may contact Retrosheet at 20 Sunset Rd.,
@@ -34,6 +39,10 @@
 				<p>The site's code is open source under the MIT License
 				(<a href="https://github.com/rptetzloff/AreTheBrewersOnTV" target="_blank" rel="noopener noreferrer">GitHub</a>).
 				Bundled Liberation Sans fonts are © Red Hat, Inc., licensed under the SIL Open Font License 1.1.</p>
+				<h3>Corrections</h3>
+				<p>To provide additional information, or to request that information be
+				removed or changed, please
+				<a href="https://github.com/rptetzloff/AreTheBrewersOnTV/issues/new" target="_blank" rel="noopener noreferrer">submit an issue</a>.</p>
 			</div>`;
 		document.body.appendChild(overlay);
 
