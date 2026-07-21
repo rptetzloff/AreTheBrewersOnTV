@@ -95,9 +95,8 @@
         	// streaming/radio, since ESPN often lists MLB.TV first even when a
         	// linear TV channel is available. Uses the same channel metadata
         	// classification as getTvStatus.
-        	pickPrimaryBroadcast(game) {
-        		const broadcasts = this.broadcastsFor(game);
-        		if (broadcasts.length === 0) return null;
+        	_primaryOf(broadcasts) {
+        		if (!broadcasts.length) return null;
         		const rank = (b) => {
         			const name = b.media?.shortName;
         			if (!name) return 99;
@@ -106,6 +105,25 @@
         			return { broadcast: 0, regional: 1, cable: 2, streaming: 3, radio: 4 }[type] ?? 5;
         		};
         		return broadcasts.slice().sort((a, b) => rank(a) - rank(b))[0] || null;
+        	}
+
+        	pickPrimaryBroadcast(game) {
+        		return this._primaryOf(this.broadcastsFor(game));
+        	}
+
+        	// Broadcasts to show on the schedule row: the primary regular
+        	// broadcast (e.g. Brewers.TV) plus, on simulcast days, the primary
+        	// simulcast station — both are worth a look.
+        	scheduleBroadcasts(game) {
+        		const all = this.broadcastsFor(game);
+        		const regular = all.filter(b => !b._simulcast && b.media?.shortName);
+        		const sims = all.filter(b => b._simulcast);
+        		const out = [];
+        		const prim = this._primaryOf(regular.length ? regular : all);
+        		if (prim?.media?.shortName) out.push(prim);
+        		const sim = this._primaryOf(sims);
+        		if (sim && sim !== prim) out.push(sim);
+        		return out;
         	}
 
         	async init() {
@@ -1105,9 +1123,7 @@ const opponentDiv = document.createElement('div');
 opponentDiv.className = 'game-opponent';
 opponentDiv.textContent = `${isHome ? 'vs' : '@'} ${opponent}`;
 
-const primaryBroadcast = this.pickPrimaryBroadcast(event) || {};
-const network = primaryBroadcast.media?.shortName || '';
-const channelNum = this.scheduleChannelNumber(primaryBroadcast);
+const scheduleBroadcasts = this.scheduleBroadcasts(event);
 const hasBroadcasts = this.broadcastsFor(event).some(b => b.media?.shortName);
 const gameIsCompleted = status.type.name === 'STATUS_FINAL';
 const canWatch = hasBroadcasts && !gameIsCompleted && this.currentSeason === this.latestSeason;
@@ -1138,15 +1154,19 @@ gameDetails.appendChild(dateDiv);
 // Channel/network on its own line below the date. Clickable to open the
 // "Where to watch" modal when full broadcast data is available.
 // Completed games don't need a TV listing.
-if ((network || canWatch) && !gameIsCompleted) {
+if ((scheduleBroadcasts.length || canWatch) && !gameIsCompleted) {
  const channelLine = document.createElement('div');
  channelLine.className = 'game-channel';
  let html = '';
  if (isLive || isInProgress) html += `<span class="live-indicator-small"></span>`;
- if (network) {
-   html += `<span class="game-network">${network}${channelNum ? ` <span class="game-channum">Ch. ${channelNum}</span>` : ''}</span>`;
+ if (scheduleBroadcasts.length) {
+   html += scheduleBroadcasts.map(b => {
+     const name = b.media.shortName;
+     const num = this.scheduleChannelNumber(b);
+     return `<span class="game-network">${name}${num ? ` <span class="game-channum">Ch. ${num}</span>` : ''}</span>`;
+   }).join('<span class="game-network-sep"> · </span>');
  }
- if (canWatch && !network) {
+ if (canWatch && !scheduleBroadcasts.length) {
    html += `<i class="mdi mdi-television-play"></i> Where to watch`;
  }
  channelLine.innerHTML = html;
