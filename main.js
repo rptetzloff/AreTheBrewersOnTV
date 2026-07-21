@@ -3,6 +3,12 @@
         import { buildChartSvg } from './history-chart.js';
         import { intentUrls, copyText, flashCopied, wireShareDropdown } from './share-core.js';
 
+        // Parse 'YYYY-MM-DD' at LOCAL midnight. new Date('YYYY-MM-DD') parses as
+        // UTC midnight, which renders as the previous day in US timezones.
+        function parseLocalDate(iso) {
+        	return new Date(`${iso}T00:00:00`);
+        }
+
         function buildSeasonMap(games) {
         	const map = {};
         	games.forEach(g => {
@@ -15,7 +21,7 @@
 
         class BrewersTracker {
         	constructor() {
-        		this.apiUrl = 'https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/teams/mil/schedule';
+        		this.apiUrl = '/api/espn/apis/site/v2/sports/baseball/mlb/teams/mil/schedule';
         		this.countdownInterval = null;
         		this.liveUpdateInterval = null;
         		this.currentSeason = null;
@@ -374,8 +380,9 @@ processCsvSeasonData(season) {
   this.currentSeason = season;
   if (!this.latestSeason) {
         			// Determine latest season from ESPN on first load — but if we're bootstrapping
-        			// from a CSV season directly, use the current year as a proxy
-     this.latestSeason = this.csvMaxSeason || new Date().getFullYear();
+        			// from a CSV season directly, the current (ESPN-covered) season may be newer
+        			// than the CSV data, so allow navigating forward to the calendar year.
+     this.latestSeason = Math.max(this.csvMaxSeason || 0, new Date().getFullYear());
  }
  this.updateSeasonSelector();
 
@@ -426,7 +433,7 @@ processCsvSeasonData(season) {
 
  const csvCompletedGames = games
  .filter(g => g.regular_season === '1' && g['Brewers Win'])
- .map(g => ({ result: g['Brewers Win'], date: new Date(g.date) }));
+ .map(g => ({ result: g['Brewers Win'], date: parseLocalDate(g.date) }));
  this.updateStreakBanner(csvCompletedGames, season !== this.latestSeason);
 }
 
@@ -514,7 +521,7 @@ createCsvGameItem(g, showH2h = false) {
         		const location = g.location; // HOME / AWAY / NEUTRAL
         		const brewersScore = parseInt(g.brewers_score) || 0;
         		const opponentScore = parseInt(g.opponent_score) || 0;
-        		const date = new Date(g.date);
+        		const date = parseLocalDate(g.date);
         		const isWorldSeries = g.worldseries && g.worldseries.trim() !== '';
 
         		const gameItem = document.createElement('div');
@@ -586,7 +593,7 @@ createCsvGameItem(g, showH2h = false) {
         	async fetchLiveGameScore(liveGame, scheduleData) {
         		try {
         			const gameId = liveGame.id;
-        			const scoreboardUrl = `https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard`;
+        			const scoreboardUrl = `/api/espn/apis/site/v2/sports/baseball/mlb/scoreboard`;
         			const response = await fetch(scoreboardUrl);
         			const scoreboardData = await response.json();
 
@@ -612,7 +619,7 @@ createCsvGameItem(g, showH2h = false) {
         					};
         				}
         			} else {
-        				const boxscoreUrl = `https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/summary?event=${gameId}`;
+        				const boxscoreUrl = `/api/espn/apis/site/v2/sports/baseball/mlb/summary?event=${gameId}`;
         				const boxResponse = await fetch(boxscoreUrl);
         				const boxscoreData = await boxResponse.json();
 
@@ -820,7 +827,7 @@ createCsvGameItem(g, showH2h = false) {
         		const answerEl = document.getElementById('answer');
         		const recordEl = document.getElementById('record');
 
-        		this._lastResult = { isUndefeated, wins, losses, ties, isPastSeason, worldSeriesName, postRecord, preRecord, tvStatus };
+        		this._lastResult = { isUndefeated, wins, losses, ties, isPastSeason, worldSeriesName, postRecord, preRecord, tvStatus, tvGame };
         		this._isOffseason = false;
 
         		if (worldSeriesName) {
@@ -1296,6 +1303,28 @@ setupShareButtons() {
   wireShareDropdown();
 }
 
+// Watching details for today's game: network, plus the user's provider and
+// channel number when one is selected in the channel guide.
+_shareTvLine() {
+  const { tvStatus, tvGame } = this._lastResult || {};
+  if (!tvGame || (tvStatus !== 'yes' && tvStatus !== 'streaming')) return null;
+  const opp = tvGame.competitions?.[0]?.competitors?.find(c => c.team?.abbreviation !== 'MIL')?.team?.shortDisplayName;
+  const b = this.pickPrimaryBroadcast(tvGame);
+  const name = b?.media?.shortName;
+  const ch = name ? this.resolveChannel(name) : null;
+  const network = ch?.display_name || name || null;
+  let watch = network ? ` on ${network}` : '';
+  if (network && this.selectedProvider) {
+    const num = this.resolveProviderChannel(this.selectedProvider, ch?.key || name, this.selectedServiceAreaIndex(this.selectedProvider));
+    const provider = this.providerMeta[this.selectedProvider]?.display_name;
+    if (num && provider) watch = ` on ${network} (ch. ${this.formatChannelNum(num).text} on ${provider})`;
+  }
+  const vs = opp ? ` vs the ${opp}` : '';
+  return tvStatus === 'yes'
+    ? `📺 The Brewers are ON TV today${vs}${watch}!`
+    : `📱 The Brewers are streaming today${vs}${watch}!`;
+}
+
 getShareMessage() {
   const season = this.currentSeason;
   const isPast = season && this.latestSeason && season < this.latestSeason;
@@ -1321,11 +1350,11 @@ getShareMessage() {
         return `The ${season} Milwaukee Brewers finished ${recordText}. #ThisIsMyCrew`;
     }
 } else {
- if (isUndefeated) {
-    return `⚾ The Milwaukee Brewers are UNDEFEATED so far in ${season}! ${recordText} ⚾ #ThisIsMyCrew`;
-} else {
-    return `The Milwaukee Brewers are ${recordText} so far in the ${season} season. #ThisIsMyCrew`;
-}
+ const base = isUndefeated
+    ? `⚾ The Milwaukee Brewers are UNDEFEATED so far in ${season}! ${recordText} ⚾`
+    : `The Milwaukee Brewers are ${recordText} so far in the ${season} season.`;
+ const tvLine = this._shareTvLine();
+ return tvLine ? `${tvLine} ${base} #ThisIsMyCrew` : `${base} #ThisIsMyCrew`;
 }
 }
 
@@ -1356,31 +1385,77 @@ async copyLink() {
     await copyText(shareText);
 }
 
+// How noteworthy was this game? Blowouts, slugfests, extra innings, playoff
+// games, homer barrages, and no-hitters float to the top of On This Day.
+_otdInterest(c) {
+  const g = c.game;
+  let score = 0;
+  const bs = parseInt(g.brewers_score, 10), os = parseInt(g.opponent_score, 10);
+  if (Number.isFinite(bs) && Number.isFinite(os)) {
+    const diff = Math.abs(bs - os), total = bs + os;
+    if (diff >= 10) score += 6; else if (diff >= 7) score += 4; else if (diff >= 5) score += 2;
+    if (total >= 20) score += 3; else if (total >= 15) score += 2;
+    if (g['Brewers Win'] === 'WIN') { score += 1; if (os === 0) score += 1; }
+  }
+  if (g.worldseries && g.worldseries.trim()) score += 8;
+  else if (g.playoff === '1') score += 5;
+  const ls = g.gid ? this.lineScores?.get(g.gid) : null;
+  if (ls?.visitor && ls?.home) {
+    const inns = Math.max(
+      ls.visitor.inns.filter(x => x !== '').length,
+      ls.home.inns.filter(x => x !== '').length);
+    if (inns >= 13) score += 5; else if (inns >= 10) score += 3;
+    const mil = BREWERS_IDS.has(ls.home.team) ? ls.home : ls.visitor;
+    const opp = mil === ls.home ? ls.visitor : ls.home;
+    if (mil.hr >= 4) score += 5; else if (mil.hr >= 3) score += 3;
+    if (mil.hr + opp.hr >= 6) score += 2;
+    if (opp.h === 0 && inns >= 9) score += 12;   // no-hitter
+    else if (opp.h === 0 || mil.h === 0) score += 6;
+  }
+  return score;
+}
+
+// Random pick weighted by interest — ordinary games still show up, just less.
+_otdPick(pool, exclude) {
+  const items = exclude ? pool.filter(c => c !== exclude) : pool;
+  if (!items.length) return null;
+  const weights = items.map(c => 1 + (c.interest || 0) * 2);
+  let r = Math.random() * weights.reduce((a, b) => a + b, 0);
+  for (let i = 0; i < items.length; i++) {
+    r -= weights[i];
+    if (r <= 0) return items[i];
+  }
+  return items[items.length - 1];
+}
+
 buildOnThisDay() {
   const el = document.getElementById('on-this-day');
   if (!el) return;
 
   const dateParam = new URLSearchParams(window.location.search).get('otd');
-  const today = dateParam ? new Date(`2000-${dateParam}`) : new Date();
+  const today = dateParam ? parseLocalDate(`2000-${dateParam}`) : new Date();
   const todayMonth = isNaN(today) ? new Date().getMonth() : today.getMonth();
   const todayDay = isNaN(today) ? new Date().getDate() : today.getDate();
 
+  // Exact calendar date only — with 50+ seasons of daily baseball there is
+  // nearly always a game on this date, no ±3-day window needed.
   const candidates = [];
   for (const [yr, games] of Object.entries(this.csvBySeason)) {
      for (const g of games) {
         if (!g.date) continue;
-        const d = new Date(g.date);
+        const d = parseLocalDate(g.date);
         if (isNaN(d)) continue;
-        const diff = Math.abs((d.getMonth() * 31 + d.getDate()) - (todayMonth * 31 + todayDay));
-        if (diff <= 3) candidates.push({ game: g, season: parseInt(yr), date: d });
+        if (d.getMonth() === todayMonth && d.getDate() === todayDay) {
+          const c = { game: g, season: parseInt(yr), date: d };
+          c.interest = this._otdInterest(c);
+          candidates.push(c);
+        }
     }
 }
 
 if (candidates.length === 0) { el.hidden = true; return; }
 
-const withPhotos = candidates.filter(c => this.photosBySeason[c.season]);
-const pool = withPhotos.length > 0 ? withPhotos : candidates;
-this._renderOnThisDay(el, pool[Math.floor(Math.random() * pool.length)], pool);
+this._renderOnThisDay(el, this._otdPick(candidates), candidates);
 }
 
 _renderOnThisDay(el, pick, pool) {
@@ -1423,8 +1498,9 @@ _renderOnThisDay(el, pick, pool) {
         					</div>
         					<div class="otd-game-row">
         						<span class="otd-result-badge ${resultClass}">${resultLabel}</span>
-        						<span class="otd-matchup">vs. ${opponent}</span>
-    ${scoreText ? `<span class="otd-score">${scoreText}</span>` : ''}
+    ${game.gid
+        ? `<a class="otd-matchup otd-game-link" href="/game/${game.gid}" title="Full box score">vs. ${opponent}${scoreText ? ` <span class="otd-score">${scoreText}</span>` : ''}</a>`
+        : `<span class="otd-matchup">vs. ${opponent}</span>${scoreText ? `<span class="otd-score">${scoreText}</span>` : ''}`}
         					</div>
         					<div class="otd-date">${dateStr}, ${season}</div>
         				</div>
@@ -1434,8 +1510,7 @@ el.hidden = false;
 
 document.getElementById('otd-refresh')?.addEventListener('click', () => {
  if (pool.length > 1) {
-    const next = pool.filter(c => c !== pick)[Math.floor(Math.random() * (pool.length - 1))];
-    this._renderOnThisDay(el, next, pool);
+    this._renderOnThisDay(el, this._otdPick(pool, pick), pool);
 }
 });
 }
@@ -1516,6 +1591,24 @@ if (!firstLoss) {
     const streakText = winStreak === 1 ? '1-game' : `${winStreak}-game`;
     html = `The Brewers started the season undefeated for <strong>${gamesText}</strong> (${daysText}). Currently on a <strong>${streakText}</strong> win streak.`;
 }
+
+// Recent form: last 10 games and the current calendar month.
+const recordOf = (games) => {
+    let w = 0, l = 0, t = 0;
+    for (const g of games) {
+        if (g.result === 'WIN') w++;
+        else if (g.result === 'LOSS') l++;
+        else t++;
+    }
+    return t > 0 ? `${w}-${l}-${t}` : `${w}-${l}`;
+};
+const now = new Date();
+const monthGames = sorted.filter(g => g.date.getMonth() === now.getMonth() && g.date.getFullYear() === now.getFullYear());
+const parts = [];
+if (sorted.length >= 10) parts.push(`Last 10: <strong>${recordOf(sorted.slice(-10))}</strong>`);
+if (monthGames.length) parts.push(`${now.toLocaleDateString('en-US', { month: 'long' })}: <strong>${recordOf(monthGames)}</strong>`);
+if (parts.length) html += `<div class="streak-extra">${parts.join(' &middot; ')}</div>`;
+
 el.innerHTML = html;
 el.hidden = false;
 }
@@ -1668,6 +1761,20 @@ resolveProviderByName(query) {
   return null;
 }
 
+// Channel cells use two notations that need spelling out for display:
+// "A or B" — available listings disagree, the channel is one of these;
+// "A / B" — an SD / HD channel pair. Returns { text, ambiguous }.
+formatChannelNum(raw) {
+  if (!raw) return { text: raw, ambiguous: false };
+  const fmtPart = (part) => {
+    const m = part.trim().match(/^(\d+)\s*\/\s*(\d+)\s*(\(.*\))?$/);
+    if (m) return `${m[1]} (SD) / ${m[2]} (HD)${m[3] ? ` ${m[3]}` : ''}`;
+    return part.trim();
+  };
+  const orParts = raw.split(/\s+or\s+/i);
+  return { text: orParts.map(fmtPart).join(' or '), ambiguous: orParts.length > 1 };
+}
+
 resolveProviderChannel(providerKey, networkName, areaIndex) {
   if (!providerKey || !networkName) return null;
   const p = this.providerMeta[providerKey];
@@ -1717,7 +1824,8 @@ scheduleChannelNumber(broadcast) {
   const type = ch?.type;
   if (type !== 'broadcast' && type !== 'cable' && type !== 'regional') return null;
   const name = ch?.key || broadcast.media.shortName;
-  return this.resolveProviderChannel(this.selectedProvider, name, this.selectedServiceAreaIndex(this.selectedProvider));
+  const raw = this.resolveProviderChannel(this.selectedProvider, name, this.selectedServiceAreaIndex(this.selectedProvider));
+  return raw ? this.formatChannelNum(raw).text : raw;
 }
 
 _rerenderSchedule() {
@@ -1742,10 +1850,38 @@ initWatchModal() {
   });
 }
 
+// Providers matching a query, ranked starts-with before contains, matching
+// display names and aliases (so "charter" finds Spectrum). An empty query
+// returns everything — the dropdown doubles as a browsable list.
+_providerMatches(q) {
+  const opts = this.providerOptions();
+  if (!q) return opts.map(p => ({ p, via: null }));
+  const scored = [];
+  for (const p of opts) {
+    const names = [p.display_name, ...(p.alternate_name || '').split(',').map(s => s.trim()).filter(Boolean)];
+    let best = null;
+    for (const n of names) {
+      const ln = n.toLowerCase();
+      const rank = ln.startsWith(q) ? 0 : ln.includes(q) ? 1 : -1;
+      if (rank < 0) continue;
+      const via = n === p.display_name ? null : n;
+      if (!best || rank < best.rank || (rank === best.rank && !via && best.via)) best = { rank, via };
+    }
+    if (best) scored.push({ p, via: best.via, rank: best.rank });
+  }
+  scored.sort((a, b) => a.rank - b.rank || a.p.display_name.localeCompare(b.p.display_name));
+  return scored;
+}
+
 // Shared provider search input (used by the watch modal and the schedule bar).
-// Owns the selectedProvider/localStorage state; calls onChange(match) after
-// every apply so each caller can refresh its own dependents.
-_buildProviderInput({ label, inputId, listId, placeholder, onChange }) {
+// Owns the selectedProvider/localStorage state; calls onChange(match, source)
+// after every apply so each caller can refresh its own dependents — source is
+// 'row' (explicit pick), 'typed', 'blur', 'clear', or 'area'.
+// The suggestion list is custom-rendered — native <datalist> is unusable on
+// Android (blank suggestion chips) and unstylable everywhere else. With
+// inline: true the list renders in-flow and stays open (for the dedicated
+// provider dialog, where a floating overlay would clip against the modal).
+_buildProviderInput({ label, inputId, listId, placeholder, onChange, inline = false }) {
   const wrap = document.createElement('div');
   wrap.className = 'watch-provider-picker';
 
@@ -1761,13 +1897,15 @@ _buildProviderInput({ label, inputId, listId, placeholder, onChange }) {
   inputWrap.className = 'watch-provider-input-wrap';
 
   const input = document.createElement('input');
-  input.type = 'search';
+  input.type = 'text';
   input.id = inputId;
   input.className = 'watch-provider-input';
   input.placeholder = placeholder;
-  input.setAttribute('list', listId);
   input.autocomplete = 'off';
   input.spellcheck = false;
+  input.setAttribute('role', 'combobox');
+  input.setAttribute('aria-expanded', 'false');
+  input.setAttribute('aria-controls', listId);
   if (this.selectedProvider && this.providerMeta[this.selectedProvider]) {
     input.value = this.providerMeta[this.selectedProvider].display_name;
   }
@@ -1781,16 +1919,18 @@ _buildProviderInput({ label, inputId, listId, placeholder, onChange }) {
   clearBtn.hidden = !input.value;
   inputWrap.appendChild(clearBtn);
 
-  const list = document.createElement('datalist');
-  list.id = listId;
-  this.providerOptions().forEach(p => {
-    const opt = document.createElement('option');
-    opt.value = p.display_name;
-    list.appendChild(opt);
-  });
-  inputWrap.appendChild(list);
+  const sugg = document.createElement('div');
+  sugg.id = listId;
+  sugg.className = 'watch-provider-suggestions' + (inline ? ' watch-provider-suggestions-inline' : '');
+  sugg.setAttribute('role', 'listbox');
+  sugg.hidden = true;
 
   wrap.appendChild(inputWrap);
+  // Inline mode renders the list as a sibling below the input box; overlay
+  // mode floats it from inside the input wrap. Keeping it out of the input
+  // wrap in inline mode also keeps the clear button anchored to the input.
+  if (inline) wrap.appendChild(sugg);
+  else inputWrap.appendChild(sugg);
 
   const hint = document.createElement('div');
   hint.className = 'watch-provider-hint';
@@ -1798,53 +1938,59 @@ _buildProviderInput({ label, inputId, listId, placeholder, onChange }) {
   wrap.appendChild(hint);
 
   // Service-area picker — only shown when the selected provider splits its
-  // channel lineup across multiple service areas.
-  const areaSelectId = inputId + '-service-area';
+  // channel lineup across multiple service areas. Rendered as the same
+  // tappable rows as the provider suggestions.
   const areaWrap = document.createElement('div');
   areaWrap.className = 'watch-service-area-picker';
   areaWrap.hidden = true;
 
-  const areaLabel = document.createElement('label');
+  const areaLabel = document.createElement('div');
   areaLabel.className = 'watch-service-area-label';
-  areaLabel.htmlFor = areaSelectId;
   areaLabel.textContent = 'Service area';
   areaWrap.appendChild(areaLabel);
 
-  const areaSelect = document.createElement('select');
-  areaSelect.id = areaSelectId;
-  areaSelect.className = 'watch-service-area-select';
-  areaWrap.appendChild(areaSelect);
+  const areaList = document.createElement('div');
+  areaList.className = 'watch-area-options';
+  areaList.setAttribute('role', 'listbox');
+  areaWrap.appendChild(areaList);
 
   wrap.appendChild(areaWrap);
 
   const refreshArea = (match) => {
     const areas = match && Array.isArray(match.service_areas) ? match.service_areas : [];
-    areaSelect.innerHTML = '';
+    areaList.innerHTML = '';
     if (areas.length > 1) {
+      const saved = Math.min(this.selectedServiceAreaIndex(match.key), areas.length - 1);
       areas.forEach((name, i) => {
-        const opt = document.createElement('option');
-        opt.value = String(i);
-        opt.textContent = name;
-        areaSelect.appendChild(opt);
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.className = 'watch-provider-suggestion watch-area-option' + (i === saved ? ' active' : '');
+        row.setAttribute('role', 'option');
+        row.setAttribute('aria-selected', String(i === saved));
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'watch-provider-suggestion-name';
+        nameSpan.textContent = name;
+        row.appendChild(nameSpan);
+        row.addEventListener('click', () => {
+          this.setServiceAreaIndex(match.key, i);
+          areaList.querySelectorAll('.watch-area-option').forEach((r, j) => {
+            r.classList.toggle('active', j === i);
+            r.setAttribute('aria-selected', String(j === i));
+          });
+          onChange(match, 'area');
+        });
+        areaList.appendChild(row);
       });
-      const saved = this.selectedServiceAreaIndex(match.key);
-      areaSelect.selectedIndex = Math.min(saved, areas.length - 1);
       areaWrap.hidden = false;
     } else {
       areaWrap.hidden = true;
     }
   };
 
-  areaSelect.addEventListener('change', () => {
-    const key = this.selectedProvider;
-    if (key) this.setServiceAreaIndex(key, areaSelect.selectedIndex);
-    onChange(key && this.providerMeta[key] ? this.providerMeta[key] : null);
-  });
-
   refreshArea(this.selectedProvider && this.providerMeta[this.selectedProvider]
     ? this.providerMeta[this.selectedProvider] : null);
 
-  const applyMatch = (match, { persistInput = true } = {}) => {
+  const applyMatch = (match, { persistInput = true, source = 'typed' } = {}) => {
     if (match) {
       this.selectedProvider = match.key;
       localStorage.setItem('tvProvider', match.key);
@@ -1858,34 +2004,110 @@ _buildProviderInput({ label, inputId, listId, placeholder, onChange }) {
     }
     clearBtn.hidden = !input.value;
     refreshArea(match);
-    onChange(match);
+    onChange(match, source);
+    // The share message carries the selected provider's channel number —
+    // refresh the prebuilt intent links whenever the provider changes.
+    this.updateIntentLinks();
   };
+
+  // Custom suggestion dropdown: shows every provider on focus, filters as
+  // the visitor types (aliases included, shown as a secondary label).
+  let activeIdx = -1;
+  let currentMatches = [];
+  const hideSugg = () => {
+    activeIdx = -1;
+    sugg.hidden = true;
+    input.setAttribute('aria-expanded', 'false');
+  };
+  const renderSugg = () => {
+    let q = input.value.trim().toLowerCase();
+    // When the input just holds the current selection, filtering to that one
+    // provider is a useless echo — show the full list for browsing instead.
+    const selName = this.selectedProvider && this.providerMeta[this.selectedProvider]?.display_name.toLowerCase();
+    if (q && q === selName) q = '';
+    currentMatches = this._providerMatches(q);
+    sugg.innerHTML = '';
+    if (!currentMatches.length) { hideSugg(); return; }
+    currentMatches.forEach((m, i) => {
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'watch-provider-suggestion' + (i === activeIdx ? ' active' : '');
+      row.setAttribute('role', 'option');
+      const name = document.createElement('span');
+      name.className = 'watch-provider-suggestion-name';
+      name.textContent = m.p.display_name;
+      row.appendChild(name);
+      if (m.via) {
+        const via = document.createElement('span');
+        via.className = 'watch-provider-suggestion-via';
+        via.textContent = m.via;
+        row.appendChild(via);
+      }
+      // pointerdown fires before the input's blur, so focus stays put.
+      row.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        applyMatch(m.p, { source: 'row' });
+        hideSugg();
+      });
+      sugg.appendChild(row);
+    });
+    sugg.hidden = false;
+    input.setAttribute('aria-expanded', 'true');
+  };
+
+  input.addEventListener('focus', renderSugg);
+  if (!inline) input.addEventListener('blur', hideSugg);
+  if (inline) renderSugg();
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { hideSugg(); return; }
+    if (sugg.hidden && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { renderSugg(); return; }
+    if (sugg.hidden) return;
+    const rows = sugg.querySelectorAll('.watch-provider-suggestion');
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      activeIdx = e.key === 'ArrowDown' ? Math.min(activeIdx + 1, rows.length - 1) : Math.max(activeIdx - 1, 0);
+      rows.forEach((r, i) => r.classList.toggle('active', i === activeIdx));
+      rows[activeIdx]?.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter' && activeIdx >= 0 && currentMatches[activeIdx]) {
+      e.preventDefault();
+      applyMatch(currentMatches[activeIdx].p, { source: 'row' });
+      hideSugg();
+    }
+  });
 
   input.addEventListener('input', () => {
     clearBtn.hidden = !input.value;
+    activeIdx = -1;
     const v = input.value.trim();
     if (!v) {
-      applyMatch(null);
+      applyMatch(null, { persistInput: false });
+      renderSugg();
       return;
     }
     const exact = this.providerAliasIndex.get(v.toLowerCase());
     if (exact) {
-      applyMatch(this.providerMeta[exact]);
+      // Typed the full name: apply it (without rewriting the input mid-word)
+      // and get the list out of the way — the service areas, if any, are the
+      // next step. Refocusing the input brings the full list back.
+      applyMatch(this.providerMeta[exact], { persistInput: false });
+      hideSugg();
     } else {
       hint.hidden = true;
+      renderSugg();
     }
   });
 
   input.addEventListener('change', () => {
     const match = this.resolveProviderByName(input.value);
-    applyMatch(match, { persistInput: !!match });
+    applyMatch(match, { persistInput: !!match, source: 'blur' });
   });
 
   clearBtn.addEventListener('click', () => {
     input.value = '';
     clearBtn.hidden = true;
-    applyMatch(null);
+    applyMatch(null, { persistInput: false, source: 'clear' });
     input.focus();
+    renderSugg();
   });
 
   return wrap;
@@ -1974,13 +2196,18 @@ openProviderModal() {
     inputId: 'schedule-provider-input',
     listId: 'schedule-provider-list',
     placeholder: 'Search providers (e.g. Xfinity, Spectrum, TDS)…',
-    onChange: () => {
+    inline: true,
+    onChange: (match, source) => {
       this._rerenderSchedule();
       const watchEl = document.getElementById('watch-channels');
       if (watchEl && watchEl._resolved) {
         this._renderWatchChannels(watchEl, watchEl._resolved, watchEl._radioResolved);
       }
       this._refreshScheduleProviderDisplay();
+      // Explicitly picking a provider finishes the dialog — unless a service
+      // area still needs choosing; picking the area finishes it too.
+      const needsArea = match && Array.isArray(match.service_areas) && match.service_areas.length > 1;
+      if (source === 'area' || (source === 'row' && !needsArea)) this.closeProviderModal();
     },
   }));
   modal.hidden = false;
@@ -2082,7 +2309,9 @@ _renderWatchChannels(channelsEl, resolved, radioResolved) {
         const numDiv = document.createElement('div');
         numDiv.className = 'watch-channel-num';
         if (num) {
-          numDiv.innerHTML = `<span class="watch-channel-num-label">${provider.display_name}</span> <span class="watch-channel-num-value">Ch. ${num}</span>`;
+          const fmt = this.formatChannelNum(num);
+          const note = fmt.ambiguous ? ` <span class="watch-channel-num-note">(listings vary — check your guide)</span>` : '';
+          numDiv.innerHTML = `<span class="watch-channel-num-label">${provider.display_name}</span> <span class="watch-channel-num-value">Ch. ${fmt.text}</span>${note}`;
         } else {
           numDiv.innerHTML = `<span class="watch-channel-num-label watch-channel-num-none">Not listed for ${provider.display_name}</span>`;
         }
@@ -2211,8 +2440,8 @@ async openStandingsModal() {
 
   try {
     const [alData, nlData] = await Promise.all([
-      fetch('https://site.api.espn.com/apis/v2/sports/baseball/mlb/standings?group=7').then(r => r.json()),
-      fetch('https://site.api.espn.com/apis/v2/sports/baseball/mlb/standings?group=8').then(r => r.json()),
+      fetch('/api/espn/apis/v2/sports/baseball/mlb/standings?group=7').then(r => r.json()),
+      fetch('/api/espn/apis/v2/sports/baseball/mlb/standings?group=8').then(r => r.json()),
     ]);
     this._standingsData = { alData, nlData };
     body.innerHTML = this._buildStandingsShell();
@@ -2404,7 +2633,7 @@ openLinescoreModal(g) {
   const visLabel = brewersIsHome ? oppLabel : brewersLabel;
   const homLabel = brewersIsHome ? brewersLabel : oppLabel;
 
-  const date = new Date(g.date);
+  const date = parseLocalDate(g.date);
   const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
   const playerName = (id) => (id && this.playerNames?.get(id)) || null;
   const pitchers = {
@@ -2442,7 +2671,7 @@ openLinescoreFromEvent(event) {
   // The schedule endpoint omits inning-by-inning runs and H/E; the summary endpoint has them.
   this._renderLinescore(title, { inns: [], r: 0, h: 0, e: 0 }, { inns: [], r: 0, h: 0, e: 0 }, visLabel, homLabel, milIsHome, boxScoreUrl, true);
 
-  fetch(`https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/summary?event=${event.id}`)
+  fetch(`/api/espn/apis/site/v2/sports/baseball/mlb/summary?event=${event.id}`)
     .then(r => r.json())
     .then(data => {
       const comp = data.header?.competitions?.[0];
@@ -2735,5 +2964,6 @@ showError(message) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-   new BrewersTracker();
+   // Exposed for debugging in the console.
+   window.__brewersTracker = new BrewersTracker();
 });

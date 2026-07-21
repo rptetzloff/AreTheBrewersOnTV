@@ -585,6 +585,7 @@ export function computeTeamstatsRecords(rows, teamstatsRaw, { top = 5, now = new
 	const idx = (name) => headers.indexOf(name);
 	const gidI = idx('gid'), teamI = idx('team');
 	const hitI = idx('p_h'), ipoutsI = idx('p_ipouts'), wI = idx('p_w'), hbpI = idx('p_hbp'), bfpI = idx('p_bfp');
+	const tpI = idx('d_tp'), teamHrI = idx('b_hr');
 	const pitch = new Map();
 	for (const line of lines.slice(1)) {
 		const v = splitCsvLine(line);
@@ -598,6 +599,8 @@ export function computeTeamstatsRecords(rows, teamstatsRaw, { top = 5, now = new
 			w: parseInt(v[wI], 10) || 0,
 			hbp: parseInt(v[hbpI], 10) || 0,
 			bfp: parseInt(v[bfpI], 10) || 0,
+			tp: tpI >= 0 ? parseInt(v[tpI], 10) || 0 : 0,
+			teamHr: teamHrI >= 0 ? parseInt(v[teamHrI], 10) || 0 : 0,
 		});
 	}
 
@@ -614,22 +617,32 @@ export function computeTeamstatsRecords(rows, teamstatsRaw, { top = 5, now = new
 		.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 	const noHitters = [];
 	const perfectGames = [];
+	const triplePlays = [];
+	const hrGames = [];
 	for (const g of games) {
 		const p = pitch.get(g.gid);
-		if (!p || p.ipouts < 27 || p.h !== 0) continue;
-		const perfect = p.w === 0 && p.hbp === 0 && p.bfp === p.ipouts;
-		const entry = {
+		if (!p) continue;
+		const entry = () => ({
 			gid: g.gid, date: g.date, season: parseInt(g.season, 10), opponent: g.Opponent,
 			pf: parseInt(g.brewers_score, 10) || 0, pa: parseInt(g.opponent_score, 10) || 0,
 			playoff: g.regular_season !== '1', worldseries: !!(g.worldseries && g.worldseries.trim()),
-			perfect,
-		};
-		noHitters.push(entry);
-		if (perfect) perfectGames.push({ ...entry });
+		});
+		if (p.tp > 0) triplePlays.push({ ...entry(), count: p.tp });
+		if (p.teamHr > 0) hrGames.push({ ...entry(), hr: p.teamHr });
+		if (p.ipouts < 27 || p.h !== 0) continue;
+		const perfect = p.w === 0 && p.hbp === 0 && p.bfp === p.ipouts;
+		noHitters.push({ ...entry(), perfect });
+		if (perfect) perfectGames.push({ ...entry(), perfect });
 	}
 	noHitters.reverse();
 	perfectGames.reverse();
-	return { bestSeasons, worstSeasons, noHitters, perfectGames };
+	triplePlays.reverse();
+	// Team single-game HR high-water marks: everything tied with the 5th-best
+	// count stays in (ties shouldn't be cut arbitrarily).
+	hrGames.sort((a, b) => b.hr - a.hr || (a.date < b.date ? -1 : 1));
+	const hrCutoff = hrGames[top - 1]?.hr ?? 0;
+	const mostTeamHrGames = hrGames.filter((g) => g.hr >= hrCutoff && g.hr > 0);
+	return { bestSeasons, worstSeasons, noHitters, perfectGames, triplePlays, mostTeamHrGames };
 }
 
 // Meta copy for the /history page, shared by server OG meta and client share.
@@ -742,10 +755,46 @@ export function recordsCopy(slug, data) {
 				desc: `The Brewers have thrown ${n.length} perfect game${n.length === 1 ? '' : 's'}. Most recent: ${g.pf}–${g.pa} vs the ${g.opponent} on ${formatDate(g.date)}.`,
 			};
 		}
+		case 'triple-plays': {
+			const t = data.triplePlays || [];
+			if (!t.length) return { title: 'Brewers Triple Plays', desc: 'The Brewers have never turned a triple play.' };
+			const g = t[0];
+			return {
+				title: `Brewers Triple Plays — ${t.length} all-time`,
+				desc: `The Brewers have turned ${t.length} triple play${t.length === 1 ? '' : 's'}. Most recent: vs the ${g.opponent} on ${formatDate(g.date)}.`,
+			};
+		}
+		case 'most-hr-game': {
+			const h = data.mostTeamHrGames || [];
+			if (!h.length) return { title: 'Most Brewers Home Runs in a Game', desc: 'Team single-game home run records.' };
+			const g = h[0];
+			return {
+				title: `Most Brewers Home Runs in a Game — ${g.hr}`,
+				desc: `The most home runs the Brewers have hit in one game: ${g.hr}, vs the ${g.opponent} on ${formatDate(g.date)}.`,
+			};
+		}
+		case 'player-hr-game': {
+			const h = data.playerHrGames || [];
+			if (!h.length) return { title: 'Most Home Runs in a Game by a Brewer', desc: 'Player single-game home run records.' };
+			const g = h[0];
+			return {
+				title: `Most Home Runs in a Game by a Brewer — ${g.hr}`,
+				desc: `${g.player} hit ${g.hr} home runs vs the ${g.opponent} on ${formatDate(g.date)} — the most by a Brewer in one game. ${h.length} such games all-time.`,
+			};
+		}
+		case 'cycles': {
+			const c = data.cycles || [];
+			if (!c.length) return { title: 'Brewers Cycles', desc: 'Every cycle hit in Milwaukee Brewers history.' };
+			const g = c[0];
+			return {
+				title: `Brewers Cycles — ${c.length} all-time`,
+				desc: `${c.length} player${c.length === 1 ? ' has' : 's have'} hit for the cycle for the Brewers. Most recent: ${g.player} vs the ${g.opponent} on ${formatDate(g.date)}.`,
+			};
+		}
 		default:
 			return {
 				title: 'Brewers Records & Superlatives',
-				desc: `Best starts, longest win streaks, worst starts, lopsided wins, worst losses, World Series and playoff appearances, and every tie — Milwaukee Brewers, ${range}.`,
+				desc: `Best starts, longest win streaks, worst starts, lopsided wins, worst losses, no-hitters, triple plays, cycles, World Series and playoff appearances, and every tie — Milwaukee Brewers, ${range}.`,
 			};
 	}
 }
@@ -764,6 +813,7 @@ export function parseTeamstatsLineScores(raw) {
 	const lobI = headers.indexOf('lob');
 	const dpI = headers.indexOf('d_dp');
 	const tpI = headers.indexOf('d_tp');
+	const hrI = headers.indexOf('b_hr');
 	const innIdxs = [];
 	for (let i = 1; i <= 28; i++) {
 		innIdxs.push(headers.indexOf(`inn${i}`));
@@ -785,6 +835,7 @@ export function parseTeamstatsLineScores(raw) {
 			lob: lobI >= 0 ? parseInt(v[lobI], 10) || 0 : 0,
 			dp: dpI >= 0 ? parseInt(v[dpI], 10) || 0 : 0,
 			tp: tpI >= 0 ? parseInt(v[tpI], 10) || 0 : 0,
+			hr: hrI >= 0 ? parseInt(v[hrI], 10) || 0 : 0,
 		};
 		if (vh === 'v') entry.visitor = side;
 		else if (vh === 'h') entry.home = side;
@@ -792,4 +843,4 @@ export function parseTeamstatsLineScores(raw) {
 	return map;
 }
 
-export const RECORD_SLUGS = ['best-seasons', 'worst-seasons', 'best-starts', 'win-streaks', 'worst-starts', 'lopsided-wins', 'worst-losses', 'no-hitters', 'perfect-games', 'world-series-appearances', 'playoff-appearances', 'ties'];
+export const RECORD_SLUGS = ['best-seasons', 'worst-seasons', 'best-starts', 'win-streaks', 'worst-starts', 'lopsided-wins', 'worst-losses', 'no-hitters', 'perfect-games', 'triple-plays', 'most-hr-game', 'player-hr-game', 'cycles', 'world-series-appearances', 'playoff-appearances', 'ties'];

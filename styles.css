@@ -1,3 +1,11 @@
+/* The hidden attribute must always win. Several elements here set their own
+   display (flex/grid), which silently overrides the UA's [hidden] rule — this
+   has caused three real bugs (box score team panels, the license modal, the
+   schedule provider bar). */
+[hidden] {
+    display: none !important;
+}
+
 body {
     font-family: 'Arial', sans-serif;
     margin: 0;
@@ -310,6 +318,24 @@ details:not([open]) > .collapsible-summary::before {
 /* keep streak-banner from having its own outer margin when inside details */
 .collapsible-section .streak-banner {
     margin-top: 0;
+}
+
+.otd-game-link {
+    text-decoration: none;
+    color: inherit;
+    border-bottom: 1px dotted rgba(255, 197, 47, 0.5);
+}
+
+.otd-game-link:hover {
+    color: #FFC52F;
+}
+
+.streak-extra {
+    margin-top: 0.35rem;
+    padding-top: 0.35rem;
+    border-top: 1px solid rgba(255, 197, 47, 0.15);
+    font-size: 0.82rem;
+    color: rgba(255, 255, 255, 0.65);
 }
 
 /* keep on-this-day from having its own outer margin when inside details */
@@ -1057,7 +1083,11 @@ details:not([open]) > .collapsible-summary::before {
     cursor: pointer;
     border: none;
     background: none;
+    /* font:inherit makes the button pick up the page font, but the shorthand
+       also resets size/weight to the parent's — re-assert the nav-link's. */
     font: inherit;
+    font-size: 0.8rem;
+    font-weight: 500;
 }
 
 .footer-share-caret {
@@ -1158,6 +1188,95 @@ details:not([open]) > .collapsible-summary::before {
         left: 50%;
         transform: translateX(-50%);
     }
+}
+
+/* Data & licenses modal */
+.license-link {
+    background: none;
+    border: none;
+    padding: 0;
+    color: rgba(255, 255, 255, 0.55);
+    font: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.license-link:hover {
+    color: #FFC52F;
+}
+
+.license-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: rgba(6, 17, 34, 0.75);
+}
+
+/* display:flex above would defeat the hidden attribute's UA display:none. */
+.license-overlay[hidden] {
+    display: none;
+}
+
+.license-modal {
+    position: relative;
+    max-width: 34rem;
+    max-height: 85vh;
+    overflow-y: auto;
+    padding: 1.5rem 1.75rem;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 197, 47, 0.35);
+    background: #16294a;
+    text-align: left;
+    font-size: 0.88rem;
+    color: rgba(255, 255, 255, 0.8);
+    line-height: 1.5;
+}
+
+.license-modal h2 {
+    margin: 0 0 0.75rem;
+    font-size: 1.1rem;
+    color: #FFC52F;
+}
+
+.license-modal h3 {
+    margin: 1rem 0 0.3rem;
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: rgba(255, 197, 47, 0.85);
+}
+
+.license-modal p {
+    margin: 0.35rem 0;
+}
+
+.license-modal a {
+    color: #FFC52F;
+}
+
+.license-close {
+    position: absolute;
+    top: 0.7rem;
+    right: 0.7rem;
+    width: 1.8rem;
+    height: 1.8rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: none;
+    color: rgba(255, 255, 255, 0.6);
+    cursor: pointer;
+}
+
+.license-close:hover {
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.4);
 }
 
 /* Photo gallery button */
@@ -2340,8 +2459,77 @@ details:not([open]) > .collapsible-summary::before {
     background: rgba(255, 197, 47, 0.15);
 }
 
-.watch-provider-input-wrap datalist {
-    display: none;
+.watch-provider-suggestions {
+    position: absolute;
+    top: calc(100% + 0.25rem);
+    left: 0;
+    right: 0;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    max-height: 240px;
+    overflow-y: auto;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 197, 47, 0.3);
+    background: #1a3558;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.watch-provider-suggestion {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.6rem;
+    padding: 0.5rem 0.7rem;
+    border: none;
+    background: none;
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 0.85rem;
+    text-align: left;
+    cursor: pointer;
+}
+
+.watch-provider-suggestion:hover,
+.watch-provider-suggestion.active {
+    background: rgba(255, 197, 47, 0.15);
+    color: #FFC52F;
+}
+
+.watch-provider-suggestion-via {
+    font-size: 0.72rem;
+    font-style: italic;
+    color: rgba(255, 255, 255, 0.45);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 55%;
+}
+
+/* Inline mode (the dedicated provider dialog): the list is in-flow dialog
+   content below the input rather than a floating overlay, so it can't clip
+   against the dialog's own scroll container. */
+.watch-provider-suggestions-inline {
+    position: static;
+    margin-top: 0.4rem;
+    max-height: 45vh;
+    box-shadow: none;
+}
+
+/* Service areas rendered as the same tappable rows. */
+.watch-area-options {
+    display: flex;
+    flex-direction: column;
+    margin-top: 0.3rem;
+    max-height: 30vh;
+    overflow-y: auto;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 197, 47, 0.3);
+    background: #1a3558;
+}
+
+.watch-area-option.active .watch-provider-suggestion-name::before {
+    content: '✓ ';
+    color: #FFC52F;
 }
 
 .watch-channel-num {
@@ -2364,6 +2552,12 @@ details:not([open]) > .collapsible-summary::before {
 
 .watch-channel-num-none {
     font-style: italic;
+}
+
+.watch-channel-num-note {
+    font-size: 0.75rem;
+    font-style: italic;
+    color: rgba(255, 255, 255, 0.5);
 }
 
 /* ── Line score modal ── */
