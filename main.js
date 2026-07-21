@@ -867,6 +867,39 @@ createCsvGameItem(g, showH2h = false) {
         		recordEl.textContent = 'The season hasn\'t started yet!';
         	}
 
+        	// "Amherst Communications has the next game on Brewers.TV (Ch. 16)"
+        	// under the big YES — only when a provider is selected and today's
+        	// game is on TV.
+        	_providerNoteHtml() {
+        		const { tvStatus, tvGame } = this._lastResult || {};
+        		if (tvStatus !== 'yes' || !tvGame) return '';
+        		const provider = this.selectedProvider && this.providerMeta[this.selectedProvider];
+        		if (!provider) return '';
+        		const tvTypes = new Set(['broadcast', 'cable', 'regional']);
+        		const b = this._primaryOf(this.broadcastsFor(tvGame).filter(x => {
+        			const name = x.media?.shortName;
+        			if (!name) return false;
+        			const ch = this.resolveChannel(name);
+        			return ch ? tvTypes.has(ch.type) : (x.type?.shortName || '') === 'TV';
+        		}));
+        		if (!b) return '';
+        		const ch = this.resolveChannel(b.media.shortName);
+        		const network = ch?.display_name || b.media.shortName;
+        		const num = this.scheduleChannelNumber(b);
+        		const live = tvGame.competitions?.[0]?.status?.type?.state === 'in';
+        		return `<div class="answer-provider-note">${provider.display_name} has the ${live ? 'game' : 'next game'} on ${network}${num ? ` (Ch. ${num})` : ''}</div>`;
+        	}
+
+        	// Re-render the note when the provider or service area changes.
+        	refreshAnswerNote() {
+        		const answerEl = document.getElementById('answer');
+        		if (!answerEl) return;
+        		answerEl.querySelector('.answer-provider-note')?.remove();
+        		if (answerEl.classList.contains('yes')) {
+        			answerEl.insertAdjacentHTML('beforeend', this._providerNoteHtml());
+        		}
+        	}
+
         	emojiRowHtml(emoji, count) {
         		if (count <= 0) return '';
         		const spans = Array.from({ length: count }, () => `<span>${emoji}</span>`).join('');
@@ -891,7 +924,7 @@ createCsvGameItem(g, showH2h = false) {
         			// schedule's watch button uses.
         			const hasBroadcasts = tvGame && this.broadcastsFor(tvGame).some(b => b.media?.shortName);
         			if (tvStatus === 'yes') {
-        				answerEl.innerHTML = `YES!!!`;
+        				answerEl.innerHTML = `YES!!!${this._providerNoteHtml()}`;
         				answerEl.className = 'answer yes';
         				document.body.classList.add('undefeated');
         			} else if (tvStatus === 'streaming') {
@@ -1736,6 +1769,8 @@ _loadTvLookup(channelLookupRaw, providerLookupRaw) {
       channel_lineup: p.channel_lineup || '',
       service_areas: (p.service_areas || '')
         .split('|').map(s => s.trim()).filter(Boolean),
+      logo_url: (p.logo_url || '').trim(),
+      logo_bg: (p.logo_bg || '').trim(),
       channels: {},
     };
     // index display name + each comma-separated alternate name
@@ -1906,6 +1941,24 @@ initWatchModal() {
   });
 }
 
+// Small provider logo element, or null when the provider has none. Logos are
+// often white-on-transparent, so an optional logo_bg color block sits behind
+// them. A failed image load removes the element rather than showing a broken
+// icon.
+providerLogoEl(provider, large = false) {
+  if (!provider?.logo_url) return null;
+  const wrap = document.createElement('span');
+  wrap.className = 'provider-logo' + (large ? ' provider-logo-large' : '');
+  if (provider.logo_bg) wrap.style.background = provider.logo_bg;
+  const img = document.createElement('img');
+  img.src = provider.logo_url;
+  img.alt = `${provider.display_name} logo`;
+  img.loading = 'lazy';
+  img.addEventListener('error', () => wrap.remove());
+  wrap.appendChild(img);
+  return wrap;
+}
+
 // Providers matching a query, ranked starts-with before contains, matching
 // display names and aliases (so "charter" finds Spectrum). An empty query
 // returns everything — the dropdown doubles as a browsable list.
@@ -2034,6 +2087,7 @@ _buildProviderInput({ label, inputId, listId, placeholder, onChange, inline = fa
             r.setAttribute('aria-selected', String(j === i));
           });
           onChange(match, 'area');
+          this.refreshAnswerNote();
         });
         areaList.appendChild(row);
       });
@@ -2061,9 +2115,10 @@ _buildProviderInput({ label, inputId, listId, placeholder, onChange, inline = fa
     clearBtn.hidden = !input.value;
     refreshArea(match);
     onChange(match, source);
-    // The share message carries the selected provider's channel number —
-    // refresh the prebuilt intent links whenever the provider changes.
+    // The share message and the answer's provider note carry the selected
+    // provider's channel info — refresh both whenever the provider changes.
     this.updateIntentLinks();
+    this.refreshAnswerNote();
   };
 
   // Custom suggestion dropdown: shows every provider on focus, filters as
@@ -2089,6 +2144,8 @@ _buildProviderInput({ label, inputId, listId, placeholder, onChange, inline = fa
       row.type = 'button';
       row.className = 'watch-provider-suggestion' + (i === activeIdx ? ' active' : '');
       row.setAttribute('role', 'option');
+      const logo = this.providerLogoEl(m.p);
+      if (logo) row.appendChild(logo);
       const name = document.createElement('span');
       name.className = 'watch-provider-suggestion-name';
       name.textContent = m.p.display_name;
@@ -2206,17 +2263,6 @@ renderScheduleProviderBar() {
   const labelSpan = document.createElement('span');
   labelSpan.className = 'schedule-provider-label';
   labelSpan.textContent = 'TV provider';
-  display.appendChild(labelSpan);
-
-  const nameSpan = document.createElement('span');
-  nameSpan.className = 'schedule-provider-name';
-  if (current) {
-    nameSpan.textContent = current;
-  } else {
-    nameSpan.classList.add('schedule-provider-none');
-    nameSpan.textContent = 'Not selected';
-  }
-  display.appendChild(nameSpan);
 
   const changeBtn = document.createElement('button');
   changeBtn.type = 'button';
@@ -2225,7 +2271,40 @@ renderScheduleProviderBar() {
     ? '<i class="mdi mdi-pencil"></i> Change'
     : '<i class="mdi mdi-magnify"></i> Choose';
   changeBtn.addEventListener('click', () => this.openProviderModal());
-  display.appendChild(changeBtn);
+
+  // Providers that supply a logo get sponsor-style billing: a banner the
+  // width of the bar with the name captioned underneath. The label and
+  // button move to a header row above it. Without a logo, everything sits
+  // on one line as before.
+  const logo = current ? this.providerLogoEl(this.providerMeta[this.selectedProvider], true) : null;
+  if (logo) {
+    display.classList.add('schedule-provider-display-banner');
+    const header = document.createElement('div');
+    header.className = 'schedule-provider-header';
+    header.appendChild(labelSpan);
+    header.appendChild(changeBtn);
+    display.appendChild(header);
+    const slot = document.createElement('div');
+    slot.className = 'schedule-provider-slot';
+    slot.appendChild(logo);
+    const caption = document.createElement('span');
+    caption.className = 'schedule-provider-caption';
+    caption.textContent = current;
+    slot.appendChild(caption);
+    display.appendChild(slot);
+  } else {
+    display.appendChild(labelSpan);
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'schedule-provider-name';
+    if (current) {
+      nameSpan.textContent = current;
+    } else {
+      nameSpan.classList.add('schedule-provider-none');
+      nameSpan.textContent = 'Not selected';
+    }
+    display.appendChild(nameSpan);
+    display.appendChild(changeBtn);
+  }
 
   bar.appendChild(display);
 }

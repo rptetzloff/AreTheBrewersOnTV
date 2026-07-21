@@ -2477,8 +2477,7 @@ details:not([open]) > .collapsible-summary::before {
 
 .watch-provider-suggestion {
     display: flex;
-    align-items: baseline;
-    justify-content: space-between;
+    align-items: center;
     gap: 0.6rem;
     padding: 0.5rem 0.7rem;
     border: none;
@@ -2496,6 +2495,7 @@ details:not([open]) > .collapsible-summary::before {
 }
 
 .watch-provider-suggestion-via {
+    margin-left: auto;
     font-size: 0.72rem;
     font-style: italic;
     color: rgba(255, 255, 255, 0.45);
@@ -2503,6 +2503,74 @@ details:not([open]) > .collapsible-summary::before {
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 55%;
+}
+
+/* Optional provider logo, with an optional color block behind it (many
+   provider logos are white-on-transparent and need one). */
+.provider-logo {
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+    padding: 0.15rem 0.3rem;
+    border-radius: 4px;
+    line-height: 0;
+}
+
+.provider-logo img {
+    display: block;
+    height: 16px;
+    max-width: 72px;
+    object-fit: contain;
+}
+
+/* Sponsor-style banner slot for the selected provider in the schedule bar:
+   the logo block spans the bar's width, name captioned underneath. */
+.schedule-provider-display-banner {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+}
+
+.schedule-provider-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.provider-logo-large {
+    width: 100%;
+    box-sizing: border-box;
+    justify-content: center;
+    padding: 0.6rem 1rem;
+    border-radius: 8px;
+}
+
+.provider-logo-large img {
+    height: auto;
+    max-height: 56px;
+    width: auto;
+    max-width: 100%;
+}
+
+.schedule-provider-slot {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.schedule-provider-caption {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.65);
+}
+
+/* Provider line under the big YES ("X has the next game on Y (Ch. N)"). */
+.answer-provider-note {
+    margin-top: 0.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: normal;
+    color: rgba(255, 255, 255, 0.75);
 }
 
 /* Inline mode (the dedicated provider dialog): the list is in-flow dialog
