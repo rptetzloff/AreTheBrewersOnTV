@@ -1361,7 +1361,10 @@ _shareTvLine() {
   const { tvStatus, tvGame } = this._lastResult || {};
   if (!tvGame || (tvStatus !== 'yes' && tvStatus !== 'streaming')) return null;
   const opp = tvGame.competitions?.[0]?.competitors?.find(c => c.team?.abbreviation !== 'MIL')?.team?.shortDisplayName;
-  const b = this.pickPrimaryBroadcast(tvGame);
+  // Name the regular network; a local simulcast gets its own mention below
+  // rather than reading as the network ("watch on Simulcast").
+  const regular = this.broadcastsFor(tvGame).filter(x => !x._simulcast);
+  const b = this._primaryOf(regular.length ? regular : this.broadcastsFor(tvGame));
   const name = b?.media?.shortName;
   const ch = name ? this.resolveChannel(name) : null;
   const network = ch?.display_name || name || null;
@@ -1372,9 +1375,10 @@ _shareTvLine() {
     if (num && provider) watch = ` on ${network} (ch. ${this.formatChannelNum(num).text} on ${provider})`;
   }
   const vs = opp ? ` vs the ${opp}` : '';
+  const simulcast = this.simulcastChannelsFor(tvGame).length ? ' — plus a free over-the-air simulcast' : '';
   return tvStatus === 'yes'
-    ? `📺 The Brewers are ON TV today${vs}${watch}!`
-    : `📱 The Brewers are streaming today${vs}${watch}!`;
+    ? `📺 The Brewers are ON TV today${vs}${watch}${simulcast}!`
+    : `📱 The Brewers are streaming today${vs}${watch}${simulcast}!`;
 }
 
 getShareMessage() {
