@@ -1074,6 +1074,11 @@ details:not([open]) > .collapsible-summary::before {
     font-size: 0.95rem;
 }
 
+/* Mobile-only short label variant (e.g. "H2H" for "Head-to-Head"). */
+.footer-label-short {
+    display: none;
+}
+
 .footer-share-wrap {
     position: relative;
     display: inline-flex;
@@ -1146,41 +1151,34 @@ details:not([open]) > .collapsible-summary::before {
     color: #FFC52F;
 }
 
-.footer-disclaimer {
-    text-align: center;
-    font-size: 0.68rem;
-    line-height: 1.5;
-    color: rgba(255, 255, 255, 0.35);
-    max-width: 640px;
-    margin: 0;
-}
-
-.github-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    color: rgba(255, 255, 255, 0.4);
-    text-decoration: none;
-    font-size: 0.72rem;
-    transition: color 0.2s;
-}
-
-.github-link:hover {
-    color: rgba(255, 255, 255, 0.7);
-}
-
-.github-link .mdi {
-    font-size: 0.9rem;
-}
-
 @media (max-width: 640px) {
     .footer-nav {
         gap: 0.05rem;
     }
 
+    /* Tab-bar style: icon with a tiny label underneath, one row total. */
     .footer-nav-link {
-        padding: 0.3rem 0.45rem;
-        font-size: 0.75rem;
+        flex-direction: column;
+        gap: 0.1rem;
+        padding: 0.25rem 0.25rem;
+        font-size: 0.55rem;
+        line-height: 1;
+    }
+
+    .footer-nav-link .mdi {
+        font-size: 1.05rem;
+    }
+
+    .footer-label-full {
+        display: none;
+    }
+
+    .footer-label-short {
+        display: inline;
+    }
+
+    .footer-share-caret {
+        display: none;
     }
 
     .footer-share {
@@ -1190,19 +1188,14 @@ details:not([open]) > .collapsible-summary::before {
     }
 }
 
-/* Data & licenses modal */
+/* Disclaimer / licenses modal. The trigger renders as a .footer-nav-link;
+   only the button chrome needs resetting (size/weight/color come from the
+   nav-link rule, including its mobile override). */
 .license-link {
     background: none;
     border: none;
-    padding: 0;
-    color: rgba(255, 255, 255, 0.55);
-    font: inherit;
-    text-decoration: underline;
+    font-family: inherit;
     cursor: pointer;
-}
-
-.license-link:hover {
-    color: #FFC52F;
 }
 
 .license-overlay {

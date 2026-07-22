@@ -823,8 +823,10 @@ createCsvGameItem(g, showH2h = false) {
         			const competitors = event.competitions[0].competitors;
         			let brewersScore = 0, opponentScore = 0;
         			competitors.forEach(c => {
-        				if (c.team.abbreviation === 'MIL') brewersScore = parseInt(c.score?.value || c.score || 0);
-        				else opponentScore = parseInt(c.score?.value || c.score || 0);
+        				// ?? not ||: a shutout's score.value is 0, which || would skip,
+        				// falling back to the score object itself -> NaN -> phantom 'TIE'.
+        				if (c.team.abbreviation === 'MIL') brewersScore = parseInt(c.score?.value ?? c.score ?? 0) || 0;
+        				else opponentScore = parseInt(c.score?.value ?? c.score ?? 0) || 0;
         			});
         			const result = brewersScore > opponentScore ? 'WIN' : brewersScore < opponentScore ? 'LOSS' : 'TIE';
         			return { result, date: new Date(event.date) };
@@ -1116,19 +1118,19 @@ createGameItem(event, nextGame, liveGame, now) {
   competitors.forEach(competitor => {
      if (competitor.team.abbreviation === 'MIL') {
         brewersScore = parseInt(
-           competitor.score?.value ||
-           competitor.score?.displayValue ||
-           competitor.score ||
+           competitor.score?.value ??
+           competitor.score?.displayValue ??
+           competitor.score ??
            0
-           );
+           ) || 0;
         isHome = competitor.homeAway === 'home';
     } else {
         opponentScore = parseInt(
-           competitor.score?.value ||
-           competitor.score?.displayValue ||
-           competitor.score ||
+           competitor.score?.value ??
+           competitor.score?.displayValue ??
+           competitor.score ??
            0
-           );
+           ) || 0;
         opponent = competitor.team.displayName;
     }
 });

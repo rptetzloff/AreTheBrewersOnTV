@@ -1,15 +1,16 @@
-// Adds a "Data & licenses" link to the footer disclaimer on every page and
-// injects the modal it opens: the required Retrosheet notice plus ESPN usage.
+// Adds a "Disclaimer" link to the footer nav on every page and injects the
+// modal it opens: the channel-listings disclaimer, the required Retrosheet
+// notice, and ESPN usage.
 (() => {
 	function init() {
-		const disclaimer = document.querySelector('.footer-disclaimer');
-		if (!disclaimer) return;
+		const nav = document.querySelector('.footer-nav');
+		if (!nav) return;
 
 		const link = document.createElement('button');
 		link.type = 'button';
-		link.className = 'license-link';
-		link.textContent = 'Data & licenses';
-		disclaimer.append(' · ', link);
+		link.className = 'footer-nav-link license-link';
+		link.innerHTML = '<i class="mdi mdi-license"></i><span class="footer-nav-label">Disclaimer</span>';
+		nav.insertBefore(link, nav.querySelector('.footer-github'));
 
 		const overlay = document.createElement('div');
 		overlay.className = 'license-overlay';
@@ -23,6 +24,10 @@
 				Major League Baseball, any data provider, or any TV service provider
 				named on this site. All team names, logos, and trademarks belong to
 				their respective owners.</p>
+				<h3>Channel information</h3>
+				<p>Channel information is based on publicly available channel listings.
+				Please check your local channel guide for the most accurate broadcast
+				information.</p>
 				<h3>Retrosheet</h3>
 				<p>The information used here was obtained free of charge from and is copyrighted
 				by Retrosheet. Interested parties may contact Retrosheet at 20 Sunset Rd.,
@@ -33,8 +38,6 @@
 				<p>Live schedule, score, standings, and broadcast information for the current
 				season is retrieved from ESPN's publicly available API. This site is not
 				affiliated with, sponsored by, or endorsed by ESPN or Major League Baseball.</p>
-				<p>Channel information is based on publicly available channel listings; check
-				your local channel guide for the most accurate broadcast information.</p>
 				<h3>Site</h3>
 				<p>The site's code is open source under the MIT License
 				(<a href="https://github.com/rptetzloff/AreTheBrewersOnTV" target="_blank" rel="noopener noreferrer">GitHub</a>).
