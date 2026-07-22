@@ -138,7 +138,7 @@
         				});
         			});
 
-        			const [gamesRes, namesRes, photosRes, channelsRes, channelLookupRes, providerLookupRes, teamstatsRes, playersRes, simulcastsRes] = await Promise.all([
+        			const [gamesRes, namesRes, photosRes, channelsRes, channelLookupRes, providerLookupRes, teamstatsRes, playersRes, simulcastsRes, curGamesRes] = await Promise.all([
         				fetch('./data/gameinfo.csv'),
         				fetch('./data/CurrentNames.csv'),
         				fetch('./data/photos.csv').catch(() => null),
@@ -148,6 +148,7 @@
         				fetch('./data/teamstats.csv'),
         				fetch('./data/biofile0.csv'),
         				fetch('./data/simulcasts.csv').catch(() => null),
+        				fetch('/api/current/gameinfo.csv').catch(() => null),
         			]);
         			// Local over-the-air simulcast games (hand-maintained; these never
         			// appear in the ESPN/MLB broadcast feeds, only in press releases).
@@ -174,7 +175,8 @@
         			if (gamesRes.ok && namesRes.ok) {
         				const teamstatsText = teamstatsRes?.ok ? await teamstatsRes.text() : null;
         				const namesText = await namesRes.text();
-        				const games = parseGameinfoCsv(await gamesRes.text(), namesText, teamstatsText);
+        				const gamesText = await gamesRes.text();
+        				const games = parseGameinfoCsv(gamesText, namesText, teamstatsText);
         				this.namesData = parseCurrentNamesCsv(namesText);
         				this.teamNames = this.namesData.teamNames;
         				if (playersRes?.ok) {
@@ -184,8 +186,20 @@
         				}
         				this.csvBySeason = buildSeasonMap(games);
         				if (teamstatsText) this.lineScores = parseTeamstatsLineScores(teamstatsText);
+        				// Current-season games synthesized from ESPN (data lines matching
+        				// the gameinfo header; empty once Retrosheet covers the season).
+        				// Merged ONLY into the h2h numbers — csvBySeason and friends must
+        				// stay CSV-only so season routing still treats this season as ESPN's.
+        				let h2hGames = games;
+        				const curGamesText = curGamesRes?.ok ? (await curGamesRes.text()).trim() : '';
+        				if (curGamesText) {
+        					const header = gamesText.slice(0, gamesText.indexOf('\n'));
+        					h2hGames = games.concat(parseGameinfoCsv(`${header}\n${curGamesText}`, namesText, null));
+        				}
         				// franchise code -> all-time head-to-head entry, for schedule annotations
-        				this.h2hByFranchise = new Map(computeHeadToHead(games).opponents.map(o => [o.franchise, o]));
+        				this.h2hByFranchise = new Map(computeHeadToHead(h2hGames).opponents.map(o => [o.franchise, o]));
+        				// Kept for the streak box's "last 10 vs next opponent" line.
+        				this.h2hRows = h2hGames;
         				// display name -> franchise code, so ESPN's team.displayName (e.g.
         				// "Chicago Cubs") can resolve to a franchise code for h2h lookup.
         				// Built from every era name so relocated/rebranded franchises match
@@ -831,7 +845,7 @@ createCsvGameItem(g, showH2h = false) {
         			const result = brewersScore > opponentScore ? 'WIN' : brewersScore < opponentScore ? 'LOSS' : 'TIE';
         			return { result, date: new Date(event.date) };
         		});
-        		this.updateStreakBanner(espnCompletedGames, isPastSeason);
+        		this.updateStreakBanner(espnCompletedGames, isPastSeason, tvGame);
         	}
 
         	updateScheduleTitle(year, seasonType) {
@@ -1638,7 +1652,7 @@ computeStreak(completedGames) {
  return { winStreak, lastLoss, daysSince };
 }
 
-updateStreakBanner(completedGames, isPastSeason) {
+updateStreakBanner(completedGames, isPastSeason, nextGame) {
   const el = document.getElementById('streak-banner');
   if (!el) return;
   if (completedGames.length === 0) {
@@ -1712,6 +1726,31 @@ const monthGames = sorted.filter(g => g.date.getMonth() === now.getMonth() && g.
 const parts = [];
 if (sorted.length >= 10) parts.push(`Last 10: <strong>${recordOf(sorted.slice(-10))}</strong>`);
 if (monthGames.length) parts.push(`${now.toLocaleDateString('en-US', { month: 'long' })}: <strong>${recordOf(monthGames)}</strong>`);
+
+// Last 10 vs the next opponent (live game counts as "next"), pooled from
+// all seasons — h2hRows already includes the current season's ESPN games.
+if (nextGame && this.h2hRows) {
+    const oppTeam = nextGame.competitions?.[0]?.competitors?.find(c => c.team?.abbreviation !== 'MIL')?.team;
+    const fran = oppTeam && this.displayNameToFranchise?.get(oppTeam.displayName);
+    const o = fran && this.h2hByFranchise?.get(fran);
+    if (o) {
+        const vsGames = this.h2hRows
+            .filter(r => r.franchise === fran && ['WIN', 'LOSS', 'TIE'].includes(r['Brewers Win']))
+            .sort((a, b) => (a.date < b.date ? -1 : 1))
+            .slice(-10);
+        if (vsGames.length) {
+            let w = 0, l = 0, t = 0;
+            for (const g of vsGames) {
+                if (g['Brewers Win'] === 'WIN') w++;
+                else if (g['Brewers Win'] === 'LOSS') l++;
+                else t++;
+            }
+            const recText = t > 0 ? `${w}-${l}-${t}` : `${w}-${l}`;
+            const short = oppTeam.shortDisplayName || o.name;
+            parts.push(`Last ${vsGames.length} vs <a href="/vs/${o.slug}">${short}</a>: <strong>${recText}</strong>`);
+        }
+    }
+}
 if (parts.length) html += `<div class="streak-extra">${parts.join(' &middot; ')}</div>`;
 
 el.innerHTML = html;

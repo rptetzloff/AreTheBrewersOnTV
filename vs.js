@@ -67,6 +67,7 @@ function focusCardHtml(o, detail) {
 			<div class="h2h-breakdown">
 				<div class="h2h-breakdown-grid">
 					${splitRow('Overall', d.overall)}
+					${splitRow(`Last ${d.lastTen.games}`, d.lastTen)}
 					${splitRow('Home', d.home)}
 					${splitRow('Away', d.away)}
 					${splitRow('Regular season', d.regular)}
@@ -114,13 +115,21 @@ function requestedSlug(data) {
 async function init() {
 	const wrap = document.getElementById('h2h-table-wrap');
 	try {
-		const [gamesRes, namesRes, teamstatsRes] = await Promise.all([
+		const [gamesRes, namesRes, teamstatsRes, curGamesRes, curTsRes] = await Promise.all([
 			fetch('/data/gameinfo.csv'),
 			fetch('/data/CurrentNames.csv'),
 			fetch('/data/teamstats.csv'),
+			fetch('/api/current/gameinfo.csv').catch(() => null),
+			fetch('/api/current/teamstats.csv').catch(() => null),
 		]);
 		if (!gamesRes.ok || !namesRes.ok || !teamstatsRes.ok) throw new Error(`CSV fetch failed: ${gamesRes.status}`);
-		const rows = parseGameinfoCsv(await gamesRes.text(), await namesRes.text(), await teamstatsRes.text());
+		// Current-season games synthesized from ESPN (empty once Retrosheet
+		// covers the season); appended so the all-time numbers include this year.
+		const curGames = curGamesRes?.ok ? (await curGamesRes.text()).trim() : '';
+		const curTs = curTsRes?.ok ? (await curTsRes.text()).trim() : '';
+		const gamesText = (await gamesRes.text()).trimEnd() + (curGames ? '\n' + curGames : '');
+		const teamstatsText = (await teamstatsRes.text()).trimEnd() + (curTs ? '\n' + curTs : '');
+		const rows = parseGameinfoCsv(gamesText, await namesRes.text(), teamstatsText);
 		const allTime = computeHeadToHead(rows);
 		// Group rows by franchise code for on-demand detail computation.
 		const rowsByFranchise = new Map();

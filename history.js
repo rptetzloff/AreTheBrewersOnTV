@@ -138,17 +138,23 @@ function renderHistoryTable() {
 
 async function init() {
 	try {
-		const [gamesRes, namesRes, teamstatsRes, biofileRes, managersRes, parksRes] = await Promise.all([
+		const [gamesRes, namesRes, teamstatsRes, biofileRes, managersRes, parksRes, curGamesRes, curTsRes] = await Promise.all([
 			fetch('/data/gameinfo.csv'),
 			fetch('/data/CurrentNames.csv'),
 			fetch('/data/teamstats.csv'),
 			fetch('/data/biofile0.csv'),
 			fetch('/data/managers.csv'),
 			fetch('/data/ballparks.csv'),
+			fetch('/api/current/gameinfo.csv').catch(() => null),
+			fetch('/api/current/teamstats.csv').catch(() => null),
 		]);
 		if (!gamesRes.ok || !namesRes.ok || !teamstatsRes.ok || !biofileRes.ok || !managersRes.ok || !parksRes.ok) throw new Error('CSV fetch failed');
-		const teamstatsText = await teamstatsRes.text();
-		const gameinfoText = await gamesRes.text();
+		// Current-season games synthesized from ESPN (empty once Retrosheet
+		// covers the season); appended so the chart and table include this year.
+		const curGames = curGamesRes?.ok ? (await curGamesRes.text()).trim() : '';
+		const curTs = curTsRes?.ok ? (await curTsRes.text()).trim() : '';
+		const teamstatsText = (await teamstatsRes.text()).trimEnd() + (curTs ? '\n' + curTs : '');
+		const gameinfoText = (await gamesRes.text()).trimEnd() + (curGames ? '\n' + curGames : '');
 		const rows = parseGameinfoCsv(gameinfoText, await namesRes.text(), teamstatsText);
 		const gidToMgr = parseTeamstatsMgr(teamstatsText);
 		const mgrNames = parseBiofile(await biofileRes.text());

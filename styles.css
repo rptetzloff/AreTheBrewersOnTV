@@ -338,6 +338,16 @@ details:not([open]) > .collapsible-summary::before {
     color: rgba(255, 255, 255, 0.65);
 }
 
+.streak-extra a {
+    color: inherit;
+    text-decoration: none;
+    border-bottom: 1px dotted rgba(255, 197, 47, 0.5);
+}
+
+.streak-extra a:hover {
+    color: #FFC52F;
+}
+
 /* keep on-this-day from having its own outer margin when inside details */
 .collapsible-section .on-this-day {
     margin-top: 0;
