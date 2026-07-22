@@ -1070,6 +1070,10 @@ details:not([open]) > .collapsible-summary::before {
     background: rgba(255, 255, 255, 0.08);
 }
 
+.footer-nav-link[aria-current="page"] {
+    color: #FFC52F;
+}
+
 .footer-nav-link .mdi {
     font-size: 0.95rem;
 }
