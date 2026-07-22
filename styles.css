@@ -2571,6 +2571,11 @@ details:not([open]) > .collapsible-summary::before {
     color: rgba(255, 255, 255, 0.65);
 }
 
+.record-combined {
+    font-style: italic;
+    color: rgba(255, 255, 255, 0.5);
+}
+
 /* Sponsor recognition: badge in the picker/bar, logo strip in the footer. */
 .sponsor-badge {
     display: inline-block;

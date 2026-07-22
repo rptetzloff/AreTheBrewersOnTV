@@ -11,6 +11,19 @@ const blowoutEntry = (g) => ({
 	main: `${g.pf}–${g.pa}`, sub: `vs ${g.opponent}`,
 	detailHtml: `${gameLink(g.season, g.gid, esc(formatDate(g.date)))}${esc(gameFlag(g))}`,
 });
+// No-hitter entry: like a blowout entry, but says who threw it — one pitcher
+// is an individual no-hitter, several a combined one. Without pitcher data
+// (server feats unavailable) the entry just omits the attribution.
+const noHitterEntry = (g) => {
+	const who = g.pitchers?.length
+		? `${esc(g.pitchers.join(', '))}${g.pitchers.length > 1 ? ' <span class="record-combined">(combined)</span>' : ''}`
+		: '';
+	return {
+		main: `${g.pf}–${g.pa}`, sub: `vs ${g.opponent}`,
+		detailHtml: `${gameLink(g.season, g.gid, esc(formatDate(g.date)))}${esc(gameFlag(g))}${who ? ` · ${who}` : ''}`,
+	};
+};
+
 const seasonEntry = (s) => ({
 	main: s.record,
 	subHtml: yearLink(s.season),
@@ -58,16 +71,16 @@ const CARDS = [
 	},
 	{
 		slug: 'no-hitters', icon: 'mdi-baseball', title: 'No-Hitters',
-		note: 'Every no-hitter in franchise history, most recent first',
+		note: 'Every no-hitter in franchise history, individual and combined, most recent first',
 		highlightTop: false,
-		entries: (d) => d.noHitters.map(blowoutEntry),
+		entries: (d) => d.noHitters.map(noHitterEntry),
 		empty: 'The Brewers have never thrown a no-hitter.',
 	},
 	{
 		slug: 'perfect-games', icon: 'mdi-baseball-diamond', title: 'Perfect Games',
 		note: 'Every perfect game in franchise history, most recent first',
 		highlightTop: false,
-		entries: (d) => d.perfectGames.map(blowoutEntry),
+		entries: (d) => d.perfectGames.map(noHitterEntry),
 		empty: 'The Brewers have never thrown a perfect game.',
 	},
 	{
@@ -201,6 +214,13 @@ async function init() {
 			...computeSuperlatives(rows), ...computeTeamstatsRecords(rows, teamstatsText),
 			cycles: featsJson?.cycles || [], playerHrGames: featsJson?.playerHrGames || [],
 		};
+		// Pitcher names per no-hitter (one = individual, several = combined).
+		const nhPitchers = featsJson?.noHitterPitchers || {};
+		for (const list of [data.noHitters, data.perfectGames]) {
+			for (const nh of list || []) {
+				if (nhPitchers[nh.gid]) nh.pitchers = nhPitchers[nh.gid];
+			}
+		}
 		document.getElementById('records-subtitle').textContent =
 			`Milwaukee Brewers · ${data.seasonRange.first}–${data.seasonRange.last}`;
 		grid.innerHTML = CARDS.map((c) => cardHtml(c, data)).join('');

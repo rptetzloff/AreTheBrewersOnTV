@@ -741,9 +741,12 @@ export function recordsCopy(slug, data) {
 			const n = data.noHitters;
 			if (!n.length) return { title: 'Brewers No-Hitters', desc: 'The Brewers have never thrown a no-hitter.' };
 			const g = n[0];
+			const who = g.pitchers?.length
+				? (g.pitchers.length > 1 ? `, a combined no-hitter by ${g.pitchers.join(' and ')}` : ` by ${g.pitchers[0]}`)
+				: '';
 			return {
 				title: `Brewers No-Hitters — ${n.length} all-time`,
-				desc: `The Brewers have thrown ${n.length} no-hitter${n.length === 1 ? '' : 's'}. Most recent: ${g.pf}–${g.pa} vs the ${g.opponent} on ${formatDate(g.date)}.`,
+				desc: `The Brewers have thrown ${n.length} no-hitter${n.length === 1 ? '' : 's'}, individual and combined. Most recent: ${g.pf}–${g.pa} vs the ${g.opponent} on ${formatDate(g.date)}${who}.`,
 			};
 		}
 		case 'perfect-games': {

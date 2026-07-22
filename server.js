@@ -10,10 +10,10 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join, normalize, extname } from 'node:path';
 import { renderPng, renderRecordsPng, renderH2hPng, renderHistoryPng, renderCoachesPng } from './lib/cards.js';
 import { getSeasonState, defaultSeason } from './lib/seasons.js';
-import { records, recordsMeta, isRecordSlug, seasonHistory, historyMeta, registerBattingFeats } from './lib/records.js';
+import { records, recordsMeta, isRecordSlug, seasonHistory, historyMeta, registerBattingFeats, registerNoHitterPitchers } from './lib/records.js';
 import { coaches, coachesMeta } from './lib/coaches.js';
 import { h2h, h2hMeta, isOpponentSlug } from './lib/h2h.js';
-import { esc, parseCurrentNamesCsv, parseBallparksCsv, parseTeamstatsLineScores } from './records-core.js';
+import { esc, parseCurrentNamesCsv, parseBallparksCsv, parseTeamstatsLineScores, BREWERS_IDS } from './records-core.js';
 import { buildGameIndex, buildPitchingIndex, buildBattingIndex, buildFieldingIndex, buildPlayerNameMap, buildBoxscore, createScoringPlaysCollector, computeBattingFeats } from './boxscore-core.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -214,6 +214,15 @@ async function buildBoxIndices() {
   // exist in these indices — hand them to the records module for the
   // /records page, meta, and cards.
   registerBattingFeats(computeBattingFeats(indices.batting, indices.playerNames));
+  // Pitcher names for each no-hitter (one name = individual, more = combined).
+  const nhPitchers = {};
+  for (const nh of [...(records.noHitters || []), ...(records.perfectGames || [])]) {
+    const rows = (indices.pitching.get(nh.gid) || [])
+      .filter(p => BREWERS_IDS.has(p.team))
+      .sort((a, b) => a.seq - b.seq);
+    if (rows.length) nhPitchers[nh.gid] = rows.map(p => indices.playerNames.get(p.id) || p.id);
+  }
+  registerNoHitterPitchers(nhPitchers);
   console.log(`box score indices built in ${((Date.now() - started) / 1000).toFixed(1)}s`);
   return indices;
 }
@@ -408,7 +417,11 @@ const server = http.createServer(async (req, res) => {
     if (pathname === '/api/records/batting') {
       await getBoxIndices();
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=3600' });
-      return res.end(JSON.stringify({ cycles: records.cycles || [], playerHrGames: records.playerHrGames || [] }));
+      return res.end(JSON.stringify({
+        cycles: records.cycles || [],
+        playerHrGames: records.playerHrGames || [],
+        noHitterPitchers: records.noHitterPitchers || {},
+      }));
     }
 
     const boxApi = pathname.match(/^\/api\/boxscore\/(.+)$/);
