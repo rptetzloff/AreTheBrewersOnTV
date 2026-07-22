@@ -1,9 +1,9 @@
-provider,display_name,alternate_name,website_url,channel_lineup,service_areas,logo_url,logo_bg,sponsor
+provider,display_name,alternate_name,website_url,channel_lineup,service_areas,logo_url,logo_bg,display_logo
 directv,DirecTV,,https://www.directv.com/,https://www.directv.com/insider/directv-channel-guide-lineup/,,,
 comcast,Xfinity,Comcast,https://www.xfinity.com/,https://www.xfinity.com/support/local-channel-lineup,,,
 att_uverse,AT&T Uverse,AT&T,https://www.att.com/,https://www.att.com/idpassets/pdfs/channel_lineups/Uverse_Channel_Lineup.pdf,,,
 spectrum,Spectrum,"Charter,Time Warner Cable",https://www.spectrum.com/,https://www.spectrum.com/cable-tv/channel-lineup,"IP National | Madison | Milwaukee | Duluth-Superior | Green Bay-Appleton | LaCrosse-Eau Claire | Minneapolis-St Paul | Wausau-Rhinelander | Menominee, MI",,
-amherst,Amherst Communications,"Union Telephone Company,Amherst Telephone Company,Tomorrow Valley Cable Television",https://amherstcomm.net/,https://amherstcomm.net/channel_lineup/,"Portage, Marathon, or Adams County | Waushara or Waupaca County | Marquette County",/logos/AmherstComm.svg,#FFFFFF,yes
+amherst,Amherst Communications,"Union Telephone Company,Amherst Telephone Company,Tomorrow Valley Cable Television",https://amherstcomm.net/,https://amherstcomm.net/channel_lineup/,"Portage, Marathon, or Adams County | Waushara or Waupaca County | Marquette County",/logos/AmherstComm.svg,#FFFFFF,no
 celect,Celect Communications,"Bruce Telephone Company,24-7 Telcom,West Wisconsin Telephone Cooperative,Ntera,Citizens Connected,Mosaic Telecom,Mosaic Technologies,Chibardun Telephone Cooperative,CTC Telcom,Bloomer Telephone Company,Bloomer Broadband,Spring Valley Telephone,SVT Broadband",https://www.celectcom.net/,https://www.celectcom.net/channel-lineup/,,,
 ntec,ntec,"NTEC,Nelson Telephone Cooperative,Nelson Communications Cooperative",https://ntec.net/,https://ntec.net/wp-content/uploads/Channel-Guide.pdf,,,
 coon_valley,Coon Valley Farmer's Telephone Company,,https://www.coonvalleytel.com/,https://www.coonvalleytel.com/s/streaming_channel_lineup_residential-6-15-26.pdf,,,

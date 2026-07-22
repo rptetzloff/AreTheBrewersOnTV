@@ -904,10 +904,10 @@ createCsvGameItem(g, showH2h = false) {
         		const num = this.scheduleChannelNumber(b);
         		const live = tvGame.competitions?.[0]?.status?.type?.state === 'in';
         		const gameWord = live ? 'game' : 'next game';
-        		// Sponsors with a logo get banner treatment: a large logo block
-        		// on the sponsor's background color, with the channel centered
+        		// Providers flagged display_logo get banner treatment: a large
+        		// logo block on their background color, with the channel centered
         		// underneath. Clicks bubble to the answer (Where to Watch).
-        		if (provider.sponsor && provider.logo_url) {
+        		if (provider.displayLogo && provider.logo_url) {
         			const bg = provider.logo_bg ? ` style="background:${provider.logo_bg}"` : '';
         			const chPill = num ? ` <span class="answer-provider-ch">Ch. ${num}</span>` : '';
         			return `<div class="answer-provider-note answer-provider-note-sponsor">
@@ -1826,7 +1826,9 @@ _loadTvLookup(channelLookupRaw, providerLookupRaw) {
         .split('|').map(s => s.trim()).filter(Boolean),
       logo_url: (p.logo_url || '').trim(),
       logo_bg: (p.logo_bg || '').trim(),
-      sponsor: /^(yes|true|1)$/i.test((p.sponsor || '').trim()),
+      // ?? p.sponsor: the column's old name — browser-cached CSVs can serve
+      // it for up to an hour after deploy.
+      displayLogo: /^(yes|true|1)$/i.test(((p.display_logo ?? p.sponsor) || '').trim()),
       channels: {},
     };
     // index display name + each comma-separated alternate name
@@ -2002,7 +2004,9 @@ initWatchModal() {
 // them. A failed image load removes the element rather than showing a broken
 // icon.
 providerLogoEl(provider, large = false) {
-  if (!provider?.logo_url) return null;
+  // display_logo is the master switch: a provider with a logo on file but
+  // the flag off renders as name-only everywhere.
+  if (!provider?.logo_url || !provider.displayLogo) return null;
   const wrap = document.createElement('span');
   wrap.className = 'provider-logo' + (large ? ' provider-logo-large' : '');
   if (provider.logo_bg) wrap.style.background = provider.logo_bg;
@@ -2206,12 +2210,6 @@ _buildProviderInput({ label, inputId, listId, placeholder, onChange, inline = fa
       name.className = 'watch-provider-suggestion-name';
       name.textContent = m.p.display_name;
       row.appendChild(name);
-      if (m.p.sponsor) {
-        const badge = document.createElement('span');
-        badge.className = 'sponsor-badge';
-        badge.textContent = 'Sponsor';
-        row.appendChild(badge);
-      }
       if (m.via) {
         const via = document.createElement('span');
         via.className = 'watch-provider-suggestion-via';
@@ -2348,14 +2346,14 @@ renderScheduleProviderBar() {
     display.appendChild(header);
     const slot = document.createElement('div');
     slot.className = 'schedule-provider-slot';
-    // Site sponsors' banner logos link to their website.
+    // Banner logos link to the provider's website.
     const meta = this.providerMeta[this.selectedProvider];
-    if (meta.sponsor && meta.website_url) {
+    if (meta.displayLogo && meta.website_url) {
       const link = document.createElement('a');
       link.className = 'schedule-provider-logo-link';
       link.href = meta.website_url;
       link.target = '_blank';
-      link.rel = 'sponsored noopener noreferrer';
+      link.rel = 'noopener noreferrer';
       link.title = meta.display_name;
       link.appendChild(logo);
       slot.appendChild(link);
@@ -2365,13 +2363,6 @@ renderScheduleProviderBar() {
     const caption = document.createElement('span');
     caption.className = 'schedule-provider-caption';
     caption.textContent = current;
-    if (this.providerMeta[this.selectedProvider]?.sponsor) {
-      const badge = document.createElement('span');
-      badge.className = 'sponsor-badge';
-      badge.textContent = 'Site sponsor';
-      caption.appendChild(document.createTextNode(' '));
-      caption.appendChild(badge);
-    }
     slot.appendChild(caption);
     display.appendChild(slot);
   } else {
