@@ -2559,6 +2559,13 @@ details:not([open]) > .collapsible-summary::before {
     gap: 0.3rem;
 }
 
+/* Sponsor banner logos link out; the anchor must keep the banner's width. */
+.schedule-provider-logo-link {
+    display: block;
+    width: 100%;
+    line-height: 0;
+}
+
 .schedule-provider-caption {
     font-size: 0.75rem;
     color: rgba(255, 255, 255, 0.65);

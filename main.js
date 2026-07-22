@@ -2293,7 +2293,20 @@ renderScheduleProviderBar() {
     display.appendChild(header);
     const slot = document.createElement('div');
     slot.className = 'schedule-provider-slot';
-    slot.appendChild(logo);
+    // Site sponsors' banner logos link to their website.
+    const meta = this.providerMeta[this.selectedProvider];
+    if (meta.sponsor && meta.website_url) {
+      const link = document.createElement('a');
+      link.className = 'schedule-provider-logo-link';
+      link.href = meta.website_url;
+      link.target = '_blank';
+      link.rel = 'sponsored noopener noreferrer';
+      link.title = meta.display_name;
+      link.appendChild(logo);
+      slot.appendChild(link);
+    } else {
+      slot.appendChild(logo);
+    }
     const caption = document.createElement('span');
     caption.className = 'schedule-provider-caption';
     caption.textContent = current;
