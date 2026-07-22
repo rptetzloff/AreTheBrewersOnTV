@@ -887,7 +887,21 @@ createCsvGameItem(g, showH2h = false) {
         		const network = ch?.display_name || b.media.shortName;
         		const num = this.scheduleChannelNumber(b);
         		const live = tvGame.competitions?.[0]?.status?.type?.state === 'in';
-        		return `<div class="answer-provider-note">${provider.display_name} has the ${live ? 'game' : 'next game'} on ${network}${num ? ` (Ch. ${num})` : ''}</div>`;
+        		const gameWord = live ? 'game' : 'next game';
+        		// Sponsors with a logo get banner treatment: a large logo block
+        		// on the sponsor's background color, with the channel centered
+        		// underneath. Clicks bubble to the answer (Where to Watch).
+        		if (provider.sponsor && provider.logo_url) {
+        			const bg = provider.logo_bg ? ` style="background:${provider.logo_bg}"` : '';
+        			const chPill = num ? ` <span class="answer-provider-ch">Ch. ${num}</span>` : '';
+        			return `<div class="answer-provider-note answer-provider-note-sponsor">
+        				<span class="answer-sponsor-banner" role="button" title="Where to watch">
+        					<span class="answer-sponsor-logo"${bg}><img src="${provider.logo_url}" alt="${provider.display_name} logo"></span>
+        					<span class="answer-sponsor-ch">has the ${gameWord} on <strong>${network}</strong>${chPill}</span>
+        				</span>
+        			</div>`;
+        		}
+        		return `<div class="answer-provider-note">${provider.display_name} has the ${gameWord} on ${network}${num ? ` (Ch. ${num})` : ''}</div>`;
         	}
 
         	// Re-render the note when the provider or service area changes.

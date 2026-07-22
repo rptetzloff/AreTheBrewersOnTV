@@ -11,11 +11,36 @@ const blowoutEntry = (g) => ({
 	main: `${g.pf}–${g.pa}`, sub: `vs ${g.opponent}`,
 	detailHtml: `${gameLink(g.season, g.gid, esc(formatDate(g.date)))}${esc(gameFlag(g))}`,
 });
+// No-hitter entry: like a blowout entry, but says who threw it — one pitcher
+// is an individual no-hitter, several a combined one. Without pitcher data
+// (server feats unavailable) the entry just omits the attribution.
+const noHitterEntry = (g) => {
+	const who = g.pitchers?.length
+		? `${esc(g.pitchers.join(', '))}${g.pitchers.length > 1 ? ' <span class="record-combined">(combined)</span>' : ''}`
+		: '';
+	return {
+		main: `${g.pf}–${g.pa}`, sub: `vs ${g.opponent}`,
+		detailHtml: `${gameLink(g.season, g.gid, esc(formatDate(g.date)))}${esc(gameFlag(g))}${who ? ` · ${who}` : ''}`,
+	};
+};
+
 const seasonEntry = (s) => ({
 	main: s.record,
 	subHtml: yearLink(s.season),
 	detailHtml: `.${String(Math.round(s.winPct * 1000)).padStart(3, '0')} winning percentage`,
 });
+
+// Card order pairs related records side by side in the two-column grid:
+// best/worst seasons, best/worst starts, win/losing streaks, lopsided
+// wins/losses, no-hitters/perfect games, team/player HR, RBI/cycles,
+// playoff/WS appearances, player/team errors, triple plays/ties.
+const streakEntries = (list) => (list || []).map((s) => ({
+	main: `${s.games} straight`,
+	subHtml: s.startSeason === s.endSeason
+		? yearLink(s.startSeason)
+		: `${yearLink(s.startSeason)}–${yearLink(s.endSeason)}`,
+	detailHtml: `${gameLink(s.startSeason, s.startGid, esc(formatDate(s.startDate)))} – ${gameLink(s.endSeason, s.endGid, esc(formatDate(s.endDate)))}`,
+}));
 
 const CARDS = [
 	{
@@ -33,19 +58,19 @@ const CARDS = [
 		note: 'Wins to open a season',
 		entries: (d) => d.bestStarts.map((b) => ({ main: `${b.games}–0`, subHtml: gameLink(b.season, b.firstGid, yearLink(b.season)) })),	},
 	{
-		slug: 'win-streaks', icon: 'mdi-fire', title: 'Longest Win Streaks',
-		note: 'Consecutive regular-season wins (ties end a streak)',
-		entries: (d) => d.winStreaks.map((s) => ({
-			main: `${s.games} straight`,
-			subHtml: s.startSeason === s.endSeason
-				? yearLink(s.startSeason)
-				: `${yearLink(s.startSeason)}–${yearLink(s.endSeason)}`,
-			detailHtml: `${gameLink(s.startSeason, s.startGid, esc(formatDate(s.startDate)))} – ${gameLink(s.endSeason, s.endGid, esc(formatDate(s.endDate)))}`,
-		})),	},
-	{
 		slug: 'worst-starts', icon: 'mdi-trending-down', title: 'Worst Season Starts',
 		note: 'Losses to open a season',
 		entries: (d) => d.worstStarts.map((w) => ({ main: `0–${w.games}`, subHtml: gameLink(w.season, w.firstGid, yearLink(w.season)) })),	},
+	{
+		slug: 'win-streaks', icon: 'mdi-fire', title: 'Longest Win Streaks',
+		note: 'Consecutive regular-season wins (ties end a streak)',
+		entries: (d) => streakEntries(d.winStreaks),
+	},
+	{
+		slug: 'losing-streaks', icon: 'mdi-snowflake', title: 'Longest Losing Streaks',
+		note: 'Consecutive regular-season losses (ties end a streak)',
+		entries: (d) => streakEntries(d.loseStreaks),
+	},
 	{
 		slug: 'lopsided-wins', icon: 'mdi-scoreboard-outline', title: 'Most Lopsided Wins',
 		note: 'Biggest margins of victory, playoffs included',
@@ -58,28 +83,17 @@ const CARDS = [
 	},
 	{
 		slug: 'no-hitters', icon: 'mdi-baseball', title: 'No-Hitters',
-		note: 'Every no-hitter in franchise history, most recent first',
+		note: 'Every no-hitter in franchise history, individual and combined, most recent first',
 		highlightTop: false,
-		entries: (d) => d.noHitters.map(blowoutEntry),
+		entries: (d) => d.noHitters.map(noHitterEntry),
 		empty: 'The Brewers have never thrown a no-hitter.',
 	},
 	{
 		slug: 'perfect-games', icon: 'mdi-baseball-diamond', title: 'Perfect Games',
 		note: 'Every perfect game in franchise history, most recent first',
 		highlightTop: false,
-		entries: (d) => d.perfectGames.map(blowoutEntry),
+		entries: (d) => d.perfectGames.map(noHitterEntry),
 		empty: 'The Brewers have never thrown a perfect game.',
-	},
-	{
-		slug: 'triple-plays', icon: 'mdi-numeric-3-circle-outline', title: 'Triple Plays',
-		note: 'Every triple play the Brewers have turned, most recent first',
-		highlightTop: false,
-		entries: (d) => (d.triplePlays || []).map((g) => ({
-			main: g.count > 1 ? `${g.count} in one game` : `vs ${g.opponent}`,
-			sub: g.count > 1 ? `vs ${g.opponent}` : `${g.pf}–${g.pa}`,
-			detailHtml: `${gameLink(g.season, g.gid, esc(formatDate(g.date)))}${esc(gameFlag(g))}`,
-		})),
-		empty: 'The Brewers have never turned a triple play.',
 	},
 	{
 		slug: 'most-hr-game', icon: 'mdi-baseball-bat', title: 'Most Home Runs in a Game (Team)',
@@ -102,6 +116,15 @@ const CARDS = [
 		empty: 'No Brewer has hit three home runs in a game. Yet.',
 	},
 	{
+		slug: 'player-rbi-game', icon: 'mdi-counter', title: 'Most RBIs in a Game (Player)',
+		note: 'Best single-game RBI totals by a Brewer (ties included)',
+		entries: (d) => (d.playerRbiGames || []).map((g) => ({
+			main: `${g.rbi} RBI`,
+			sub: `${g.player} vs ${g.opponent}`,
+			detailHtml: `${gameLink(g.season, g.gid, esc(formatDate(g.date)))}${esc(gameFlag(g))} · ${g.h} H, ${g.hr} HR`,
+		})),
+	},
+	{
 		slug: 'cycles', icon: 'mdi-sync-circle', title: 'Cycles',
 		note: 'Every Brewer to hit for the cycle, most recent first',
 		highlightTop: false,
@@ -111,6 +134,16 @@ const CARDS = [
 			detailHtml: `${gameLink(c.season, c.gid, esc(formatDate(c.date)))}${esc(gameFlag(c))} · ${c.h}-for-${c.ab}`,
 		})),
 		empty: 'No Brewer has hit for the cycle. Yet.',
+	},
+	{
+		slug: 'playoff-appearances', icon: 'mdi-medal-outline', title: 'Playoff Appearances',
+		note: 'Brewers postseason series results by year',
+		highlightTop: false,
+		entries: (d) => d.playoffAppearances.map((p) => ({
+			main: String(p.season),
+			subHtml: p.series.map((s) => `<a href="/game/${esc(s.firstGid)}">${esc(s.result)} ${esc(s.roundLabel)} vs ${esc(s.opponent)} (${esc(s.record)})</a>`).join('<br>'),
+		})),
+		empty: 'The Brewers have not yet reached the playoffs.',
 	},
 	{
 		slug: 'world-series-appearances', icon: 'mdi-trophy-outline', title: 'World Series Appearances',
@@ -123,14 +156,38 @@ const CARDS = [
 		empty: 'The Brewers have not yet reached a World Series.',
 	},
 	{
-		slug: 'playoff-appearances', icon: 'mdi-medal-outline', title: 'Playoff Appearances',
-		note: 'Brewers postseason series results by year',
-		highlightTop: false,
-		entries: (d) => d.playoffAppearances.map((p) => ({
-			main: String(p.season),
-			subHtml: p.series.map((s) => `<a href="/game/${esc(s.firstGid)}">${esc(s.result)} ${esc(s.roundLabel)} vs ${esc(s.opponent)} (${esc(s.record)})</a>`).join('<br>'),
+		slug: 'player-error-game', icon: 'mdi-alert-circle-outline', title: 'Most Errors in a Game (Player)',
+		note: 'Most errors charged to a Brewer in a single game (ties included)',
+		entries: (d) => (d.playerErrorGames || []).map((g) => ({
+			main: `${g.e} E`,
+			sub: `${g.player} (${g.pos}) vs ${g.opponent}`,
+			detailHtml: `${gameLink(g.season, g.gid, esc(formatDate(g.date)))}${esc(gameFlag(g))}`,
 		})),
-		empty: 'The Brewers have not yet reached the playoffs.',
+	},
+	{
+		slug: 'team-error-game', icon: 'mdi-alert-octagon-outline', title: 'Most Errors in a Game (Team)',
+		note: 'Most errors committed by the Brewers in a single game (ties included)',
+		entries: (d) => (d.mostTeamErrorGames || []).map((g) => ({
+			main: `${g.e} E`,
+			sub: `vs ${g.opponent} (${g.pf}–${g.pa})`,
+			detailHtml: `${gameLink(g.season, g.gid, esc(formatDate(g.date)))}${esc(gameFlag(g))}`,
+		})),
+	},
+	{
+		slug: 'triple-plays', icon: 'mdi-numeric-3-circle-outline', title: 'Triple Plays',
+		note: 'Every triple play the Brewers have turned, most recent first',
+		highlightTop: false,
+		entries: (d) => (d.triplePlays || []).map((g) => {
+			const who = g.fielders?.length
+				? ` · ${esc(g.fielders.map((f) => `${f.name} (${f.pos})`).join(', '))}`
+				: '';
+			return {
+				main: g.count > 1 ? `${g.count} in one game` : `vs ${g.opponent}`,
+				sub: g.count > 1 ? `vs ${g.opponent}` : `${g.pf}–${g.pa}`,
+				detailHtml: `${gameLink(g.season, g.gid, esc(formatDate(g.date)))}${esc(gameFlag(g))}${who}`,
+			};
+		}),
+		empty: 'The Brewers have never turned a triple play.',
 	},
 	{
 		slug: 'ties', icon: 'mdi-equal', title: 'Ties',
@@ -200,7 +257,21 @@ async function init() {
 		const data = {
 			...computeSuperlatives(rows), ...computeTeamstatsRecords(rows, teamstatsText),
 			cycles: featsJson?.cycles || [], playerHrGames: featsJson?.playerHrGames || [],
+			playerRbiGames: featsJson?.playerRbiGames || [],
+			playerErrorGames: featsJson?.playerErrorGames || [],
 		};
+		// Fielders credited on each triple play.
+		const tpFielders = featsJson?.triplePlayFielders || {};
+		for (const tp of data.triplePlays || []) {
+			if (tpFielders[tp.gid]) tp.fielders = tpFielders[tp.gid];
+		}
+		// Pitcher names per no-hitter (one = individual, several = combined).
+		const nhPitchers = featsJson?.noHitterPitchers || {};
+		for (const list of [data.noHitters, data.perfectGames]) {
+			for (const nh of list || []) {
+				if (nhPitchers[nh.gid]) nh.pitchers = nhPitchers[nh.gid];
+			}
+		}
 		document.getElementById('records-subtitle').textContent =
 			`Milwaukee Brewers · ${data.seasonRange.first}–${data.seasonRange.last}`;
 		grid.innerHTML = CARDS.map((c) => cardHtml(c, data)).join('');

@@ -1621,7 +1621,11 @@ details:not([open]) > .collapsible-summary::before {
 
 .records-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    /* Columns never drop below 300px — narrower and the entry detail lines
+       (dates, pitcher/fielder attributions) wrap badly. The container caps at
+       900px (836px inner), so this always yields one or two comfortable
+       columns. min(100%, …) keeps very small phones from overflowing. */
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
     gap: 1.25rem;
     text-align: left;
 }
@@ -1686,19 +1690,12 @@ details:not([open]) > .collapsible-summary::before {
 }
 
 .record-entry-detail {
-    grid-column: 2;
+    /* A consistent small indent from the card edge — aligning under the sub
+       text pushed details far right whenever the first column was wide. */
+    grid-column: 1 / -1;
+    padding-left: 1rem;
     color: rgba(255, 255, 255, 0.55);
     font-size: 0.8rem;
-}
-
-.record-entry-top .record-entry-main {
-    color: #FFC52F;
-    font-size: 1.6rem;
-}
-
-.record-entry-top .record-entry-sub {
-    font-size: 1.1rem;
-    font-weight: 600;
 }
 
 .record-entry a {
@@ -2571,6 +2568,11 @@ details:not([open]) > .collapsible-summary::before {
     color: rgba(255, 255, 255, 0.65);
 }
 
+.record-combined {
+    font-style: italic;
+    color: rgba(255, 255, 255, 0.5);
+}
+
 /* Sponsor recognition: badge in the picker/bar, logo strip in the footer. */
 .sponsor-badge {
     display: inline-block;
@@ -2627,6 +2629,59 @@ details:not([open]) > .collapsible-summary::before {
     font-weight: 600;
     letter-spacing: normal;
     color: rgba(255, 255, 255, 0.75);
+}
+
+/* Sponsor version: a large logo banner on the sponsor's background color,
+   with the channel line centered underneath. The whole answer is already
+   clickable (Where to Watch). */
+.answer-sponsor-banner {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+    cursor: pointer;
+}
+
+.answer-sponsor-logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: min(100%, 320px);
+    box-sizing: border-box;
+    padding: 0.55rem 1.2rem;
+    border-radius: 10px;
+    transition: filter 0.15s;
+}
+
+.answer-sponsor-banner:hover .answer-sponsor-logo {
+    filter: brightness(1.08);
+}
+
+.answer-sponsor-logo img {
+    display: block;
+    height: 50px;
+    max-width: 100%;
+    object-fit: contain;
+}
+
+.answer-sponsor-ch {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.answer-sponsor-ch strong {
+    color: #FFC52F;
+}
+
+.answer-provider-ch {
+    background: #FFC52F;
+    color: #12284B;
+    font-weight: 800;
+    font-size: 0.8rem;
+    border-radius: 999px;
+    padding: 0.15rem 0.55rem;
+    white-space: nowrap;
 }
 
 /* Inline mode (the dedicated provider dialog): the list is in-flow dialog
