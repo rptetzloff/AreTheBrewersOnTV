@@ -13,6 +13,7 @@ import { getSeasonState, defaultSeason } from './lib/seasons.js';
 import { records, recordsMeta, isRecordSlug, seasonHistory, historyMeta, registerBattingFeats, registerNoHitterPitchers, registerTriplePlayFielders } from './lib/records.js';
 import { coaches, coachesMeta } from './lib/coaches.js';
 import { h2h, h2hMeta, isOpponentSlug } from './lib/h2h.js';
+import { getCurrentSeasonCsvs } from './lib/espn-current.js';
 import { esc, parseCurrentNamesCsv, parseBallparksCsv, parseTeamstatsLineScores, BREWERS_IDS } from './records-core.js';
 import { buildGameIndex, buildPitchingIndex, buildBattingIndex, buildFieldingIndex, buildPlayerNameMap, buildBoxscore, createScoringPlaysCollector, computeBattingFeats, computeFieldingFeats, POS_NAMES } from './boxscore-core.js';
 
@@ -465,6 +466,15 @@ const server = http.createServer(async (req, res) => {
     // request per TTL window instead of each polling ESPN.
     if (pathname.startsWith('/api/espn/')) {
       return await serveEspnProxy(res, pathname.slice('/api/espn/'.length), url.search);
+    }
+
+    // Current-season games as Retrosheet-shaped CSV data lines (no header),
+    // for the h2h/history/managers pages to append to the real CSVs. Empty
+    // once Retrosheet's files cover the season.
+    if (pathname === '/api/current/gameinfo.csv' || pathname === '/api/current/teamstats.csv') {
+      const cur = await getCurrentSeasonCsvs();
+      res.writeHead(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Cache-Control': 'public, max-age=300' });
+      return res.end(pathname.endsWith('/gameinfo.csv') ? cur.gameinfo : cur.teamstats);
     }
 
     // Batting feats for the records page — computed server-side from the

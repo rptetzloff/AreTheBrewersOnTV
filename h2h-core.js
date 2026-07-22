@@ -80,9 +80,14 @@ export function computeOpponentDetail(rows) {
 		.map(([name, c]) => ({ name, record: splitRec(c), games: splitGames(c), wins: c.WIN, losses: c.LOSS, ties: c.TIE, winPct: splitPct(c) }))
 		.sort((a, b) => b.games - a.games || (a.name < b.name ? -1 : 1));
 
+	// Most recent 10 meetings (any venue/type), chronological tail.
+	const lastTen = splitCount();
+	for (const g of games.slice(-10)) bump(lastTen, g['Brewers Win']);
+
 	return {
 		games: games.length,
-		overall: { record: splitRec(overall), wins: overall.WIN, losses: overall.LOSS, ties: overall.TIE, winPct: splitPct(overall) },
+		overall: { record: splitRec(overall), games: splitGames(overall), wins: overall.WIN, losses: overall.LOSS, ties: overall.TIE, winPct: splitPct(overall) },
+		lastTen: { record: splitRec(lastTen), games: splitGames(lastTen), wins: lastTen.WIN, losses: lastTen.LOSS, ties: lastTen.TIE, winPct: splitPct(lastTen) },
 		home: { record: splitRec(home), games: splitGames(home), wins: home.WIN, losses: home.LOSS, ties: home.TIE, winPct: splitPct(home) },
 		away: { record: splitRec(away), games: splitGames(away), wins: away.WIN, losses: away.LOSS, ties: away.TIE, winPct: splitPct(away) },
 		regular: { record: splitRec(regular), games: splitGames(regular), wins: regular.WIN, losses: regular.LOSS, ties: regular.TIE, winPct: splitPct(regular) },
