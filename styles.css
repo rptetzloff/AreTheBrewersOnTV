@@ -2631,6 +2631,59 @@ details:not([open]) > .collapsible-summary::before {
     color: rgba(255, 255, 255, 0.75);
 }
 
+/* Sponsor version: a large logo banner on the sponsor's background color,
+   with the channel line centered underneath. The whole answer is already
+   clickable (Where to Watch). */
+.answer-sponsor-banner {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+    cursor: pointer;
+}
+
+.answer-sponsor-logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: min(100%, 320px);
+    box-sizing: border-box;
+    padding: 0.55rem 1.2rem;
+    border-radius: 10px;
+    transition: filter 0.15s;
+}
+
+.answer-sponsor-banner:hover .answer-sponsor-logo {
+    filter: brightness(1.08);
+}
+
+.answer-sponsor-logo img {
+    display: block;
+    height: 50px;
+    max-width: 100%;
+    object-fit: contain;
+}
+
+.answer-sponsor-ch {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.answer-sponsor-ch strong {
+    color: #FFC52F;
+}
+
+.answer-provider-ch {
+    background: #FFC52F;
+    color: #12284B;
+    font-weight: 800;
+    font-size: 0.8rem;
+    border-radius: 999px;
+    padding: 0.15rem 0.55rem;
+    white-space: nowrap;
+}
+
 /* Inline mode (the dedicated provider dialog): the list is in-flow dialog
    content below the input rather than a floating overlay, so it can't clip
    against the dialog's own scroll container. */
