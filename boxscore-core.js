@@ -366,6 +366,32 @@ function nonBatterEvent(f) {
   return 'Runner advance';
 }
 
+// Scan the fielding index for players charged 3+ errors in a game. A player
+// can have rows at multiple positions; errors are summed per game and the
+// position with the most errors is reported.
+export function computeFieldingFeats(fieldingIndex, playerNames) {
+  const playerErrorGames = [];
+  for (const [gid, rows] of fieldingIndex) {
+    const byPlayer = new Map();
+    for (const f of rows) {
+      if (!BREWERS_IDS.has(f.team) || f.e === 0) continue;
+      const cur = byPlayer.get(f.id) || { e: 0, pos: f.pos, posE: 0 };
+      cur.e += f.e;
+      if (f.e > cur.posE) { cur.pos = f.pos; cur.posE = f.e; }
+      byPlayer.set(f.id, cur);
+    }
+    for (const [id, agg] of byPlayer) {
+      if (agg.e >= 3) {
+        playerErrorGames.push({
+          gid, playerId: id, player: playerNames.get(id) || id,
+          e: agg.e, pos: POS_NAMES[agg.pos] || String(agg.pos),
+        });
+      }
+    }
+  }
+  return { playerErrorGames };
+}
+
 // Scan the batting index for per-player feats: cycles (single, double,
 // triple, and home run in one game) and multi-homer games (3+ HR). Returns
 // raw entries; the caller joins date/opponent from the game rows.

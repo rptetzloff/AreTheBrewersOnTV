@@ -14,7 +14,7 @@ import { records, recordsMeta, isRecordSlug, seasonHistory, historyMeta, registe
 import { coaches, coachesMeta } from './lib/coaches.js';
 import { h2h, h2hMeta, isOpponentSlug } from './lib/h2h.js';
 import { esc, parseCurrentNamesCsv, parseBallparksCsv, parseTeamstatsLineScores, BREWERS_IDS } from './records-core.js';
-import { buildGameIndex, buildPitchingIndex, buildBattingIndex, buildFieldingIndex, buildPlayerNameMap, buildBoxscore, createScoringPlaysCollector, computeBattingFeats, POS_NAMES } from './boxscore-core.js';
+import { buildGameIndex, buildPitchingIndex, buildBattingIndex, buildFieldingIndex, buildPlayerNameMap, buildBoxscore, createScoringPlaysCollector, computeBattingFeats, computeFieldingFeats, POS_NAMES } from './boxscore-core.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = __dirname;
@@ -213,7 +213,10 @@ async function buildBoxIndices() {
   // Cycles and player HR feats need per-player batting lines, which only
   // exist in these indices — hand them to the records module for the
   // /records page, meta, and cards.
-  registerBattingFeats(computeBattingFeats(indices.batting, indices.playerNames));
+  registerBattingFeats({
+    ...computeBattingFeats(indices.batting, indices.playerNames),
+    ...computeFieldingFeats(indices.fielding, indices.playerNames),
+  });
   // Pitcher names for each no-hitter (one name = individual, more = combined).
   const nhPitchers = {};
   for (const nh of [...(records.noHitters || []), ...(records.perfectGames || [])]) {
@@ -430,6 +433,7 @@ const server = http.createServer(async (req, res) => {
         cycles: records.cycles || [],
         playerHrGames: records.playerHrGames || [],
         playerRbiGames: records.playerRbiGames || [],
+        playerErrorGames: records.playerErrorGames || [],
         noHitterPitchers: records.noHitterPitchers || {},
         triplePlayFielders: records.triplePlayFielders || {},
       }));

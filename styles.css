@@ -1621,7 +1621,11 @@ details:not([open]) > .collapsible-summary::before {
 
 .records-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    /* Columns never drop below 300px — narrower and the entry detail lines
+       (dates, pitcher/fielder attributions) wrap badly. The container caps at
+       900px (836px inner), so this always yields one or two comfortable
+       columns. min(100%, …) keeps very small phones from overflowing. */
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
     gap: 1.25rem;
     text-align: left;
 }
@@ -1686,7 +1690,10 @@ details:not([open]) > .collapsible-summary::before {
 }
 
 .record-entry-detail {
-    grid-column: 2;
+    /* A consistent small indent from the card edge — aligning under the sub
+       text pushed details far right whenever the first column was wide. */
+    grid-column: 1 / -1;
+    padding-left: 1rem;
     color: rgba(255, 255, 255, 0.55);
     font-size: 0.8rem;
 }
