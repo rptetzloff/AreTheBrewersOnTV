@@ -19,20 +19,19 @@
         <div id="boxscore-loading" class="loading">Loading box score…</div>
         <div id="boxscore-error" class="answer" hidden></div>
         <div id="boxscore-root"></div>
+        <!-- Retrosheet's license requires this notice to appear on pages built
+             from its data, so it lives in page content, not the collapsed footer. -->
+        <p class="data-credit">Historical data obtained free of charge from and copyrighted by <a href="https://www.retrosheet.org/" target="_blank" rel="noopener noreferrer">Retrosheet</a>. Contact: 20 Sunset Rd., Newark, DE 19711.</p>
     </div>
     <footer class="site-footer">
         <nav class="footer-nav">
-            <a href="/" class="footer-nav-link"><i class="mdi mdi-home-outline"></i> Home</a>
-            <a href="/records.html" class="footer-nav-link"><i class="mdi mdi-trophy-outline"></i> Records</a>
-            <a href="/vs.html" class="footer-nav-link"><i class="mdi mdi-sword-cross"></i> Head-to-Head</a>
-            <a href="/history.html" class="footer-nav-link"><i class="mdi mdi-chart-line"></i> History</a>
-            <a href="/managers.html" class="footer-nav-link"><i class="mdi mdi-whistle-outline"></i> Managers</a>
+            <a href="/" class="footer-nav-link"><i class="mdi mdi-home-outline"></i><span class="footer-nav-label">Home</span></a>
+            <a href="/records.html" class="footer-nav-link"><i class="mdi mdi-trophy-outline"></i><span class="footer-nav-label">Records</span></a>
+            <a href="/vs.html" class="footer-nav-link"><i class="mdi mdi-sword-cross"></i><span class="footer-nav-label footer-label-full">Head-to-Head</span><span class="footer-nav-label footer-label-short">H2H</span></a>
+            <a href="/history.html" class="footer-nav-link"><i class="mdi mdi-chart-line"></i><span class="footer-nav-label">History</span></a>
+            <a href="/managers.html" class="footer-nav-link"><i class="mdi mdi-whistle-outline"></i><span class="footer-nav-label">Managers</span></a>
+            <a href="https://github.com/rptetzloff/AreTheBrewersOnTV" target="_blank" rel="noopener noreferrer" class="footer-nav-link footer-github"><i class="mdi mdi-github"></i><span class="footer-nav-label">GitHub</span></a>
         </nav>
-        <p class="footer-disclaimer">Historical data obtained free of charge from and copyrighted by <a href="https://www.retrosheet.org/" target="_blank" rel="noopener noreferrer">Retrosheet</a>. Contact: 20 Sunset Rd., Newark, DE 19711.</p>
-        <a href="https://github.com/rptetzloff/AreTheBrewersOnTV" target="_blank" rel="noopener noreferrer" class="github-link">
-            <i class="mdi mdi-github"></i>
-            View on GitHub
-        </a>
     </footer>
     <script src="/game.js" type="module"></script>
     <script src="/license-modal.js" defer></script>
