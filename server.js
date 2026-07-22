@@ -239,32 +239,76 @@ async function buildBoxIndices() {
   return indices;
 }
 
-// Short-lived cache in front of ESPN's public API. Serves stale data if ESPN
-// is briefly unreachable; only site.api.espn.com API paths are proxied.
-const espnProxyCache = new Map(); // target url -> { at, status, body }
-const ESPN_PROXY_TTL = 30 * 1000;
-const ESPN_PROXY_MAX_ENTRIES = 200;
+// Cache in front of ESPN's public API. Serves stale data if ESPN is briefly
+// unreachable; only site.api.espn.com API paths are proxied. TTL is chosen
+// per response: data that can no longer change (completed-game summaries,
+// schedules whose games are all final) is held for a day; a mid-season
+// schedule with no game underway refreshes hourly, since season-to-date
+// results can't change until the next game starts; anything near or during
+// a live game refreshes every 60s.
+const espnProxyCache = new Map(); // target url -> { at, status, body, ttl }
+const ESPN_PROXY_TTL = 60 * 1000;
+const ESPN_PROXY_IDLE_TTL = 60 * 60 * 1000;
+const ESPN_PROXY_FINAL_TTL = 24 * 60 * 60 * 1000;
+const ESPN_PROXY_MAX_ENTRIES = 500;
+const ESPN_GAME_SOON_MS = 2 * 60 * 60 * 1000;
+
+function espnTtlFor(target, status, body) {
+  if (status !== 200) return ESPN_PROXY_TTL;
+  try {
+    if (target.includes('/summary?')) {
+      const done = JSON.parse(body)?.header?.competitions?.[0]?.status?.type?.completed;
+      return done ? ESPN_PROXY_FINAL_TTL : ESPN_PROXY_TTL;
+    }
+    if (target.includes('/schedule')) {
+      const events = JSON.parse(body)?.events || [];
+      let allDone = events.length > 0;
+      for (const e of events) {
+        const st = e?.competitions?.[0]?.status?.type;
+        // 'post' covers finals AND postponements-without-makeup-date; both are
+        // settled until a reschedule, which the idle TTL picks up soon enough.
+        if (st?.state === 'post') continue;
+        allDone = false;
+        if (st?.state === 'in') return ESPN_PROXY_TTL;
+        const startsIn = Date.parse(e?.date || '') - Date.now();
+        if (Number.isNaN(startsIn) || startsIn < ESPN_GAME_SOON_MS) return ESPN_PROXY_TTL;
+      }
+      return allDone ? ESPN_PROXY_FINAL_TTL : ESPN_PROXY_IDLE_TTL;
+    }
+  } catch { /* unparseable — treat as volatile */ }
+  return ESPN_PROXY_TTL;
+}
+
 async function serveEspnProxy(res, path, search) {
   if (!path.startsWith('apis/') || !/^[\w/.\-]+$/.test(path)) return notFound(res);
   const target = `https://site.api.espn.com/${path}${search || ''}`;
-  const sendJson = (status, body, cacheState) => {
+  const sendJson = (status, body, cacheState, ttl) => {
+    const maxAge = cacheState === 'stale' || ttl === ESPN_PROXY_TTL ? 15
+      : ttl === ESPN_PROXY_IDLE_TTL ? 300 : 3600;
     res.writeHead(status, {
       'Content-Type': 'application/json; charset=utf-8',
-      'Cache-Control': 'public, max-age=15',
+      'Cache-Control': `public, max-age=${maxAge}`,
       'X-Proxy-Cache': cacheState,
     });
     res.end(body);
   };
   const hit = espnProxyCache.get(target);
-  if (hit && Date.now() - hit.at < ESPN_PROXY_TTL) return sendJson(hit.status, hit.body, 'hit');
+  if (hit && Date.now() - hit.at < hit.ttl) return sendJson(hit.status, hit.body, 'hit', hit.ttl);
   try {
     const r = await fetch(target);
     const body = await r.text();
-    if (espnProxyCache.size >= ESPN_PROXY_MAX_ENTRIES) espnProxyCache.clear();
-    espnProxyCache.set(target, { at: Date.now(), status: r.status, body });
-    return sendJson(r.status, body, 'miss');
+    if (espnProxyCache.size >= ESPN_PROXY_MAX_ENTRIES) {
+      // Drop expired entries first so long-lived ones survive routine churn.
+      for (const [k, v] of espnProxyCache) {
+        if (Date.now() - v.at >= v.ttl) espnProxyCache.delete(k);
+      }
+      if (espnProxyCache.size >= ESPN_PROXY_MAX_ENTRIES) espnProxyCache.clear();
+    }
+    const ttl = espnTtlFor(target, r.status, body);
+    espnProxyCache.set(target, { at: Date.now(), status: r.status, body, ttl });
+    return sendJson(r.status, body, 'miss', ttl);
   } catch {
-    if (hit) return sendJson(hit.status, hit.body, 'stale');
+    if (hit) return sendJson(hit.status, hit.body, 'stale', hit.ttl);
     res.writeHead(502, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({ error: 'ESPN unreachable' }));
   }
