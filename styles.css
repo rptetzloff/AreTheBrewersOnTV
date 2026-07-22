@@ -1698,16 +1698,6 @@ details:not([open]) > .collapsible-summary::before {
     font-size: 0.8rem;
 }
 
-.record-entry-top .record-entry-main {
-    color: #FFC52F;
-    font-size: 1.6rem;
-}
-
-.record-entry-top .record-entry-sub {
-    font-size: 1.1rem;
-    font-weight: 600;
-}
-
 .record-entry a {
     color: inherit;
     text-decoration: underline;
