@@ -4,7 +4,7 @@
 
 import { splitCsvLine, parseCurrentNamesCsv, nameForFranchiseAt, parseBallparksCsv, parseTeamstatsLineScores, BREWERS_IDS } from './records-core.js';
 
-const POS_NAMES = { 1:'P', 2:'C', 3:'1B', 4:'2B', 5:'3B', 6:'SS', 7:'LF', 8:'CF', 9:'RF', 10:'DH', 11:'PH', 12:'PR' };
+export const POS_NAMES = { 1:'P', 2:'C', 3:'1B', 4:'2B', 5:'3B', 6:'SS', 7:'LF', 8:'CF', 9:'RF', 10:'DH', 11:'PH', 12:'PR' };
 const num = (v) => parseInt(v, 10) || 0;
 
 // Play-event flags, packed into a bitmask on scoring plays (bit i = FLAG_COLS[i]).
@@ -181,12 +181,16 @@ export function createScoringPlaysCollector() {
   const pitchCounts = new Map();
   const firstPa = new Map();
   const risp = new Map();
+  const tpFielders = new Map();
   const intern = makeIntern();
   let idx = null;
   const COLS = ['gid','inning','top_bot','batteam','score_v','score_h','batter','pitcher',
     'single','double','triple','hr','sh','sf','hbp','walk','k','xi','roe','fc','othout',
     'ground','fly','line','iw','gdp','wp','pb','bk','sbh','runs','run_b','run1','run2','run3',
-    'nump','pa','pitches','ab','bip','outs_pre','br2_pre','br3_pre'];
+    'nump','pa','pitches','ab','bip','outs_pre','br2_pre','br3_pre','tp',
+    'f2','f3','f4','f5','f6','f7','f8','f9',
+    'po1','po2','po3','po4','po5','po6','po7','po8','po9',
+    'a1','a2','a3','a4','a5','a6','a7','a8','a9'];
   // Flags are packed into a bitmask — tens of thousands of scoring plays each
   // carrying a 22-property object is real memory on a small host.
   const readMask = (v) => {
@@ -250,6 +254,30 @@ export function createScoringPlaysCollector() {
       }
       m.set(pitcherId, e);
     }
+    // Triple plays turned by the Brewers: the play row names the fielders on
+    // duty (f2-f9 + the pitcher) and credits putouts/assists by position, so
+    // the participants can be identified exactly.
+    if (v[idx.tp] === '1' && pitcherId) {
+      const batting = v[idx.batteam];
+      if (batting && !BREWERS_IDS.has(batting)) {
+        const parts = [];
+        for (let pos = 1; pos <= 9; pos++) {
+          const po = num(v[idx[`po${pos}`]]);
+          const a = num(v[idx[`a${pos}`]]);
+          if (po + a === 0) continue;
+          const id = pos === 1 ? pitcherId : intern(v[idx[`f${pos}`]]?.trim());
+          if (id) parts.push({ id, pos, assists: a });
+        }
+        if (parts.length) {
+          // Assist-credited fielders first — closest to the play's order.
+          parts.sort((x, y) => (y.assists > 0 ? 1 : 0) - (x.assists > 0 ? 1 : 0) || x.pos - y.pos);
+          if (!tpFielders.has(gid)) tpFielders.set(gid, []);
+          const seen = tpFielders.get(gid);
+          for (const p of parts) if (!seen.some(q => q.id === p.id)) seen.push(p);
+        }
+      }
+    }
+
     // Team hitting with runners in scoring position (at-bats only).
     const isHit = v[idx.single] === '1' || v[idx.double] === '1' || v[idx.triple] === '1' || v[idx.hr] === '1';
     if (v[idx.ab] === '1' && (v[idx.br2_pre]?.trim() || v[idx.br3_pre]?.trim())) {
@@ -296,7 +324,7 @@ export function createScoringPlaysCollector() {
     if (!map.has(gid)) map.set(gid, []);
     map.get(gid).push(play);
   };
-  return { line, result: () => ({ scoring: map, pitchCounts, firstPa, risp }) };
+  return { line, result: () => ({ scoring: map, pitchCounts, firstPa, risp, tpFielders }) };
 }
 
 // Play verbs by code — firstPa entries pack a verb code and inning into one
@@ -344,6 +372,7 @@ function nonBatterEvent(f) {
 export function computeBattingFeats(battingIndex, playerNames) {
   const cycles = [];
   const playerHrGames = [];
+  const playerRbiGames = [];
   for (const [gid, rows] of battingIndex) {
     for (const b of rows) {
       if (!BREWERS_IDS.has(b.team)) continue;
@@ -354,9 +383,12 @@ export function computeBattingFeats(battingIndex, playerNames) {
       if (b.hr >= 3) {
         playerHrGames.push({ gid, playerId: b.id, player: playerNames.get(b.id) || b.id, hr: b.hr, rbi: b.rbi });
       }
+      if (b.rbi >= 6) {
+        playerRbiGames.push({ gid, playerId: b.id, player: playerNames.get(b.id) || b.id, rbi: b.rbi, hr: b.hr, h: b.h });
+      }
     }
   }
-  return { cycles, playerHrGames };
+  return { cycles, playerHrGames, playerRbiGames };
 }
 
 function ipString(ipouts) {

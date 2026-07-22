@@ -785,6 +785,15 @@ export function recordsCopy(slug, data) {
 				desc: `${g.player} hit ${g.hr} home runs vs the ${g.opponent} on ${formatDate(g.date)} — the most by a Brewer in one game. ${h.length} such games all-time.`,
 			};
 		}
+		case 'player-rbi-game': {
+			const h = data.playerRbiGames || [];
+			if (!h.length) return { title: 'Most RBIs in a Game by a Brewer', desc: 'Player single-game RBI records.' };
+			const g = h[0];
+			return {
+				title: `Most RBIs in a Game by a Brewer — ${g.rbi}`,
+				desc: `${g.player} drove in ${g.rbi} runs vs the ${g.opponent} on ${formatDate(g.date)} — the most by a Brewer in one game.`,
+			};
+		}
 		case 'cycles': {
 			const c = data.cycles || [];
 			if (!c.length) return { title: 'Brewers Cycles', desc: 'Every cycle hit in Milwaukee Brewers history.' };
@@ -846,4 +855,4 @@ export function parseTeamstatsLineScores(raw) {
 	return map;
 }
 
-export const RECORD_SLUGS = ['best-seasons', 'worst-seasons', 'best-starts', 'win-streaks', 'worst-starts', 'lopsided-wins', 'worst-losses', 'no-hitters', 'perfect-games', 'triple-plays', 'most-hr-game', 'player-hr-game', 'cycles', 'world-series-appearances', 'playoff-appearances', 'ties'];
+export const RECORD_SLUGS = ['best-seasons', 'worst-seasons', 'best-starts', 'win-streaks', 'worst-starts', 'lopsided-wins', 'worst-losses', 'no-hitters', 'perfect-games', 'triple-plays', 'most-hr-game', 'player-hr-game', 'player-rbi-game', 'cycles', 'world-series-appearances', 'playoff-appearances', 'ties'];

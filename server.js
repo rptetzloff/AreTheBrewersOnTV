@@ -10,11 +10,11 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join, normalize, extname } from 'node:path';
 import { renderPng, renderRecordsPng, renderH2hPng, renderHistoryPng, renderCoachesPng } from './lib/cards.js';
 import { getSeasonState, defaultSeason } from './lib/seasons.js';
-import { records, recordsMeta, isRecordSlug, seasonHistory, historyMeta, registerBattingFeats, registerNoHitterPitchers } from './lib/records.js';
+import { records, recordsMeta, isRecordSlug, seasonHistory, historyMeta, registerBattingFeats, registerNoHitterPitchers, registerTriplePlayFielders } from './lib/records.js';
 import { coaches, coachesMeta } from './lib/coaches.js';
 import { h2h, h2hMeta, isOpponentSlug } from './lib/h2h.js';
 import { esc, parseCurrentNamesCsv, parseBallparksCsv, parseTeamstatsLineScores, BREWERS_IDS } from './records-core.js';
-import { buildGameIndex, buildPitchingIndex, buildBattingIndex, buildFieldingIndex, buildPlayerNameMap, buildBoxscore, createScoringPlaysCollector, computeBattingFeats } from './boxscore-core.js';
+import { buildGameIndex, buildPitchingIndex, buildBattingIndex, buildFieldingIndex, buildPlayerNameMap, buildBoxscore, createScoringPlaysCollector, computeBattingFeats, POS_NAMES } from './boxscore-core.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = __dirname;
@@ -223,6 +223,15 @@ async function buildBoxIndices() {
     if (rows.length) nhPitchers[nh.gid] = rows.map(p => indices.playerNames.get(p.id) || p.id);
   }
   registerNoHitterPitchers(nhPitchers);
+  // Fielders credited on each triple play, with positions.
+  const tpByGid = {};
+  for (const [gid, parts] of indices.tpFielders || []) {
+    tpByGid[gid] = parts.map(p => ({
+      name: indices.playerNames.get(p.id) || p.id,
+      pos: POS_NAMES[p.pos] || String(p.pos),
+    }));
+  }
+  registerTriplePlayFielders(tpByGid);
   console.log(`box score indices built in ${((Date.now() - started) / 1000).toFixed(1)}s`);
   return indices;
 }
@@ -420,7 +429,9 @@ const server = http.createServer(async (req, res) => {
       return res.end(JSON.stringify({
         cycles: records.cycles || [],
         playerHrGames: records.playerHrGames || [],
+        playerRbiGames: records.playerRbiGames || [],
         noHitterPitchers: records.noHitterPitchers || {},
+        triplePlayFielders: records.triplePlayFielders || {},
       }));
     }
 

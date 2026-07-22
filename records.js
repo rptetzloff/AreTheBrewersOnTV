@@ -87,11 +87,16 @@ const CARDS = [
 		slug: 'triple-plays', icon: 'mdi-numeric-3-circle-outline', title: 'Triple Plays',
 		note: 'Every triple play the Brewers have turned, most recent first',
 		highlightTop: false,
-		entries: (d) => (d.triplePlays || []).map((g) => ({
-			main: g.count > 1 ? `${g.count} in one game` : `vs ${g.opponent}`,
-			sub: g.count > 1 ? `vs ${g.opponent}` : `${g.pf}–${g.pa}`,
-			detailHtml: `${gameLink(g.season, g.gid, esc(formatDate(g.date)))}${esc(gameFlag(g))}`,
-		})),
+		entries: (d) => (d.triplePlays || []).map((g) => {
+			const who = g.fielders?.length
+				? ` · ${esc(g.fielders.map((f) => `${f.name} (${f.pos})`).join(', '))}`
+				: '';
+			return {
+				main: g.count > 1 ? `${g.count} in one game` : `vs ${g.opponent}`,
+				sub: g.count > 1 ? `vs ${g.opponent}` : `${g.pf}–${g.pa}`,
+				detailHtml: `${gameLink(g.season, g.gid, esc(formatDate(g.date)))}${esc(gameFlag(g))}${who}`,
+			};
+		}),
 		empty: 'The Brewers have never turned a triple play.',
 	},
 	{
@@ -113,6 +118,15 @@ const CARDS = [
 			detailHtml: `${gameLink(g.season, g.gid, esc(formatDate(g.date)))}${esc(gameFlag(g))} · ${g.rbi} RBI`,
 		})),
 		empty: 'No Brewer has hit three home runs in a game. Yet.',
+	},
+	{
+		slug: 'player-rbi-game', icon: 'mdi-counter', title: 'Most RBIs in a Game (Player)',
+		note: 'Best single-game RBI totals by a Brewer (ties included)',
+		entries: (d) => (d.playerRbiGames || []).map((g) => ({
+			main: `${g.rbi} RBI`,
+			sub: `${g.player} vs ${g.opponent}`,
+			detailHtml: `${gameLink(g.season, g.gid, esc(formatDate(g.date)))}${esc(gameFlag(g))} · ${g.h} H, ${g.hr} HR`,
+		})),
 	},
 	{
 		slug: 'cycles', icon: 'mdi-sync-circle', title: 'Cycles',
@@ -213,7 +227,13 @@ async function init() {
 		const data = {
 			...computeSuperlatives(rows), ...computeTeamstatsRecords(rows, teamstatsText),
 			cycles: featsJson?.cycles || [], playerHrGames: featsJson?.playerHrGames || [],
+			playerRbiGames: featsJson?.playerRbiGames || [],
 		};
+		// Fielders credited on each triple play.
+		const tpFielders = featsJson?.triplePlayFielders || {};
+		for (const tp of data.triplePlays || []) {
+			if (tpFielders[tp.gid]) tp.fielders = tpFielders[tp.gid];
+		}
 		// Pitcher names per no-hitter (one = individual, several = combined).
 		const nhPitchers = featsJson?.noHitterPitchers || {};
 		for (const list of [data.noHitters, data.perfectGames]) {
