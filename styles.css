@@ -2559,9 +2559,65 @@ details:not([open]) > .collapsible-summary::before {
     gap: 0.3rem;
 }
 
+/* Sponsor banner logos link out; the anchor must keep the banner's width. */
+.schedule-provider-logo-link {
+    display: block;
+    width: 100%;
+    line-height: 0;
+}
+
 .schedule-provider-caption {
     font-size: 0.75rem;
     color: rgba(255, 255, 255, 0.65);
+}
+
+/* Sponsor recognition: badge in the picker/bar, logo strip in the footer. */
+.sponsor-badge {
+    display: inline-block;
+    font-size: 0.6rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #12284B;
+    background: #FFC52F;
+    border-radius: 3px;
+    padding: 0.08rem 0.3rem;
+    vertical-align: middle;
+}
+
+.footer-sponsors {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 0.9rem;
+}
+
+.footer-sponsors-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(255, 255, 255, 0.45);
+}
+
+.footer-sponsors-list {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+}
+
+.footer-sponsor {
+    color: rgba(255, 255, 255, 0.7);
+    text-decoration: none;
+    font-size: 0.8rem;
+}
+
+.footer-sponsor .provider-logo img {
+    height: 26px;
+    max-width: 130px;
 }
 
 /* Provider line under the big YES ("X has the next game on Y (Ch. N)"). */

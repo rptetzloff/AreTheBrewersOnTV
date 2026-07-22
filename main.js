@@ -1771,6 +1771,7 @@ _loadTvLookup(channelLookupRaw, providerLookupRaw) {
         .split('|').map(s => s.trim()).filter(Boolean),
       logo_url: (p.logo_url || '').trim(),
       logo_bg: (p.logo_bg || '').trim(),
+      sponsor: /^(yes|true|1)$/i.test((p.sponsor || '').trim()),
       channels: {},
     };
     // index display name + each comma-separated alternate name
@@ -2150,6 +2151,12 @@ _buildProviderInput({ label, inputId, listId, placeholder, onChange, inline = fa
       name.className = 'watch-provider-suggestion-name';
       name.textContent = m.p.display_name;
       row.appendChild(name);
+      if (m.p.sponsor) {
+        const badge = document.createElement('span');
+        badge.className = 'sponsor-badge';
+        badge.textContent = 'Sponsor';
+        row.appendChild(badge);
+      }
       if (m.via) {
         const via = document.createElement('span');
         via.className = 'watch-provider-suggestion-via';
@@ -2286,10 +2293,30 @@ renderScheduleProviderBar() {
     display.appendChild(header);
     const slot = document.createElement('div');
     slot.className = 'schedule-provider-slot';
-    slot.appendChild(logo);
+    // Site sponsors' banner logos link to their website.
+    const meta = this.providerMeta[this.selectedProvider];
+    if (meta.sponsor && meta.website_url) {
+      const link = document.createElement('a');
+      link.className = 'schedule-provider-logo-link';
+      link.href = meta.website_url;
+      link.target = '_blank';
+      link.rel = 'sponsored noopener noreferrer';
+      link.title = meta.display_name;
+      link.appendChild(logo);
+      slot.appendChild(link);
+    } else {
+      slot.appendChild(logo);
+    }
     const caption = document.createElement('span');
     caption.className = 'schedule-provider-caption';
     caption.textContent = current;
+    if (this.providerMeta[this.selectedProvider]?.sponsor) {
+      const badge = document.createElement('span');
+      badge.className = 'sponsor-badge';
+      badge.textContent = 'Site sponsor';
+      caption.appendChild(document.createTextNode(' '));
+      caption.appendChild(badge);
+    }
     slot.appendChild(caption);
     display.appendChild(slot);
   } else {
@@ -2358,22 +2385,9 @@ closeProviderModal() {
 // Update just the name/button text in the schedule bar without rebuilding it
 // (used when the provider changes from elsewhere, e.g. the watch modal).
 _refreshScheduleProviderDisplay() {
-  const bar = document.getElementById('schedule-provider-bar');
-  if (!bar || bar.hidden) return;
-  const nameSpan = bar.querySelector('.schedule-provider-name');
-  const changeBtn = bar.querySelector('.schedule-provider-change');
-  if (!nameSpan || !changeBtn) return;
-  const current = this.selectedProvider && this.providerMeta[this.selectedProvider]
-    ? this.providerMeta[this.selectedProvider].display_name : null;
-  if (current) {
-    nameSpan.textContent = current;
-    nameSpan.classList.remove('schedule-provider-none');
-    changeBtn.innerHTML = '<i class="mdi mdi-pencil"></i> Change';
-  } else {
-    nameSpan.textContent = 'Not selected';
-    nameSpan.classList.add('schedule-provider-none');
-    changeBtn.innerHTML = '<i class="mdi mdi-magnify"></i> Choose provider';
-  }
+  // The bar's layout differs between logo (banner) and plain providers, so a
+  // surgical text update isn't enough — rebuild it from the current state.
+  this.renderScheduleProviderBar();
 }
 
 _renderWatchChannels(channelsEl, resolved, radioResolved) {
