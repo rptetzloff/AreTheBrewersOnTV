@@ -1,0 +1,33 @@
+name: Tests
+
+# The suite is the authoritative gate. It runs on every push and pull request,
+# including the automated ones from update-data.yml — which is the point: that
+# workflow commits new games weekly, and test/data.test.js is what notices when a
+# row arrives in a shape the compute functions silently drop.
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 20 is the floor: node --test's reporter output and the test runner
+        # itself are only stable from there. 24 is what development runs on.
+        node: ['20', '24']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      # No install step on purpose. The suite imports only records-core.js and
+      # h2h-core.js, both pure and dependency-free, so it runs against a bare
+      # checkout. Nor does it need Git LFS: data/plays.lfs.csv is 387MB and the
+      # tests deliberately do not read it, so this job stays fast and does not
+      # burn LFS bandwidth on every push.
+      - name: Run tests
+        run: node --test

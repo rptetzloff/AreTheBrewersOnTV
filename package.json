@@ -2,13 +2,16 @@
   "name": "are-the-brewers-on-tv",
   "version": "1.0.0",
   "type": "module",
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
     "start": "node server.js",
-    "update-data": "node update-data.js"
+    "update-data": "node update-data.js",
+    "test": "node --test"
   },
   "dependencies": {
     "@resvg/resvg-js": "^2.6.2",
