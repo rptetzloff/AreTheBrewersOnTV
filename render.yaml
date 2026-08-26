@@ -15,9 +15,6 @@ services:
       - key: NODE_OPTIONS
         value: --max-old-space-size=400
 
-# Render Blueprint — converts the site to a small Node web service so that
-# per-season Open Graph tags and social cards can be rendered server-side.
-services:
   - type: web
     name: are-the-brewers-on-tv-dev
     branch: dev
