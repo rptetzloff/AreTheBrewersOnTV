@@ -3,6 +3,24 @@
 services:
   - type: web
     name: are-the-brewers-on-tv
+    branch: main
+    runtime: node
+    buildCommand: npm install
+    startCommand: node server.js
+    autoDeploy: true
+    healthCheckPath: /
+    envVars:
+      # The box score indices need more heap than Node's default cap on a
+      # 512MB instance (~256MB); leave the rest for native/system overhead.
+      - key: NODE_OPTIONS
+        value: --max-old-space-size=400
+
+# Render Blueprint — converts the site to a small Node web service so that
+# per-season Open Graph tags and social cards can be rendered server-side.
+services:
+  - type: web
+    name: are-the-brewers-on-tv-dev
+    branch: dev
     runtime: node
     plan: free            # bump to "starter" to avoid cold-start spin-down
     buildCommand: npm install
