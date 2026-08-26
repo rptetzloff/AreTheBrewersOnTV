@@ -1,4 +1,58 @@
+# Line endings, stated per file type rather than globally.
+#
+# Every source blob here is already LF; what was missing was anything saying
+# so. With core.autocrlf=true the working copy gets CRLF on checkout even
+# though the stored bytes are LF, which is why `git add` printed "LF will be
+# replaced by CRLF" on every file — and it is what makes byte-for-byte
+# comparison with the Packers repo impossible while the two share code.
+#
+# There is deliberately no `* text=auto` line. Naming the source extensions
+# means nothing under data/ is matched by an eol rule by accident — the CSV
+# rule below is then the only thing that speaks for 458MB of Retrosheet data,
+# rather than a walk-back of something broader.
+*.js   text eol=lf
+*.mjs  text eol=lf
+*.css  text eol=lf
+*.html text eol=lf
+*.json text eol=lf
+*.md   text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.svg  text eol=lf
+*.txt  text eol=lf
+
+# Retrosheet ships its files with CRLF and they are consumed byte-for-byte —
+# CurrentNames.csv carries 126 CRs, allplayers.csv over 2,000. Others in the
+# same directory are LF. Both are correct: whatever arrived is what is stored.
+#
+# -text, not the !text this line used to carry. !text means UNSPECIFIED, which
+# falls back to core.autocrlf — true on this machine — and strips the CRs on
+# the next add. That was latent rather than harmless: `git add --renormalize`
+# under !text rewrote seven of these files and took CurrentNames.csv from 126
+# CRs to none. -text is the explicit "do no conversion" that was meant.
+#
+# It only became a no-op after four files were restored on disk: an earlier
+# checkout under the old rule had left ballparks, batting, fielding and
+# managers with CRLF working copies over LF blobs, which `git status` hid by
+# normalising before comparing. Deleting and re-checking-out those four is what
+# made disk and blob agree.
+#
+# This line also unsets `filter`, which is why the plays rules below have to
+# re-establish LFS afterwards. Fragile, but it is the fragility that already
+# existed rather than any this change introduces.
+*.csv -text !filter !merge !diff
+
+# The play-by-play file is 387MB and lives in Git LFS. Re-stated after the CSV
+# exemption above, which would otherwise strip the filter off it.
 *.lfs.csv filter=lfs diff=lfs merge=lfs -text
-*.csv !text !filter !merge !diff
 data/plays.csv filter=lfs diff=lfs merge=lfs -text
 data/plays.lfs.csv filter=lfs diff=lfs merge=lfs -text
+
+# Fonts and images are binary. text=auto would detect that on its own, but
+# saying it outright means they can never be corrupted by a rule added above.
+*.ttf binary
+*.woff binary
+*.woff2 binary
+*.png binary
+*.jpg binary
+*.ico binary
