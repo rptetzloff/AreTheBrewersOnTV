@@ -1,0 +1,18 @@
+{
+	"format": 2,
+	"indices": [
+		"batting",
+		"fielding",
+		"firstPa",
+		"games",
+		"lineScores",
+		"namesData",
+		"parks",
+		"pitchCounts",
+		"pitching",
+		"playerNames",
+		"risp",
+		"scoring",
+		"tpFielders"
+	]
+}

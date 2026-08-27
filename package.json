@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "start": "node server.js",
     "update-data": "node update-data.js",
-    "test": "node --test"
+    "test": "node --test",
+    "build-indices": "node --max-old-space-size=3000 scripts/build-indices.mjs"
   },
   "dependencies": {
     "@resvg/resvg-js": "^2.6.2",
