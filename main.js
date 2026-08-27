@@ -220,7 +220,7 @@
         					const yr = parseInt(g.season);
         					if (!this.seasonRecords[yr]) this.seasonRecords[yr] = { season: yr, reg_w: 0, reg_l: 0, reg_t: 0, post_w: 0, post_l: 0, post_t: 0 };
         					const sr = this.seasonRecords[yr];
-        					const res = g['Brewers Win'];
+        					const res = g['result'];
         					if (g.regular_season === '1') {
         						if (res === 'WIN') sr.reg_w++; else if (res === 'LOSS') sr.reg_l++; else if (res === 'TIE') sr.reg_t++;
         					} else if (g.playoff === '1') {
@@ -457,7 +457,7 @@ processCsvSeasonData(season) {
  let postWins = 0, postLosses = 0, postTies = 0;
 
  games.forEach(g => {
-     const result = g['Brewers Win'];
+     const result = g['result'];
      const isPlayoff = g.playoff === '1';
      const isRegular = g.regular_season === '1';
 
@@ -476,10 +476,10 @@ processCsvSeasonData(season) {
         		// (more WS game wins than losses), not just a single WS game.
  let wsWins = 0, wsLosses = 0, wsName = '';
  games.forEach(g => {
-     if (g.worldseries && g.worldseries.trim() !== '') {
-        wsName = `World Series ${g.worldseries.toUpperCase()}`;
-        if (g['Brewers Win'] === 'WIN') wsWins++;
-        else if (g['Brewers Win'] === 'LOSS') wsLosses++;
+     if (g.championship && g.championship.trim() !== '') {
+        wsName = `World Series ${g.championship.toUpperCase()}`;
+        if (g['result'] === 'WIN') wsWins++;
+        else if (g['result'] === 'LOSS') wsLosses++;
     }
 });
  const worldSeriesName = wsWins > wsLosses ? wsName : null;
@@ -496,8 +496,8 @@ processCsvSeasonData(season) {
  this.setupShareButtons();
 
  const csvCompletedGames = games
- .filter(g => g.regular_season === '1' && g['Brewers Win'])
- .map(g => ({ result: g['Brewers Win'], date: parseLocalDate(g.date) }));
+ .filter(g => g.regular_season === '1' && g['result'])
+ .map(g => ({ result: g['result'], date: parseLocalDate(g.date) }));
  this.updateStreakBanner(csvCompletedGames, season !== this.latestSeason);
 }
 
@@ -580,13 +580,13 @@ scrollToGameAnchor() {
 }
 
 createCsvGameItem(g, showH2h = false) {
-        		const result = g['Brewers Win']; // WIN / LOSS / TIE
+        		const result = g['result']; // WIN / LOSS / TIE
         		const opponent = g.Opponent;
         		const location = g.location; // HOME / AWAY / NEUTRAL
-        		const brewersScore = parseInt(g.brewers_score) || 0;
-        		const opponentScore = parseInt(g.opponent_score) || 0;
+        		const brewersScore = parseInt(g.scoreFor) || 0;
+        		const opponentScore = parseInt(g.scoreAgainst) || 0;
         		const date = parseLocalDate(g.date);
-        		const isWorldSeries = g.worldseries && g.worldseries.trim() !== '';
+        		const isWorldSeries = g.championship && g.championship.trim() !== '';
 
         		const gameItem = document.createElement('div');
         		gameItem.className = 'game-item completed';
@@ -623,7 +623,7 @@ createCsvGameItem(g, showH2h = false) {
         		if (isWorldSeries) {
         			const sbLabel = document.createElement('div');
         			sbLabel.className = 'game-status';
-        			sbLabel.textContent = `World Series ${g.worldseries.toUpperCase()}`;
+        			sbLabel.textContent = `World Series ${g.championship.toUpperCase()}`;
         			gameDetails.appendChild(sbLabel);
         		}
 
@@ -1509,14 +1509,14 @@ async copyLink() {
 _otdInterest(c) {
   const g = c.game;
   let score = 0;
-  const bs = parseInt(g.brewers_score, 10), os = parseInt(g.opponent_score, 10);
+  const bs = parseInt(g.scoreFor, 10), os = parseInt(g.scoreAgainst, 10);
   if (Number.isFinite(bs) && Number.isFinite(os)) {
     const diff = Math.abs(bs - os), total = bs + os;
     if (diff >= 10) score += 6; else if (diff >= 7) score += 4; else if (diff >= 5) score += 2;
     if (total >= 20) score += 3; else if (total >= 15) score += 2;
-    if (g['Brewers Win'] === 'WIN') { score += 1; if (os === 0) score += 1; }
+    if (g['result'] === 'WIN') { score += 1; if (os === 0) score += 1; }
   }
-  if (g.worldseries && g.worldseries.trim()) score += 8;
+  if (g.championship && g.championship.trim()) score += 8;
   else if (g.playoff === '1') score += 5;
   const ls = g.gid ? this.lineScores?.get(g.gid) : null;
   if (ls?.visitor && ls?.home) {
@@ -1579,12 +1579,12 @@ this._renderOnThisDay(el, this._otdPick(candidates), candidates);
 
 _renderOnThisDay(el, pick, pool) {
   const { game, season, date } = pick;
-  const result = game['Brewers Win'];
+  const result = game['result'];
   const opponent = game['Opponent'] || game['opponent'] || 'Unknown';
-  const brewersScore = game['brewers_score'];
-  const oppScore = game['opponent_score'];
+  const brewersScore = game['scoreFor'];
+  const oppScore = game['scoreAgainst'];
   const isPlayoff = game['playoff'] === '1' || game['playoff'] === 'true';
-  const isWorldSeries = game['worldseries'] && game['worldseries'] !== '';
+  const isWorldSeries = game['championship'] && game['championship'] !== '';
 
   const resultClass = result === 'WIN' ? 'win' : result === 'LOSS' ? 'loss' : 'tie';
   const resultLabel = result === 'WIN' ? 'W' : result === 'LOSS' ? 'L' : 'T';
@@ -1735,14 +1735,14 @@ if (nextGame && this.h2hRows) {
     const o = fran && this.h2hByFranchise?.get(fran);
     if (o) {
         const vsGames = this.h2hRows
-            .filter(r => r.franchise === fran && ['WIN', 'LOSS', 'TIE'].includes(r['Brewers Win']))
+            .filter(r => r.franchise === fran && ['WIN', 'LOSS', 'TIE'].includes(r['result']))
             .sort((a, b) => (a.date < b.date ? -1 : 1))
             .slice(-10);
         if (vsGames.length) {
             let w = 0, l = 0, t = 0;
             for (const g of vsGames) {
-                if (g['Brewers Win'] === 'WIN') w++;
-                else if (g['Brewers Win'] === 'LOSS') l++;
+                if (g['result'] === 'WIN') w++;
+                else if (g['result'] === 'LOSS') l++;
                 else t++;
             }
             const recText = t > 0 ? `${w}-${l}-${t}` : `${w}-${l}`;

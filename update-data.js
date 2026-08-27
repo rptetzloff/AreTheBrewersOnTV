@@ -20,7 +20,7 @@ function buildSeasonRecords(games) {
         const yr = parseInt(g.season);
         if (!seasons[yr]) seasons[yr] = { season: yr, reg_w: 0, reg_l: 0, reg_t: 0, post_w: 0, post_l: 0, post_t: 0 };
         const s = seasons[yr];
-        const result = g['Brewers Win'];
+        const result = g['result'];
         if (g.regular_season === '1') {
             if (result === 'WIN') s.reg_w++;
             else if (result === 'LOSS') s.reg_l++;
@@ -43,7 +43,7 @@ async function main() {
     console.log(`Team name entries: ${Object.keys(teamNames).length}`);
 
     const games = parseGameinfoCsv(gamesRaw, namesRaw);
-    const completed = games.filter(g => g['Brewers Win'] !== '');
+    const completed = games.filter(g => g['result'] !== '');
     const seasons = [...new Set(games.map(g => parseInt(g.season)))].sort((a, b) => a - b);
 
     console.log(`Total Brewers games: ${games.length} (${completed.length} completed)`);

@@ -110,10 +110,10 @@ test('equal margins are broken by the higher score', () => {
 })
 
 test('a postseason game in a lopsided list is flagged as one', () => {
-	const rows = [game({ date: '1982-10-12', season: 1982, gametype: 'W', result: 'WIN', pf: 10, pa: 0, worldseries: '1982' })]
+	const rows = [game({ date: '1982-10-12', season: 1982, gametype: 'W', result: 'WIN', pf: 10, pa: 0, championship: '1982' })]
 	const [g] = compute(rows).lopsidedWins
 	assert.equal(g.playoff, true)
-	assert.equal(g.worldseries, true)
+	assert.equal(g.championship, true)
 })
 
 test('ties are listed in full and newest first', () => {
@@ -152,17 +152,17 @@ test('a postseason appearance is recorded once per season, not once per game', (
 test('a World Series appearance is recorded whether it was won or lost', () => {
 	const rows = [
 		...season(1982, 'WW'),
-		game({ date: '1982-10-12', season: 1982, gametype: 'W', result: 'LOSS', worldseries: '1982' }),
+		game({ date: '1982-10-12', season: 1982, gametype: 'W', result: 'LOSS', championship: '1982' }),
 	]
-	const { worldSeriesAppearances } = compute(rows)
-	assert.equal(worldSeriesAppearances.length, 1)
-	assert.equal(worldSeriesAppearances[0].season, 1982)
+	const { championshipAppearances } = compute(rows)
+	assert.equal(championshipAppearances.length, 1)
+	assert.equal(championshipAppearances[0].season, 1982)
 })
 
 test('a season with no postseason games appears in neither list', () => {
-	const { playoffAppearances, worldSeriesAppearances } = compute(season(2002, 'LLL'))
+	const { playoffAppearances, championshipAppearances } = compute(season(2002, 'LLL'))
 	assert.equal(playoffAppearances.length, 0)
-	assert.equal(worldSeriesAppearances.length, 0)
+	assert.equal(championshipAppearances.length, 0)
 })
 
 test('top is respected', () => {

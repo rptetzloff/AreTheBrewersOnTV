@@ -6,7 +6,7 @@ import { shareButtonsHtml, labeledShareButtonsHtml, wireShareRow, wireShareDropd
 const yearLink = (yr) => `<a href="/${yr}">${yr}</a>`;
 // Game links go straight to the box score page.
 const gameLink = (season, gid, label) => `<a href="/game/${esc(gid)}">${label}</a>`;
-const gameFlag = (g) => (g.worldseries ? ' · World Series' : g.playoff ? ' · Playoffs' : '');
+const gameFlag = (g) => (g.championship ? ' · World Series' : g.playoff ? ' · Playoffs' : '');
 const blowoutEntry = (g) => ({
 	main: `${g.pf}–${g.pa}`, sub: `vs ${g.opponent}`,
 	detailHtml: `${gameLink(g.season, g.gid, esc(formatDate(g.date)))}${esc(gameFlag(g))}`,
@@ -149,7 +149,7 @@ const CARDS = [
 		slug: 'world-series-appearances', icon: 'mdi-trophy-outline', title: 'World Series Appearances',
 		note: 'Brewers World Series results by year',
 		highlightTop: false,
-		entries: (d) => d.worldSeriesAppearances.map((p) => ({
+		entries: (d) => d.championshipAppearances.map((p) => ({
 			main: String(p.season),
 			subHtml: `<a href="/game/${esc(p.firstGid)}">${esc(p.result)} vs ${esc(p.opponent)} (${esc(p.record)})</a>`,
 		})),
