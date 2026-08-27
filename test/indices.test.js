@@ -104,3 +104,15 @@ test('an object that merely looks like a tagged map is left alone', () => {
 	assert.equal(back.__map, 'not an array')
 	assert.ok(!(back instanceof Map))
 })
+
+// The digests are what CI compares against, so an artifact set without them
+// would pass every test here and still let stale data through.
+test('the manifest carries a content digest for every index', () => {
+	assert.ok(manifest.digests, 'no digests — CI cannot detect stale indices')
+	for (const name of manifest.indices) {
+		assert.match(manifest.digests[name] ?? '', /^[0-9a-f]{64}$/, `${name} has no sha256`)
+	}
+	// And nothing extra, which would mean an index was removed without the
+	// manifest being rebuilt.
+	assert.deepEqual(Object.keys(manifest.digests).sort(), [...manifest.indices].sort())
+})

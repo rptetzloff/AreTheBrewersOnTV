@@ -32,6 +32,7 @@ import { createReadStream } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { mkdir, readFile, writeFile, stat } from 'node:fs/promises';
 import { brotliCompressSync, constants } from 'node:zlib';
+import { createHash } from 'node:crypto';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -131,6 +132,73 @@ export async function buildIndices() {
 	};
 }
 
+/** One JSON value per line: a header, then either the Map's entries or the
+ *  single plain value. Shared by the writer and the checker so there is one
+ *  definition of what an artifact contains rather than two that must agree. */
+export function renderNdjson(value) {
+	// Named rows rather than lines, because `lines` is the CSV generator above
+	// and shadowing it would be a trap for the next edit.
+	const rows = value instanceof Map
+		? [JSON.stringify({ kind: 'map', size: value.size }),
+			...[...value].map((entry) => JSON.stringify(entry, replacer))]
+		: [JSON.stringify({ kind: 'value' }), JSON.stringify(value, replacer)];
+	return Buffer.from(`${rows.join('\n')}\n`);
+}
+
+/** Hash the uncompressed content, not the compressed file.
+ *
+ *  Brotli output is not guaranteed identical across zlib versions, and CI runs
+ *  a different Node than development does — so comparing the .br bytes would
+ *  fail for reasons that have nothing to do with the data. The NDJSON is
+ *  deterministic: JSON.stringify preserves insertion order, and the indices are
+ *  built in a fixed order from files read in a fixed order. */
+export const sha256 = (buf) => createHash('sha256').update(buf).digest('hex');
+
+/** Rebuild from the CSVs and compare against the committed manifest.
+ *
+ *  This is what keeps a hand-refresh of the Retrosheet files from silently
+ *  leaving stale indices behind. The format version catches a shape change in
+ *  boxscore-core; nothing else catches the data moving underneath. */
+async function check() {
+	const manifestPath = join(ARTIFACT_DIR, 'manifest.json');
+	let manifest;
+	try {
+		manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+	} catch {
+		console.error('indices: no manifest — run `npm run build-indices` and commit the result');
+		return 1;
+	}
+	if (manifest.format !== FORMAT) {
+		console.error(`indices: manifest is format ${manifest.format}, code expects ${FORMAT} — rebuild`);
+		return 1;
+	}
+	if (!manifest.digests) {
+		console.error('indices: manifest has no digests — rebuild');
+		return 1;
+	}
+
+	const indices = await buildIndices();
+	const problems = [];
+	for (const name of Object.keys(indices).sort()) {
+		const actual = sha256(renderNdjson(indices[name]));
+		const expected = manifest.digests[name];
+		if (!expected) problems.push(`${name}: missing from the manifest`);
+		else if (actual !== expected) problems.push(`${name}: content changed`);
+	}
+	for (const name of manifest.indices) {
+		if (!(name in indices)) problems.push(`${name}: in the manifest but no longer built`);
+	}
+
+	if (problems.length) {
+		console.error('indices are stale:');
+		for (const p of problems) console.error(`  ${p}`);
+		console.error('run `npm run build-indices` and commit data/indices/');
+		return 1;
+	}
+	console.log(`indices: all ${manifest.indices.length} match the committed artifacts`);
+	return 0;
+}
+
 const mb = (n) => `${(n / 1048576).toFixed(1)} MB`;
 
 async function main() {
@@ -144,34 +212,19 @@ async function main() {
 	// refresh, so the time is not free.
 	let jsonBytes = 0;
 	let packedBytes = 0;
+	const digests = {};
 	const names = Object.keys(indices).sort();
 	for (const name of names) {
-		const value = indices[name];
-		// Newline-delimited, one Map entry per line.
-		//
-		// Not a whole JSON document, and the reason is memory rather than
-		// taste. JSON.parse needs the entire document as a UTF-16 string, so a
-		// 47MB index costs ~94MB before parsing starts, plus the array of
-		// entries, plus the Map being built from it. Loading all thirteen that
-		// way needed a 600MB cap; this box has 512MB and render.yaml caps the
-		// heap at 400.
-		//
-		// A line at a time bounds the transient to one entry, which is what the
-		// CSV path already did by streaming and is the only reason it fits.
-		// Named rows rather than lines, because `lines` is the CSV generator at
-		// the top of this file and shadowing it here would be a trap for the
-		// next edit even though nothing calls it after this point.
-		const rows = value instanceof Map
-			? [JSON.stringify({ kind: 'map', size: value.size }),
-				...[...value].map((entry) => JSON.stringify(entry, replacer))]
-			: [JSON.stringify({ kind: 'value' }), JSON.stringify(value, replacer)];
-
-		const json = Buffer.from(`${rows.join('\n')}\n`);
+		// Newline-delimited, one Map entry per line — see renderNdjson, which
+		// is shared with --check so there is one definition of what an
+		// artifact contains rather than two that have to agree.
+		const json = renderNdjson(indices[name]);
 		const packed = brotliCompressSync(json, {
 			params: { [constants.BROTLI_PARAM_QUALITY]: 5 },
 		});
 		jsonBytes += json.length;
 		packedBytes += packed.length;
+		digests[name] = sha256(json);
 		await writeFile(join(ARTIFACT_DIR, `${name}.ndjson.br`), packed);
 	}
 	// The manifest is what the server reads first: it names the format and the
@@ -179,7 +232,7 @@ async function main() {
 	// renders as an empty box score.
 	await writeFile(
 		join(ARTIFACT_DIR, 'manifest.json'),
-		`${JSON.stringify({ format: FORMAT, indices: names }, null, '\t')}\n`,
+		`${JSON.stringify({ format: FORMAT, indices: names, digests }, null, '\t')}\n`,
 	);
 
 	const csvBytes = (
@@ -206,5 +259,6 @@ async function main() {
 // exactly that on the first run, and printing nothing is the worst way for a
 // build step to fail.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-	await main();
+	if (process.argv.includes('--check')) process.exit(await check());
+	else await main();
 }
