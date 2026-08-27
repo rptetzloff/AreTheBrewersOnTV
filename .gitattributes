@@ -48,6 +48,14 @@
 data/plays.csv filter=lfs diff=lfs merge=lfs -text
 data/plays.lfs.csv filter=lfs diff=lfs merge=lfs -text
 
+# Compressed artifacts are binary and must never be touched. Without this they
+# resolve to "unspecified", which falls back to core.autocrlf — and a single CR
+# rewritten inside a brotli stream makes the file undecodable, which the server
+# would report as a corrupt artifact and quietly fall back to a five-second CSV
+# boot for.
+*.br binary
+*.ndjson.br binary
+
 # Fonts and images are binary. text=auto would detect that on its own, but
 # saying it outright means they can never be corrupted by a rule added above.
 *.ttf binary

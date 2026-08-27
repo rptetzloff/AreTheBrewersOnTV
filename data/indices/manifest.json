@@ -1,0 +1,33 @@
+{
+	"format": 2,
+	"indices": [
+		"batting",
+		"fielding",
+		"firstPa",
+		"games",
+		"lineScores",
+		"namesData",
+		"parks",
+		"pitchCounts",
+		"pitching",
+		"playerNames",
+		"risp",
+		"scoring",
+		"tpFielders"
+	],
+	"digests": {
+		"batting": "326232c5a9b4e75f4d17cb66e6342f7239606050f9af313046bbb75ecd9ae918",
+		"fielding": "a510b3947dd2c5d903cfb657c6b48f53618e7fe3f8b344a73444c0220f4b2931",
+		"firstPa": "ad428136b139e7992b4f19675a5deb2d81698d0f38fd8f1008284993349869b8",
+		"games": "8045eb0282c1152772a77f783bfd2673616a48b2ef783ac34cef5958eef36855",
+		"lineScores": "cdf1690db3866abe228324e911ad7158cf2bc234a13eac5786267fde2c29e765",
+		"namesData": "5aa0e373b2e4cbd272b2d4fdf81cd811be7735aae34591e0f755046994f6dbaa",
+		"parks": "22e058ef484403c385ab80c697b0096fe4a9ee7446a02cd381369cc97702624d",
+		"pitchCounts": "8c3633aad8b20513b4875b17f5ec15cd8ca764db74387b23d2392e351f08c941",
+		"pitching": "143a7da0401876d0bd1b6d711b52641496861ffa3ac04fad90758697d9f350ee",
+		"playerNames": "6d713de03e8f445a70bce99fe293d648c8dc0c94f820afce5cb4a5ec7960f672",
+		"risp": "35b77e67379fc1081a872321f0713520f509901b1add5c454d4065932dc2ac33",
+		"scoring": "2c45a42edae566f2f64b3de001465638b0a11dabba08facb96b476de5fcad6cf",
+		"tpFielders": "bb3ea90b94afaa9c357a49cdc561d8d0bded126f3e71e7b19c1402d89f9b0feb"
+	}
+}

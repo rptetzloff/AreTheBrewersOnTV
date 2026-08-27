@@ -8,11 +8,15 @@ on:
       - 'data/**'
       - 'update-data.js'
       - 'records-core.js'
+      - 'boxscore-core.js'
+      - 'scripts/build-indices.mjs'
   pull_request:
     paths:
       - 'data/**'
       - 'update-data.js'
       - 'records-core.js'
+      - 'boxscore-core.js'
+      - 'scripts/build-indices.mjs'
   # Allow manual runs from the Actions tab at any time
   workflow_dispatch:
 
@@ -31,3 +35,40 @@ jobs:
 
       - name: Validate data files
         run: node update-data.js
+
+  # The committed box-score indices are derived from the CSVs, and nothing else
+  # notices when they stop matching. The format version in the manifest catches
+  # a shape change in boxscore-core.js; it cannot catch the data moving
+  # underneath, which is exactly what a hand-refresh of Retrosheet does.
+  #
+  # Without this the failure is silent: the server loads stale indices, logs a
+  # successful load, and serves box scores from data nobody updated.
+  indices:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        # The rebuild reads data/plays.lfs.csv, which is 387MB behind Git LFS.
+        # The default checkout leaves a pointer file, which parses as an empty
+        # index — so without this the check would compare nothing against
+        # something and fail for the wrong reason.
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Rebuilds every index from the CSVs and compares content hashes against
+      # data/indices/manifest.json.
+      #
+      # Hashes of the uncompressed NDJSON rather than of the .br files: brotli
+      # output is not guaranteed identical across zlib versions, and this job
+      # runs a different Node than development does. Comparing compressed bytes
+      # would fail for reasons that have nothing to do with the data.
+      #
+      # The heap flag is for building, not loading — the server needs far less.
+      - name: Indices match the data
+        run: node --max-old-space-size=3000 scripts/build-indices.mjs --check
