@@ -1597,7 +1597,16 @@ details:not([open]) > .collapsible-summary::before {
 /* --- Records & Superlatives page --- */
 
 .records-container {
+    /* width, not just max-width. body is a column flexbox with
+       align-items: center, so a flex item carrying only a max-width is sized
+       shrink-to-fit and its inline size is indefinite. An auto-fit track list
+       resolves to exactly one repetition when the available inline size is
+       indefinite, so .records-grid below collapsed to a single column and the
+       page rendered as one tall stack. The mobile rule already sets
+       width: 100%, which is why this only ever went wrong above 600px. */
+    width: 100%;
     max-width: 900px;
+    box-sizing: border-box;
 }
 
 .records-back {
@@ -1630,8 +1639,13 @@ details:not([open]) > .collapsible-summary::before {
     display: grid;
     /* Columns never drop below 300px — narrower and the entry detail lines
        (dates, pitcher/fielder attributions) wrap badly. The container caps at
-       900px (836px inner), so this always yields one or two comfortable
-       columns. min(100%, …) keeps very small phones from overflowing. */
+       900px (836px inner), so this yields two comfortable columns.
+       min(100%, …) keeps very small phones from overflowing.
+
+       That 836px only exists because .records-container sets an explicit
+       width. This rule read as correct for months while rendering a single
+       column: auto-fit against an indefinite inline size is one repetition,
+       however generous the minmax. */
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
     gap: 1.25rem;
     text-align: left;
