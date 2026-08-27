@@ -10,6 +10,7 @@ import {
 	parseGamesCsv,
 } from '../records-core.js'
 import { computeHeadToHead } from '../h2h-core.js'
+import { SITE } from '../site.js'
 
 // The real data, asserted against the real functions.
 //
@@ -203,4 +204,36 @@ test('the opponent list covers the rest of the league and then some', () => {
 	// 29 other current franchises, plus any defunct ones met along the way.
 	assert.ok(opponents.length >= 29, `only ${opponents.length} opponents`)
 	assert.ok(opponents.filter((o) => o.current).length >= 29)
+})
+
+// A baseball team does not go undefeated, and this asserts that the data agrees.
+//
+// The point is not the record — it is that a non-empty list here would be an
+// alarm rather than a discovery. The realistic cause is a season with only a
+// handful of games recorded, all of them wins: computeSuperlatives asks only
+// that losses === 0 and wins > 0, so three wins and no other rows look exactly
+// like a perfect season. seasonSettled stops a live 5-0 start from qualifying;
+// nothing stops an incomplete historical one.
+//
+// The margin is the reassuring part. The best season in franchise history is
+// .599, and the shortest is 2020's 60 games at 29-31. Anything approaching 1.000
+// is not a story, it is a broken import.
+test('no season is perfect, and a perfect one would mean the data is wrong', () => {
+	assert.equal(SITE.perfectSeasonIsPlausible, false,
+		'the manifest should say this cannot happen in this sport')
+	assert.deepEqual(supers.perfectSeasons, [],
+		'a perfect baseball season means games are missing, not that history changed')
+
+	const best = Math.max(...history.map((s) => s.winPct))
+	assert.ok(best < 0.75, `best season win rate is ${best.toFixed(3)}, which is implausible`)
+})
+
+test('every season has enough games to be a season', () => {
+	// The floor that would catch the failure above at its source. 2020 is the
+	// genuine minimum at 60 games; anything materially below that is an
+	// incomplete import rather than a short season.
+	for (const s of history) {
+		const played = s.wins + s.losses + s.ties
+		assert.ok(played >= 50, `${s.season} has only ${played} games`)
+	}
 })
