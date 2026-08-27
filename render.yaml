@@ -24,7 +24,6 @@ services:
       - dev.arethebrewersontv.com
     branch: dev
     runtime: node
-    plan: free            # bump to "starter" to avoid cold-start spin-down
     buildCommand: npm install
     startCommand: node server.js
     autoDeploy: true
