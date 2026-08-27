@@ -15,10 +15,22 @@ import { SITE } from '../site.js'
 // The real data, asserted against the real functions.
 //
 // Same discipline as the Packers repo's file of this name: relations and
-// floors, never snapshots. update-data.js commits new games during the season,
-// so "there are N games" is a test that fails every Monday and gets edited
-// until nobody reads it. Equality is reserved for facts that have finished
+// floors, never snapshots. Equality is reserved for facts that have finished
 // happening — 1982 is not going to stop being a World Series year.
+//
+// The reason differs from that repo's, and an earlier version of this comment
+// borrowed its reason wrongly. There, update-data.yml runs on a cron every
+// Tuesday and commits new games mid-season, so a snapshot assertion fails every
+// week. Here the Retrosheet files are refreshed by hand and the workflow only
+// validates them — it never commits. The floors are still right, because a
+// season's worth of rows arriving at once moves every count, but they are not
+// load-bearing in the same way.
+//
+// What follows from that is worth knowing: this file only ever sees completed
+// seasons. The CSV stops at the last finished one, and the season in progress is
+// served live from ESPN through lib/seasons.js — the module none of these tests
+// can reach, because it reads the CSV at import time and calls the network. So
+// the most interesting season is always the one with no coverage.
 //
 // Deliberately does not read data/plays.lfs.csv. That file is 387MB, is
 // fetched through Git LFS, and parses as an empty index when the pointer has
@@ -260,4 +272,18 @@ test('every season has enough games to be a season', () => {
 		const played = s.wins + s.losses + s.ties
 		assert.ok(played >= 50, `${s.season} has only ${played} games`)
 	}
+})
+
+// The CSV holds finished seasons only. Retrosheet publishes after a season
+// ends, and the one in progress comes from ESPN instead — so a partial season
+// appearing here means a hand-refresh caught the file mid-publication.
+//
+// This is also why the win-rate alarm above cannot see a live season. A team on
+// pace for a franchise record is invisible to every test in this file until the
+// following winter, which is a limit of the coverage rather than of the data.
+test('the newest season in the file is a complete one', () => {
+	const newest = history[history.length - 1]
+	const played = newest.wins + newest.losses + newest.ties
+	assert.ok(played >= 150,
+		`${newest.season} has only ${played} games — a partial Retrosheet import`)
 })
