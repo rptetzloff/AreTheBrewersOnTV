@@ -20,7 +20,7 @@ export const POSTSEASON = {
 // Map a season's deepest `postseason` round code (F/D/L/W) + World Series
 // result to the highest applicable tier. wsWin outranks a WS appearance.
 export function postseasonTier(s) {
-	if (s.champion && s.worldseries) return 'wsWin';
+	if (s.champion && s.championship) return 'wsWin';
 	switch (s.postseason) {
 		case 'W': return 'wsApp';
 		case 'L': return 'lcs';

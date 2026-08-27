@@ -1,8 +1,8 @@
 // Building game rows by hand, so a test says what it is about.
 //
 // Deliberately the same shape as the Packers repo's helper of the same name.
-// The two differ only where the data genuinely differs — 'Brewers Win' rather
-// than 'Packers Win', worldseries rather than superbowl, plus the gametype
+// The two differ only where the data genuinely differs — 'result' rather
+// than 'Packers Win', championship rather than superbowl, plus the gametype
 // codes Retrosheet uses. Keeping them parallel is what will make the two
 // suites mergeable when the core is shared; where they diverge, the diff is
 // the list of things a universal core has to abstract.
@@ -20,7 +20,7 @@ export function game({
 	// Retrosheet gametype: R regular, F wildcard, D division, L championship,
 	// W world series. ROUND_ORDER in records-core depends on these letters.
 	gametype = null,
-	worldseries = '',
+	championship = '',
 	location = 'home',
 	gid = '',
 } = {}) {
@@ -33,13 +33,13 @@ export function game({
 		season: String(season ?? date.slice(0, 4)),
 		regular_season: gt === 'R' ? '1' : '0',
 		playoff: gt === 'R' ? '0' : '1',
-		worldseries,
+		championship,
 		gametype: gt,
 		Opponent: opponent,
 		franchise,
-		'Brewers Win': result,
-		brewers_score: String(pf),
-		opponent_score: String(pa),
+		'result': result,
+		scoreFor: String(pf),
+		scoreAgainst: String(pa),
 		location,
 		wp: '',
 		lp: '',

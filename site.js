@@ -67,6 +67,18 @@ export const SITE = {
 	meetingNoun: 'meeting',
 	meetingPlural: 'meetings',
 
+	/** Which team this deployment is about, as the codes its data uses.
+	 *
+	 *  Two, because the franchise has been two teams: the 1969 Seattle Pilots
+	 *  (SE1) became the Brewers (MIL) in 1970. A row under either is a row about
+	 *  this club, and dropping SE1 loses the first season entirely.
+	 *
+	 *  This is the field that makes the code servable for another franchise: the
+	 *  parser selects rows by these ids out of data that describes a whole
+	 *  league, so a different team is a different value here rather than a
+	 *  different parser. */
+	teamIds: ['MIL', 'SE1'],
+
 	// --- rules, not words ---
 
 	/** Whether a win streak may continue across a season boundary.

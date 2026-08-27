@@ -60,7 +60,7 @@ test('every result is one the code knows how to count', () => {
 	// Anything unrecognised is silently dropped by every compute function, so a
 	// typo upstream loses games rather than failing loudly.
 	const known = new Set(['WIN', 'LOSS', 'TIE', ''])
-	const strange = [...new Set(rows.map((r) => r['Brewers Win']))].filter((v) => !known.has(v))
+	const strange = [...new Set(rows.map((r) => r['result']))].filter((v) => !known.has(v))
 	assert.deepEqual(strange, [])
 })
 
@@ -116,13 +116,13 @@ test('regular_season and gametype agree with each other', () => {
 })
 
 test('the result agrees with the scores, except where a game had no score', () => {
-	const played = rows.filter((r) => ['WIN', 'LOSS', 'TIE'].includes(r['Brewers Win']))
-	const scored = played.filter((r) => r.brewers_score !== '' && r.opponent_score !== '')
+	const played = rows.filter((r) => ['WIN', 'LOSS', 'TIE'].includes(r['result']))
+	const scored = played.filter((r) => r.scoreFor !== '' && r.scoreAgainst !== '')
 	const wrong = scored.filter((r) => {
-		const pf = parseInt(r.brewers_score, 10)
-		const pa = parseInt(r.opponent_score, 10)
+		const pf = parseInt(r.scoreFor, 10)
+		const pa = parseInt(r.scoreAgainst, 10)
 		const implied = pf > pa ? 'WIN' : pf < pa ? 'LOSS' : 'TIE'
-		return implied !== r['Brewers Win']
+		return implied !== r['result']
 	})
 	// Forfeits are the known exception: the recorded winner is not the higher
 	// score. If this list grows past a handful, something else is wrong.
@@ -152,14 +152,14 @@ test('1982 is a World Series season', () => {
 test('a World Series title implies a World Series appearance', () => {
 	// A relation rather than a count, because the Brewers have not won one yet
 	// and a test asserting that would be a strange thing to have to delete.
-	for (const s of history.filter((x) => x.worldseries)) {
+	for (const s of history.filter((x) => x.championship)) {
 		assert.equal(s.postseason, 'W', `${s.season} is a title with no final round`)
 	}
 })
 
-test('champion and worldseries agree', () => {
+test('champion and championship agree', () => {
 	for (const s of history) {
-		if (s.worldseries) assert.equal(s.champion, true, `${s.season}`)
+		if (s.championship) assert.equal(s.champion, true, `${s.season}`)
 	}
 })
 
@@ -201,7 +201,7 @@ test('head-to-head covers every opponent exactly once', () => {
 
 test('head-to-head games add up to the games actually played', () => {
 	const counted = computeHeadToHead(rows).opponents.reduce((n, o) => n + o.games, 0)
-	const played = rows.filter((r) => ['WIN', 'LOSS', 'TIE'].includes(r['Brewers Win'])).length
+	const played = rows.filter((r) => ['WIN', 'LOSS', 'TIE'].includes(r['result'])).length
 	assert.equal(counted, played, 'games were lost or double-counted in the fold')
 })
 

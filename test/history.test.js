@@ -66,21 +66,21 @@ test('a season with no postseason has no round', () => {
 test('winning the World Series makes a champion', () => {
 	const rows = [
 		...season(2026, 'WW'),
-		game({ date: '2026-10-30', season: 2026, gametype: 'W', result: 'WIN', worldseries: '2026' }),
+		game({ date: '2026-10-30', season: 2026, gametype: 'W', result: 'WIN', championship: '2026' }),
 	]
 	const s = seasonOf(rows, 2026)
 	assert.equal(s.champion, true)
-	assert.equal(s.worldseries, true)
+	assert.equal(s.championship, true)
 })
 
 test('losing the World Series is an appearance, not a title', () => {
 	const rows = [
 		...season(1982, 'WW'),
-		game({ date: '1982-10-20', season: 1982, gametype: 'W', result: 'LOSS', worldseries: '1982' }),
+		game({ date: '1982-10-20', season: 1982, gametype: 'W', result: 'LOSS', championship: '1982' }),
 	]
 	const s = seasonOf(rows, 1982)
 	assert.equal(s.champion, false)
-	assert.equal(s.worldseries, false)
+	assert.equal(s.championship, false)
 	// but the season still reached the final round
 	assert.equal(s.postseason, 'W')
 })

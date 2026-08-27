@@ -65,30 +65,30 @@ test('a malformed date is passed through rather than mangled', () => {
 test('the result comes from the winning team, not from the scores', () => {
 	// Retrosheet names the winner explicitly. Deriving it from runs would be
 	// wrong for a forfeit, where the score does not match the outcome.
-	assert.equal(parse([one({ wteam: 'MIL', lteam: 'CHN' })])[0]['Brewers Win'], 'WIN')
-	assert.equal(parse([one({ wteam: 'CHN', lteam: 'MIL' })])[0]['Brewers Win'], 'LOSS')
+	assert.equal(parse([one({ wteam: 'MIL', lteam: 'CHN' })])[0]['result'], 'WIN')
+	assert.equal(parse([one({ wteam: 'CHN', lteam: 'MIL' })])[0]['result'], 'LOSS')
 })
 
 test('equal scores with no winner named is a tie', () => {
 	const rows = parse([one({ vruns: '3', hruns: '3', wteam: '', lteam: '' })])
-	assert.equal(rows[0]['Brewers Win'], 'TIE')
+	assert.equal(rows[0]['result'], 'TIE')
 })
 
 test('a game with no result at all yields an empty result rather than a loss', () => {
 	const rows = parse([one({ vruns: '', hruns: '', wteam: '', lteam: '' })])
-	assert.equal(rows[0]['Brewers Win'], '')
-	assert.equal(rows[0].brewers_score, '')
+	assert.equal(rows[0]['result'], '')
+	assert.equal(rows[0].scoreFor, '')
 })
 
 test('scores are assigned by which side the Brewers were on', () => {
 	const home = parse([one({ hometeam: 'MIL', vruns: '2', hruns: '4' })])[0]
-	assert.equal(home.brewers_score, '4')
-	assert.equal(home.opponent_score, '2')
+	assert.equal(home.scoreFor, '4')
+	assert.equal(home.scoreAgainst, '2')
 	assert.equal(home.location, 'home')
 
 	const away = parse([one({ hometeam: 'CHN', visteam: 'MIL', vruns: '2', hruns: '4' })])[0]
-	assert.equal(away.brewers_score, '2')
-	assert.equal(away.opponent_score, '4')
+	assert.equal(away.scoreFor, '2')
+	assert.equal(away.scoreAgainst, '4')
 	assert.equal(away.location, 'away')
 })
 
@@ -107,10 +107,14 @@ test('gametype words become the single-letter codes the rest of the code uses', 
 	}
 })
 
+// 'worldseries' here is Retrosheet's word for the round, not ours for the
+// column. The key rename turned the row field into `championship` and must not
+// touch the value the CSV actually carries — normalizeGametype still matches
+// WORLDSERIES, and renaming this input is what broke this test the first time.
 test('a World Series game records the season it decided', () => {
 	const row = parse([one({ gametype: 'worldseries' })])[0]
-	assert.equal(row.worldseries, '2020')
-	assert.equal(parse([one()])[0].worldseries, '')
+	assert.equal(row.championship, '2020')
+	assert.equal(parse([one()])[0].championship, '')
 })
 
 test('a missing gametype falls back to regular season', () => {
