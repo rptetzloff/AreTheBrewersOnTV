@@ -10,14 +10,27 @@ import {
 	parseGamesCsv,
 } from '../records-core.js'
 import { computeHeadToHead } from '../h2h-core.js'
+import { SITE } from '../site.js'
 
 // The real data, asserted against the real functions.
 //
 // Same discipline as the Packers repo's file of this name: relations and
-// floors, never snapshots. update-data.js commits new games during the season,
-// so "there are N games" is a test that fails every Monday and gets edited
-// until nobody reads it. Equality is reserved for facts that have finished
+// floors, never snapshots. Equality is reserved for facts that have finished
 // happening — 1982 is not going to stop being a World Series year.
+//
+// The reason differs from that repo's, and an earlier version of this comment
+// borrowed its reason wrongly. There, update-data.yml runs on a cron every
+// Tuesday and commits new games mid-season, so a snapshot assertion fails every
+// week. Here the Retrosheet files are refreshed by hand and the workflow only
+// validates them — it never commits. The floors are still right, because a
+// season's worth of rows arriving at once moves every count, but they are not
+// load-bearing in the same way.
+//
+// What follows from that is worth knowing: this file only ever sees completed
+// seasons. The CSV stops at the last finished one, and the season in progress is
+// served live from ESPN through lib/seasons.js — the module none of these tests
+// can reach, because it reads the CSV at import time and calls the network. So
+// the most interesting season is always the one with no coverage.
 //
 // Deliberately does not read data/plays.lfs.csv. That file is 387MB, is
 // fetched through Git LFS, and parses as an empty index when the pointer has
@@ -203,4 +216,74 @@ test('the opponent list covers the rest of the league and then some', () => {
 	// 29 other current franchises, plus any defunct ones met along the way.
 	assert.ok(opponents.length >= 29, `only ${opponents.length} opponents`)
 	assert.ok(opponents.filter((o) => o.current).length >= 29)
+})
+
+// A baseball team does not go undefeated, and this asserts that the data agrees.
+//
+// The point is not the record — it is that a non-empty list here would be an
+// alarm rather than a discovery. The realistic cause is a season with only a
+// handful of games recorded, all of them wins: computeSuperlatives asks only
+// that losses === 0 and wins > 0, so three wins and no other rows look exactly
+// like a perfect season. seasonSettled stops a live 5-0 start from qualifying;
+// nothing stops an incomplete historical one.
+//
+// The margin is the reassuring part. The best season in franchise history is
+// .599, and the shortest is 2020's 60 games at 29-31. Anything approaching 1.000
+// is not a story, it is a broken import.
+test('no season is perfect, and a perfect one would mean the data is wrong', () => {
+	assert.equal(SITE.perfectSeasonIsPlausible, false,
+		'the manifest should say this cannot happen in this sport')
+	assert.deepEqual(supers.perfectSeasons, [],
+		'a perfect baseball season means games are missing, not that history changed')
+
+	// .700 rather than a looser figure, because .700 is already near-mythical:
+	// exactly two full seasons have cleared it since 1955 — Seattle's 116–46 in
+	// 2001 (.716) and New York's 114–48 in 1998 (.704). This franchise has
+	// never exceeded .599 and has existed only since 1969, entirely inside that
+	// era, so anything at .700 deserves a human look whether it turns out to be
+	// a broken import or something worth celebrating.
+	const best = history.reduce((a, b) => (b.winPct > a.winPct ? b : a))
+	assert.ok(best.winPct < 0.700,
+		`${best.season} is ${best.winPct.toFixed(3)} (${best.record}) — check the import before celebrating`)
+})
+
+// The gap in the test above, named rather than left to be discovered.
+//
+// A rate says nothing without a denominator, and the clearest evidence is real:
+// the 2020 Dodgers finished .717 in a 60-game season, above both full seasons
+// since 1955. A short season and a half-imported one produce the same shape, so
+// the rate alone cannot tell a record from a truncated file.
+//
+// This franchise's own 2020 was 29–31, so nothing here trips today. The check
+// that actually holds is the games floor below it.
+test('a high win rate over few games is not evidence of anything', () => {
+	const shortSeasons = history.filter((s) => s.wins + s.losses + s.ties < 100)
+	for (const s of shortSeasons) {
+		assert.ok(s.winPct < 0.700,
+			`${s.season}: ${s.record} over ${s.wins + s.losses + s.ties} games is a rate without a season behind it`)
+	}
+})
+
+test('every season has enough games to be a season', () => {
+	// The floor that would catch the failure above at its source. 2020 is the
+	// genuine minimum at 60 games; anything materially below that is an
+	// incomplete import rather than a short season.
+	for (const s of history) {
+		const played = s.wins + s.losses + s.ties
+		assert.ok(played >= 50, `${s.season} has only ${played} games`)
+	}
+})
+
+// The CSV holds finished seasons only. Retrosheet publishes after a season
+// ends, and the one in progress comes from ESPN instead — so a partial season
+// appearing here means a hand-refresh caught the file mid-publication.
+//
+// This is also why the win-rate alarm above cannot see a live season. A team on
+// pace for a franchise record is invisible to every test in this file until the
+// following winter, which is a limit of the coverage rather than of the data.
+test('the newest season in the file is a complete one', () => {
+	const newest = history[history.length - 1]
+	const played = newest.wins + newest.losses + newest.ties
+	assert.ok(played >= 150,
+		`${newest.season} has only ${played} games — a partial Retrosheet import`)
 })

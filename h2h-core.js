@@ -8,6 +8,7 @@
 // opponent's most recent era name (so the A's show as "Sacramento Athletics"
 // today), and the slug is derived from that current name.
 import { rec, formatDate } from './records-core.js';
+import { SITE } from './site.js';
 
 export const slugifyOpponent = (name) =>
 	name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
@@ -177,29 +178,29 @@ export function computeHeadToHead(rows) {
 }
 
 // "The Brewers have won the last 8 meetings." / single-game fallback.
-export function streakSentence(o) {
+export function streakSentence(o, site = SITE) {
 	const { result, count } = o.streak;
 	const verb = result === 'WIN' ? 'won' : result === 'LOSS' ? 'lost' : 'tied';
-	if (count >= 2) return `The Brewers have ${verb} the last ${count} meetings.`;
+	if (count >= 2) return `The ${site.team} have ${verb} the last ${count} ${site.meetingPlural}.`;
 	const noun = result === 'WIN' ? 'win' : result === 'LOSS' ? 'loss' : 'tie';
-	return `Last meeting: a ${o.last.pf}–${o.last.pa} ${noun} on ${formatDate(o.last.date)}.`;
+	return `Last ${site.meetingNoun}: a ${o.last.pf}–${o.last.pa} ${noun} on ${formatDate(o.last.date)}.`;
 }
 
 // Per-opponent copy shared by server OG meta and client share messages.
 // slug 'overview'/unknown -> landing-page copy.
-export function h2hCopy(slug, data) {
+export function h2hCopy(slug, data, site = SITE) {
 	const o = data.bySlug.get(slug);
 	if (!o) {
 		const top = data.opponents[0];
 		return {
-			title: 'Brewers All-Time Head-to-Head',
-			desc: `The Brewers' all-time record against all ${data.opponents.length} opponents they've ever faced. Most played: the ${top.name}, ${top.record} in ${top.games} meetings.`,
+			title: `${site.team} All-Time Head-to-Head`,
+			desc: `The ${site.team}' all-time record against all ${data.opponents.length} opponents they've ever faced. Most played: the ${top.name}, ${top.record} in ${top.games} ${site.meetingPlural}.`,
 		};
 	}
 	return {
-		title: `Brewers vs ${o.name} — ${o.record} all-time`,
-		desc: `The Brewers are ${o.record} all-time against the ${o.name} in ${meetings(o.games)}. ${streakSentence(o)}`,
+		title: `${site.team} vs ${o.name} — ${o.record} all-time`,
+		desc: `The ${site.team} are ${o.record} all-time against the ${o.name} in ${meetings(o.games, site)}. ${streakSentence(o, site)}`,
 	};
 }
 
-export const meetings = (n) => `${n} meeting${n === 1 ? '' : 's'}`;
+export const meetings = (n, site = SITE) => `${n} ${n === 1 ? site.meetingNoun : site.meetingPlural}`;

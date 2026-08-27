@@ -1,3 +1,9 @@
+import { SITE } from './site.js';
+
+/** Title case for a manifest noun used at the start of a heading. The
+ *  manifest stores lowercase because most uses are mid-sentence. */
+const cap = (w) => w.charAt(0).toUpperCase() + w.slice(1);
+
 // Shared (browser + node) head-manager records, computed by assigning every
 // game to a managing tenure by date. Official tenures come from
 // data/managers.csv (name, start_year, end_year); any game managed by someone
@@ -123,8 +129,8 @@ export function coachesCopy(data) {
 	const wins = [...coaches].sort((a, b) => b.wins - a.wins)[0];
 	const titles = coaches.reduce((s, c) => s + c.titles, 0);
 	return {
-		title: `Brewers Managers, ${coaches[0].firstSeason}–present`,
-		desc: `Every Milwaukee Brewers manager and their record — ${coaches.length} of them, ${titles} championships. Most wins: ${wins.name} (${wins.record}).`,
+		title: `${SITE.team} ${cap(SITE.leaderPlural)}, ${coaches[0].firstSeason}–present`,
+		desc: `Every ${SITE.fullName} ${SITE.leaderNoun} and their record — ${coaches.length} of them, ${titles} championships. Most wins: ${wins.name} (${wins.record}).`,
 	};
 }
 
