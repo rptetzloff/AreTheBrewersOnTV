@@ -36,6 +36,14 @@ export const SITE = {
 	 *  'points', and it is why "runs for / runs against" cannot be a fixed
 	 *  string anywhere below. */
 	scoreNoun: 'runs',
+	/** The chart's two metric labels, spelled out rather than derived.
+	 *
+	 *  Deriving them from scoreNoun was the first attempt and it is wrong:
+	 *  this sport says "Runs Scored / Runs Allowed" and football says "Points
+	 *  For / Points Against" — different verbs, not just different nouns. The
+	 *  same lesson as meetingPlural. */
+	scoreForLabel: 'Runs Scored',
+	scoreAgainstLabel: 'Runs Allowed',
 	/** The trophy. */
 	championship: 'World Series',
 	/** What the person in charge is called — and the whole reason this site has

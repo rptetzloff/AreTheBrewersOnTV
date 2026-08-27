@@ -8,6 +8,7 @@ import { parseBiofile, parseTeamstatsMgr, parseManagersCsv, computeCoachesFromDa
 import { buildChartSvg, METRICS, POSTSEASON, postseasonTier } from './history-chart.js';
 import { shareButtonsHtml, labeledShareButtonsHtml, wireShareRow, wireShareDropdown } from './share-core.js';
 import { sortableHeadHtml, sortRows, wireSortable } from './sortable.js';
+import { SITE } from './site.js';
 
 const chartEl = document.getElementById('history-chart');
 const tooltip = document.getElementById('history-tooltip');
@@ -17,7 +18,7 @@ const pct = (p) => (p >= 1 ? '1.000' : p.toFixed(3).replace(/^0/, ''));
 
 function seasonLabel(s) {
 	const notes = [];
-	if (s.worldseries) notes.push('World Series champions');
+	if (s.worldseries) notes.push(`${SITE.championship} champions`);
 	else if (s.champion) notes.push('MLB champions');
 	const tier = postseasonTier(s);
 	if (tier && tier !== 'wsWin') notes.push(POSTSEASON[tier].label);
