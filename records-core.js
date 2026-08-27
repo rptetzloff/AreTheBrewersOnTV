@@ -1,3 +1,5 @@
+import { SITE } from './site.js';
+
 // Shared (browser + node) computation of Brewers records/superlatives from
 // Retrosheet data (gameinfo.csv + CurrentNames.csv). Pure functions only — no fs/fetch/DOM.
 
@@ -104,7 +106,17 @@ export function nameForFranchiseAt(eras, franchise, yyyymmdd) {
 
 // Brewers Retrosheet team IDs across all seasons.
 // SE1 = Seattle Pilots (1969); MIL = Milwaukee Brewers (1970–present).
-export const BREWERS_IDS = new Set(['MIL', 'SE1']);
+/** The team codes this deployment is about, read out of the manifest rather
+ *  than listed again here.
+ *
+ *  Renaming this to TEAM_IDS would be the honest thing and is deliberately not
+ *  done yet: it is imported by name in five files, and this change is already
+ *  large enough that a byte-for-byte check of the output is what makes it safe
+ *  to review. The name is the last Brewers-specific thing in this module.
+ *
+ *  What matters is that the value now comes from site.js, so pointing this code
+ *  at another franchise is a manifest edit rather than a source edit. */
+export const BREWERS_IDS = new Set(SITE.teamIds);
 
 // Playoff round depth ordering: higher = deeper in the postseason.
 export const ROUND_ORDER = { F: 1, D: 2, L: 3, W: 4 };
@@ -247,6 +259,9 @@ export function parseGameinfoCsv(gamesRaw, namesRaw, teamstatsRaw = null) {
 	// Build gid→gametype from teamstats, but only retain known playoff codes.
 	// teamstats uses full-word values: 'regular' for regular season, and words
 	// like 'division', 'lcs', 'worldseries', 'wildcard' for postseason games.
+	// Those are Retrosheet's words for the round and are deliberately untouched
+	// by the key rename: the column this code writes is `championship`, the value
+	// it reads is still whatever the CSV says.
 	// We treat anything that is NOT a regular-season indicator as a playoff game.
 	const tsPlayoff = new Set(); // gids confirmed as playoff by teamstats
 	const tsWorldSeries = new Set();
@@ -310,14 +325,14 @@ export function parseGameinfoCsv(gamesRaw, namesRaw, teamstatsRaw = null) {
 				opponentId;
 
 			// Normalize gametype to single-letter codes used throughout.
-			// teamstats uses full words: regular, wildcard, divisionseries, lcs, worldseries, playoff.
+			// teamstats uses full words: regular, wildcard, divisionseries, lcs, championship, playoff.
 			// gameinfo.csv may use R/D/L/W/F or be empty.
 			const rawGt = (r.gametype || '').toUpperCase().trim();
 			const normGt = normalizeGametype(rawGt);
 			const gt = normGt || (tsPlayoff.has(r.gid) ? (tsWorldSeries.has(r.gid) ? 'W' : 'D') : 'R');
 			const regularSeason = gt === 'R' ? '1' : '0';
 			const playoff = gt !== 'R' ? '1' : '0';
-			const worldseries = gt === 'W' ? r.season : '';
+			const championship = gt === 'W' ? r.season : '';
 
 			return {
 				gid: r.gid || '',
@@ -325,13 +340,13 @@ export function parseGameinfoCsv(gamesRaw, namesRaw, teamstatsRaw = null) {
 				season: r.season,
 				regular_season: regularSeason,
 				playoff,
-				worldseries,
+				championship,
 				gametype: gt,
 				Opponent: opponentName,
 				franchise,
-				'Brewers Win': result,
-				brewers_score: isNaN(brewersScore) ? '' : String(brewersScore),
-				opponent_score: isNaN(opponentScore) ? '' : String(opponentScore),
+				'result': result,
+				scoreFor: isNaN(brewersScore) ? '' : String(brewersScore),
+				scoreAgainst: isNaN(opponentScore) ? '' : String(opponentScore),
 				location: isHome ? 'home' : 'away',
 				wp: r.wp || '',
 				lp: r.lp || '',
@@ -365,7 +380,7 @@ const seasonSettled = (yr, now) =>
 // playoffs, flagged.
 export function computeSuperlatives(rows, { top = 5, now = new Date() } = {}) {
 	const games = rows
-		.filter((r) => RESULTS.has(r['Brewers Win']))
+		.filter((r) => RESULTS.has(r['result']))
 		.slice()
 		.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 	const regular = games.filter((r) => r.regular_season === '1');
@@ -385,7 +400,7 @@ export function computeSuperlatives(rows, { top = 5, now = new Date() } = {}) {
 		for (const yr of years) {
 			let n = 0, first = null;
 			for (const g of seasons.get(yr)) {
-				if (g['Brewers Win'] === result) { if (!first) first = g; n++; }
+				if (g['result'] === result) { if (!first) first = g; n++; }
 				else break;
 			}
 			if (n > 0) out.push({ season: yr, games: n, firstGid: first?.gid || '' });
@@ -399,8 +414,8 @@ export function computeSuperlatives(rows, { top = 5, now = new Date() } = {}) {
 	for (const yr of years) {
 		let w = 0, l = 0, t = 0;
 		for (const g of seasons.get(yr)) {
-			if (g['Brewers Win'] === 'WIN') w++;
-			else if (g['Brewers Win'] === 'LOSS') l++;
+			if (g['result'] === 'WIN') w++;
+			else if (g['result'] === 'LOSS') l++;
 			else t++;
 		}
 		if (l === 0 && w > 0 && seasonSettled(yr, now)) perfectSeasons.push({ season: yr, wins: w, record: rec(w, l, t) });
@@ -427,8 +442,8 @@ export function computeSuperlatives(rows, { top = 5, now = new Date() } = {}) {
 			s.firstGid = g.gid || s.firstGid;
 			s.firstDate = g.date;
 		}
-		if (g['Brewers Win'] === 'WIN') s.wins++;
-		else if (g['Brewers Win'] === 'LOSS') s.losses++;
+		if (g['result'] === 'WIN') s.wins++;
+		else if (g['result'] === 'LOSS') s.losses++;
 	}
 	const allSeries = [...seriesMap.values()].map((s) => ({
 		...s,
@@ -449,7 +464,7 @@ export function computeSuperlatives(rows, { top = 5, now = new Date() } = {}) {
 			series: series.sort((a, b) => (ROUND_ORDER[a.round] ?? 9) - (ROUND_ORDER[b.round] ?? 9)),
 		}))
 		.sort((a, b) => b.season - a.season);
-	const worldSeriesAppearances = allSeries
+	const championshipAppearances = allSeries
 		.filter((s) => s.round === 'W')
 		.sort((a, b) => b.season - a.season);
 
@@ -469,7 +484,7 @@ export function computeSuperlatives(rows, { top = 5, now = new Date() } = {}) {
 		for (const g of regular) {
 			const gSeason = parseInt(g.season, 10);
 			if (runSeason !== null && gSeason !== runSeason) endRun();
-			if (g['Brewers Win'] === result) {
+			if (g['result'] === result) {
 				if (!run) run = { games: 0, start: null, end: null };
 				runSeason = gSeason;
 				run.games++;
@@ -489,20 +504,20 @@ export function computeSuperlatives(rows, { top = 5, now = new Date() } = {}) {
 	const loseStreaks = streaksOf('LOSS');
 
 	const gameInfo = (g) => {
-		const pf = parseInt(g.brewers_score, 10) || 0;
-		const pa = parseInt(g.opponent_score, 10) || 0;
+		const pf = parseInt(g.scoreFor, 10) || 0;
+		const pa = parseInt(g.scoreAgainst, 10) || 0;
 		return {
 			gid: g.gid || '',
 			date: g.date, season: parseInt(g.season, 10), opponent: g.Opponent,
 			pf, pa,
 			playoff: g.regular_season !== '1',
-			worldseries: !!(g.worldseries && g.worldseries.trim()),
+			championship: !!(g.championship && g.championship.trim()),
 		};
 	};
 
 	// Biggest margins, either direction; sort by margin, then winner's score, then date.
 	const lopsided = (result) => games
-		.filter((g) => g['Brewers Win'] === result)
+		.filter((g) => g['result'] === result)
 		.map(gameInfo)
 		.sort((a, b) => Math.abs(b.pf - b.pa) - Math.abs(a.pf - a.pa)
 			|| Math.max(b.pf, b.pa) - Math.max(a.pf, a.pa)
@@ -510,12 +525,12 @@ export function computeSuperlatives(rows, { top = 5, now = new Date() } = {}) {
 		.slice(0, top);
 
 	// Every tie ever, not a top-N list; newest first.
-	const ties = games.filter((g) => g['Brewers Win'] === 'TIE').map(gameInfo).reverse();
+	const ties = games.filter((g) => g['result'] === 'TIE').map(gameInfo).reverse();
 
 	return {
 		seasonRange, bestStarts, perfectSeasons, winStreaks: topStreaks, loseStreaks, worstStarts,
 		lopsidedWins: lopsided('WIN'), lopsidedLosses: lopsided('LOSS'), ties,
-		playoffAppearances, worldSeriesAppearances,
+		playoffAppearances, championshipAppearances,
 	};
 }
 
@@ -528,7 +543,7 @@ export const streakSpan = (s) =>
 // champion and undefeated flags always use their own rules regardless.
 export function computeSeasonHistory(rows, { now = new Date(), playoffs = false } = {}) {
 	const games = rows
-		.filter((r) => ['WIN', 'LOSS', 'TIE'].includes(r['Brewers Win']))
+		.filter((r) => ['WIN', 'LOSS', 'TIE'].includes(r['result']))
 		.slice()
 		.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 	const bySeason = new Map();
@@ -548,23 +563,23 @@ export function computeSeasonHistory(rows, { now = new Date(), playoffs = false 
 				lastPlayoff = g;
 				const order = ROUND_ORDER[g.gametype] || 0;
 				if (order > deepestOrder) { deepestOrder = order; deepestRound = g.gametype; }
-				if (g.worldseries && g.worldseries.trim()) {
-					if (g['Brewers Win'] === 'WIN') wsWins++;
-					else if (g['Brewers Win'] === 'LOSS') wsLosses++;
+				if (g.championship && g.championship.trim()) {
+					if (g['result'] === 'WIN') wsWins++;
+					else if (g['result'] === 'LOSS') wsLosses++;
 				}
 			}
 			if (isReg) {
-				if (g['Brewers Win'] === 'WIN') regWins++;
-				else if (g['Brewers Win'] === 'LOSS') regLosses++;
+				if (g['result'] === 'WIN') regWins++;
+				else if (g['result'] === 'LOSS') regLosses++;
 			}
 			if (!isReg && !playoffs) continue;
-			if (g['Brewers Win'] === 'WIN') w++;
-			else if (g['Brewers Win'] === 'LOSS') l++;
+			if (g['result'] === 'WIN') w++;
+			else if (g['result'] === 'LOSS') l++;
 			else t++;
-			pf += parseInt(g.brewers_score, 10) || 0;
-			pa += parseInt(g.opponent_score, 10) || 0;
+			pf += parseInt(g.scoreFor, 10) || 0;
+			pa += parseInt(g.scoreAgainst, 10) || 0;
 		}
-		const worldseries = wsWins > wsLosses;
+		const championship = wsWins > wsLosses;
 		const gamesPlayed = w + l + t;
 		return {
 			season: yr,
@@ -572,8 +587,8 @@ export function computeSeasonHistory(rows, { now = new Date(), playoffs = false 
 			record: rec(w, l, t),
 			winPct: gamesPlayed ? (w + t / 2) / gamesPlayed : 0,
 			pf, pa,
-			champion: worldseries || (lastPlayoff !== null && lastPlayoff.gametype !== 'W' && lastPlayoff['Brewers Win'] === 'WIN'),
-			worldseries,
+			champion: championship || (lastPlayoff !== null && lastPlayoff.gametype !== 'W' && lastPlayoff['result'] === 'WIN'),
+			championship,
 			postseason: deepestRound,
 			undefeated: regLosses === 0 && regWins > 0 && seasonSettled(yr, now),
 		};
@@ -618,7 +633,7 @@ export function computeTeamstatsRecords(rows, teamstatsRaw, { top = 5, now = new
 	const worstSeasons = completed.slice().sort(byWorst).slice(0, top);
 
 	const games = rows
-		.filter((r) => RESULTS.has(r['Brewers Win']))
+		.filter((r) => RESULTS.has(r['result']))
 		.slice()
 		.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 	const noHitters = [];
@@ -631,8 +646,8 @@ export function computeTeamstatsRecords(rows, teamstatsRaw, { top = 5, now = new
 		if (!p) continue;
 		const entry = () => ({
 			gid: g.gid, date: g.date, season: parseInt(g.season, 10), opponent: g.Opponent,
-			pf: parseInt(g.brewers_score, 10) || 0, pa: parseInt(g.opponent_score, 10) || 0,
-			playoff: g.regular_season !== '1', worldseries: !!(g.worldseries && g.worldseries.trim()),
+			pf: parseInt(g.scoreFor, 10) || 0, pa: parseInt(g.scoreAgainst, 10) || 0,
+			playoff: g.regular_season !== '1', championship: !!(g.championship && g.championship.trim()),
 		});
 		if (p.tp > 0) triplePlays.push({ ...entry(), count: p.tp });
 		if (p.teamHr > 0) hrGames.push({ ...entry(), hr: p.teamHr });
@@ -658,60 +673,60 @@ export function computeTeamstatsRecords(rows, teamstatsRaw, { top = 5, now = new
 }
 
 // Meta copy for the /history page, shared by server OG meta and client share.
-export function historyCopy(history) {
+export function historyCopy(history, site = SITE) {
 	const first = history[0].season, last = history[history.length - 1].season;
 	const titles = history.filter((s) => s.champion).length;
 	const winning = history.filter((s) => s.winPct > 0.5).length;
 	return {
-		title: `Brewers Season-by-Season History, ${first}–${last}`,
-		desc: `Every Milwaukee Brewers season since ${first} in one chart: ${titles} championships and ${winning} winning seasons across ${history.length} years.`,
+		title: `${site.team} Season-by-Season History, ${first}–${last}`,
+		desc: `Every ${site.fullName} season since ${first} in one chart: ${titles} championships and ${winning} winning seasons across ${history.length} years.`,
 	};
 }
 
 // Per-card copy shared by server OG meta and client share messages.
 // slug 'overview' covers the /records landing URL.
-export function recordsCopy(slug, data) {
+export function recordsCopy(slug, data, site = SITE) {
 	const range = `${data.seasonRange.first}–${data.seasonRange.last}`;
 	switch (slug) {
 		case 'best-starts': {
 			const b = data.bestStarts[0];
 			return {
-				title: `Best Brewers Season Starts — ${b.games}–0 in ${b.season}`,
-				desc: `The best start in Milwaukee Brewers history: ${b.games}–0 to open the ${b.season} season. Top ${data.bestStarts.length} starts, ${range}.`,
+				title: `Best ${site.team} Season Starts — ${b.games}–0 in ${b.season}`,
+				desc: `The best start in ${site.fullName} history: ${b.games}–0 to open the ${b.season} season. Top ${data.bestStarts.length} starts, ${range}.`,
 			};
 		}
 		case 'world-series-appearances': {
-			const w = data.worldSeriesAppearances;
+			const w = data.championshipAppearances;
 			return {
-				title: w.length ? `Brewers World Series — ${w.map((x) => `${x.season} (${x.result} ${x.record} vs ${x.opponent})`).join(', ')}` : 'Brewers World Series Appearances',
+				title: w.length ? `${site.team} World Series — ${w.map((x) => `${x.season} (${x.result} ${x.record} vs ${x.opponent})`).join(', ')}` : `${site.team} World Series Appearances`,
 				desc: w.length
-					? `World Series results by the Milwaukee Brewers: ${w.map((x) => `${x.season}: ${x.result} ${x.record} vs the ${x.opponent}`).join('; ')}.`
-					: 'The Brewers have not yet reached a World Series.',
+					? `World Series results by the ${site.fullName}: ${w.map((x) => `${x.season}: ${x.result} ${x.record} vs the ${x.opponent}`).join('; ')}.`
+					: site.copy.noWorldSeries,
 			};
 		}
 		case 'playoff-appearances': {
 			const p = data.playoffAppearances;
 			const summary = p.map((x) => `${x.season} (${x.series.map((s) => `${s.result} ${s.roundLabel}`).join(', ')})`).join('; ');
 			return {
-				title: p.length ? `Brewers Playoff Appearances — ${p.map((x) => x.season).join(', ')}` : 'Brewers Playoff Appearances',
+				title: p.length ? `${site.team} Playoff Appearances — ${p.map((x) => x.season).join(', ')}` : `${site.team} Playoff Appearances`,
 				desc: p.length
-					? `Postseason series results by the Milwaukee Brewers: ${summary}.`
-					: 'The Brewers have not yet reached the playoffs.',
+					? `Postseason series results by the ${site.fullName}: ${summary}.`
+					: site.copy.noPlayoffs,
 			};
 		}
 		case 'win-streaks': {
 			const s = data.winStreaks[0];
 			return {
-				title: `Longest Brewers Win Streaks — ${s.games} straight (${streakSpan(s)})`,
-				desc: `The longest regular-season win streak in Milwaukee Brewers history: ${s.games} straight, ${formatDate(s.startDate)} to ${formatDate(s.endDate)}.`,
+				title: `Longest ${site.team} Win Streaks — ${s.games} straight (${streakSpan(s)})`,
+				desc: `The longest regular-season win streak in ${site.fullName} history: ${s.games} straight, ${formatDate(s.startDate)} to ${formatDate(s.endDate)}.`,
 			};
 		}
 		case 'losing-streaks': {
 			const s = data.loseStreaks[0];
-			if (!s) return { title: 'Longest Brewers Losing Streaks', desc: 'The Brewers have never lost consecutive games. Sure.' };
+			if (!s) return { title: `Longest ${site.team} Losing Streaks`, desc: site.copy.noLosingStreak };
 			return {
-				title: `Longest Brewers Losing Streaks — ${s.games} straight (${streakSpan(s)})`,
-				desc: `The longest regular-season losing streak in Milwaukee Brewers history: ${s.games} straight, ${formatDate(s.startDate)} to ${formatDate(s.endDate)}. We don't talk about it.`,
+				title: `Longest ${site.team} Losing Streaks — ${s.games} straight (${streakSpan(s)})`,
+				desc: `The longest regular-season losing streak in ${site.fullName} history: ${s.games} straight, ${formatDate(s.startDate)} to ${formatDate(s.endDate)}. ${site.copy.worstLossAside}`,
 			};
 		}
 		case 'player-error-game': {
@@ -725,93 +740,93 @@ export function recordsCopy(slug, data) {
 		}
 		case 'team-error-game': {
 			const h = data.mostTeamErrorGames || [];
-			if (!h.length) return { title: 'Most Brewers Errors in a Game', desc: 'Team single-game error records.' };
+			if (!h.length) return { title: `Most ${site.team} Errors in a Game`, desc: 'Team single-game error records.' };
 			const g = h[0];
 			return {
-				title: `Most Brewers Errors in a Game — ${g.e}`,
-				desc: `The Brewers committed ${g.e} errors vs the ${g.opponent} on ${formatDate(g.date)}. A day to forget.`,
+				title: `Most ${site.team} Errors in a Game — ${g.e}`,
+				desc: `The ${site.team} committed ${g.e} errors vs the ${g.opponent} on ${formatDate(g.date)}. A day to forget.`,
 			};
 		}
 		case 'worst-starts': {
 			const w = data.worstStarts[0];
 			return {
-				title: `Worst Brewers Season Starts — 0–${w.games} in ${w.season}`,
-				desc: `The worst start in Milwaukee Brewers history: 0–${w.games} to open the ${w.season} season. It happens to the best of us.`,
+				title: `Worst ${site.team} Season Starts — 0–${w.games} in ${w.season}`,
+				desc: `The worst start in ${site.fullName} history: 0–${w.games} to open the ${w.season} season. ${site.copy.worstStartAside}`,
 			};
 		}
 		case 'lopsided-wins': {
 			const g = data.lopsidedWins[0];
 			return {
-				title: `Most Lopsided Brewers Wins — ${g.pf}–${g.pa} over the ${g.opponent}`,
-				desc: `The biggest blowout in Milwaukee Brewers history: ${g.pf}–${g.pa} over the ${g.opponent} on ${formatDate(g.date)}.`,
+				title: `Most Lopsided ${site.team} Wins — ${g.pf}–${g.pa} over the ${g.opponent}`,
+				desc: `The biggest blowout in ${site.fullName} history: ${g.pf}–${g.pa} over the ${g.opponent} on ${formatDate(g.date)}.`,
 			};
 		}
 		case 'worst-losses': {
 			const g = data.lopsidedLosses[0];
 			return {
-				title: `Worst Brewers Losses — ${g.pf}–${g.pa} to the ${g.opponent}`,
-				desc: `The most lopsided loss in Milwaukee Brewers history: ${g.pa}–${g.pf} to the ${g.opponent} on ${formatDate(g.date)}. We don't talk about it.`,
+				title: `Worst ${site.team} Losses — ${g.pf}–${g.pa} to the ${g.opponent}`,
+				desc: `The most lopsided loss in ${site.fullName} history: ${g.pa}–${g.pf} to the ${g.opponent} on ${formatDate(g.date)}. ${site.copy.worstLossAside}`,
 			};
 		}
 		case 'ties': {
 			const t = data.ties[0];
-			if (!t) return { title: 'Brewers Ties', desc: 'The Brewers have never tied a game.' };
+			if (!t) return { title: `${site.team} Ties`, desc: site.copy.noTies };
 			return {
-				title: `Brewers Ties — ${data.ties.length} all-time`,
-				desc: `The Brewers have played ${data.ties.length} ties. Most recent: ${t.pf}–${t.pa} vs the ${t.opponent} on ${formatDate(t.date)}.`,
+				title: `${site.team} Ties — ${data.ties.length} all-time`,
+				desc: `The ${site.team} have played ${data.ties.length} ties. Most recent: ${t.pf}–${t.pa} vs the ${t.opponent} on ${formatDate(t.date)}.`,
 			};
 		}
 		case 'best-seasons': {
 			const s = data.bestSeasons[0];
 			return {
-				title: `Best Brewers Seasons — ${s.record} in ${s.season}`,
-				desc: `The best Milwaukee Brewers season: ${s.record} in ${s.season}. Top ${data.bestSeasons.length} seasons by winning percentage.`,
+				title: `Best ${site.team} Seasons — ${s.record} in ${s.season}`,
+				desc: `The best ${site.fullName} season: ${s.record} in ${s.season}. Top ${data.bestSeasons.length} seasons by winning percentage.`,
 			};
 		}
 		case 'worst-seasons': {
 			const s = data.worstSeasons[0];
 			return {
-				title: `Worst Brewers Seasons — ${s.record} in ${s.season}`,
-				desc: `The worst Milwaukee Brewers season: ${s.record} in ${s.season}. It happens to the best of us.`,
+				title: `Worst ${site.team} Seasons — ${s.record} in ${s.season}`,
+				desc: `The worst ${site.fullName} season: ${s.record} in ${s.season}. ${site.copy.worstStartAside}`,
 			};
 		}
 		case 'no-hitters': {
 			const n = data.noHitters;
-			if (!n.length) return { title: 'Brewers No-Hitters', desc: 'The Brewers have never thrown a no-hitter.' };
+			if (!n.length) return { title: `${site.team} No-Hitters`, desc: site.copy.noNoHitter };
 			const g = n[0];
 			const who = g.pitchers?.length
 				? (g.pitchers.length > 1 ? `, a combined no-hitter by ${g.pitchers.join(' and ')}` : ` by ${g.pitchers[0]}`)
 				: '';
 			return {
-				title: `Brewers No-Hitters — ${n.length} all-time`,
-				desc: `The Brewers have thrown ${n.length} no-hitter${n.length === 1 ? '' : 's'}, individual and combined. Most recent: ${g.pf}–${g.pa} vs the ${g.opponent} on ${formatDate(g.date)}${who}.`,
+				title: `${site.team} No-Hitters — ${n.length} all-time`,
+				desc: `The ${site.team} have thrown ${n.length} no-hitter${n.length === 1 ? '' : 's'}, individual and combined. Most recent: ${g.pf}–${g.pa} vs the ${g.opponent} on ${formatDate(g.date)}${who}.`,
 			};
 		}
 		case 'perfect-games': {
 			const n = data.perfectGames;
-			if (!n.length) return { title: 'Brewers Perfect Games', desc: 'The Brewers have never thrown a perfect game.' };
+			if (!n.length) return { title: `${site.team} Perfect Games`, desc: site.copy.noPerfectGame };
 			const g = n[0];
 			return {
-				title: `Brewers Perfect Games — ${n.length} all-time`,
-				desc: `The Brewers have thrown ${n.length} perfect game${n.length === 1 ? '' : 's'}. Most recent: ${g.pf}–${g.pa} vs the ${g.opponent} on ${formatDate(g.date)}.`,
+				title: `${site.team} Perfect Games — ${n.length} all-time`,
+				desc: `The ${site.team} have thrown ${n.length} perfect game${n.length === 1 ? '' : 's'}. Most recent: ${g.pf}–${g.pa} vs the ${g.opponent} on ${formatDate(g.date)}.`,
 			};
 		}
 		case 'triple-plays': {
 			const t = data.triplePlays || [];
-			if (!t.length) return { title: 'Brewers Triple Plays', desc: 'The Brewers have never turned a triple play.' };
+			if (!t.length) return { title: `${site.team} Triple Plays`, desc: site.copy.noTriplePlay };
 			const g = t[0];
 			return {
-				title: `Brewers Triple Plays — ${t.length} all-time`,
-				desc: `The Brewers have turned ${t.length} triple play${t.length === 1 ? '' : 's'}. Most recent: vs the ${g.opponent} on ${formatDate(g.date)}.`,
+				title: `${site.team} Triple Plays — ${t.length} all-time`,
+				desc: `The ${site.team} have turned ${t.length} triple play${t.length === 1 ? '' : 's'}. Most recent: vs the ${g.opponent} on ${formatDate(g.date)}.`,
 			};
 		}
 		case 'most-hr-game': {
 			const h = data.mostTeamHrGames || [];
-			if (!h.length) return { title: 'Most Brewers Home Runs in a Game', desc: 'Team single-game home run records.' };
+			if (!h.length) return { title: `Most ${site.team} Home Runs in a Game`, desc: 'Team single-game home run records.' };
 			const g = h[0];
 			return {
-				title: `Most Brewers Home Runs in a Game — ${g.hr}`,
-				desc: `The most home runs the Brewers have hit in one game: ${g.hr}, vs the ${g.opponent} on ${formatDate(g.date)}.`,
+				title: `Most ${site.team} Home Runs in a Game — ${g.hr}`,
+				desc: `The most home runs the ${site.team} have hit in one game: ${g.hr}, vs the ${g.opponent} on ${formatDate(g.date)}.`,
 			};
 		}
 		case 'player-hr-game': {
@@ -834,17 +849,17 @@ export function recordsCopy(slug, data) {
 		}
 		case 'cycles': {
 			const c = data.cycles || [];
-			if (!c.length) return { title: 'Brewers Cycles', desc: 'Every cycle hit in Milwaukee Brewers history.' };
+			if (!c.length) return { title: `${site.team} Cycles`, desc: `Every cycle hit in ${site.fullName} history.` };
 			const g = c[0];
 			return {
-				title: `Brewers Cycles — ${c.length} all-time`,
-				desc: `${c.length} player${c.length === 1 ? ' has' : 's have'} hit for the cycle for the Brewers. Most recent: ${g.player} vs the ${g.opponent} on ${formatDate(g.date)}.`,
+				title: `${site.team} Cycles — ${c.length} all-time`,
+				desc: `${c.length} player${c.length === 1 ? ' has' : 's have'} hit for the cycle for the ${site.team}. Most recent: ${g.player} vs the ${g.opponent} on ${formatDate(g.date)}.`,
 			};
 		}
 		default:
 			return {
-				title: 'Brewers Records & Superlatives',
-				desc: `Best starts, longest win streaks, worst starts, lopsided wins, worst losses, no-hitters, triple plays, cycles, World Series and playoff appearances, and every tie — Milwaukee Brewers, ${range}.`,
+				title: `${site.team} Records & Superlatives`,
+				desc: `Best starts, longest win streaks, worst starts, lopsided wins, worst losses, no-hitters, triple plays, cycles, World Series and playoff appearances, and every tie — ${site.fullName}, ${range}.`,
 			};
 	}
 }
@@ -893,4 +908,8 @@ export function parseTeamstatsLineScores(raw) {
 	return map;
 }
 
-export const RECORD_SLUGS = ['best-seasons', 'worst-seasons', 'best-starts', 'worst-starts', 'win-streaks', 'losing-streaks', 'lopsided-wins', 'worst-losses', 'no-hitters', 'perfect-games', 'most-hr-game', 'player-hr-game', 'player-rbi-game', 'cycles', 'playoff-appearances', 'world-series-appearances', 'player-error-game', 'team-error-game', 'triple-plays', 'ties'];
+// The record cards this site publishes, read out of the manifest rather than
+// listed again here. Two lists that must agree are one list read twice, and
+// the copy that drifts is the one nobody is looking at. Kept as an export so
+// existing call sites did not change.
+export const RECORD_SLUGS = SITE.records;

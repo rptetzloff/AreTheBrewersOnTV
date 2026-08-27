@@ -1,3 +1,9 @@
+import { SITE } from './site.js';
+
+/** Title case for a manifest noun used at the start of a heading. The
+ *  manifest stores lowercase because most uses are mid-sentence. */
+const cap = (w) => w.charAt(0).toUpperCase() + w.slice(1);
+
 // Shared (browser + node) head-manager records, computed by assigning every
 // game to a managing tenure by date. Official tenures come from
 // data/managers.csv (name, start_year, end_year); any game managed by someone
@@ -51,7 +57,7 @@ const RESULTS = new Set(['WIN', 'LOSS', 'TIE']);
 // that champion season's final game.
 export function computeCoaches(rows, tenures, championSeasons) {
 	const games = rows
-		.filter((g) => RESULTS.has(g['Brewers Win']))
+		.filter((g) => RESULTS.has(g['result']))
 		.slice()
 		.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 
@@ -89,9 +95,9 @@ export function computeCoaches(rows, tenures, championSeasons) {
 			const playoff = { WIN: 0, LOSS: 0, TIE: 0 };
 			let pf = 0, pa = 0;
 			for (const g of list) {
-				(g.regular_season === '1' ? reg : playoff)[g['Brewers Win']]++;
-				pf += parseInt(g.brewers_score, 10) || 0;
-				pa += parseInt(g.opponent_score, 10) || 0;
+				(g.regular_season === '1' ? reg : playoff)[g['result']]++;
+				pf += parseInt(g.scoreFor, 10) || 0;
+				pa += parseInt(g.scoreAgainst, 10) || 0;
 			}
 			const regGames = reg.WIN + reg.LOSS + reg.TIE;
 			const playoffGames = playoff.WIN + playoff.LOSS + playoff.TIE;
@@ -123,8 +129,8 @@ export function coachesCopy(data) {
 	const wins = [...coaches].sort((a, b) => b.wins - a.wins)[0];
 	const titles = coaches.reduce((s, c) => s + c.titles, 0);
 	return {
-		title: `Brewers Managers, ${coaches[0].firstSeason}–present`,
-		desc: `Every Milwaukee Brewers manager and their record — ${coaches.length} of them, ${titles} championships. Most wins: ${wins.name} (${wins.record}).`,
+		title: `${SITE.team} ${cap(SITE.leaderPlural)}, ${coaches[0].firstSeason}–present`,
+		desc: `Every ${SITE.fullName} ${SITE.leaderNoun} and their record — ${coaches.length} of them, ${titles} championships. Most wins: ${wins.name} (${wins.record}).`,
 	};
 }
 
@@ -182,7 +188,7 @@ const INTERIM_THRESHOLD = 10;
 export function computeCoachesFromData(rows, gidToMgr, mgrNames, championSeasons, officialTenures = null) {
 	const officialIds = officialTenures ? new Set(officialTenures.map((t) => t.mgrId)) : null;
 	const games = rows
-		.filter((g) => RESULTS.has(g['Brewers Win']) && g.gid && gidToMgr.has(g.gid))
+		.filter((g) => RESULTS.has(g['result']) && g.gid && gidToMgr.has(g.gid))
 		.slice()
 		.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 
@@ -265,9 +271,9 @@ export function computeCoachesFromData(rows, gidToMgr, mgrNames, championSeasons
 		const playoff = { WIN: 0, LOSS: 0, TIE: 0 };
 		let pf = 0, pa = 0;
 		for (const g of list) {
-			(g.regular_season === '1' ? reg : playoff)[g['Brewers Win']]++;
-			pf += parseInt(g.brewers_score, 10) || 0;
-			pa += parseInt(g.opponent_score, 10) || 0;
+			(g.regular_season === '1' ? reg : playoff)[g['result']]++;
+			pf += parseInt(g.scoreFor, 10) || 0;
+			pa += parseInt(g.scoreAgainst, 10) || 0;
 		}
 		const regGames = reg.WIN + reg.LOSS + reg.TIE;
 		const playoffGames = playoff.WIN + playoff.LOSS + playoff.TIE;

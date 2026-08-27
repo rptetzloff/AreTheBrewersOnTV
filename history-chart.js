@@ -1,3 +1,4 @@
+import { SITE } from './site.js';
 // Shared (browser + node) SVG builder for the franchise-history chart: one
 // point per season. Pure string output, no DOM — the /history page, the
 // homepage sparkline, and the server-rendered social card all use it.
@@ -9,8 +10,8 @@ const DARK = '#0d1d38';
 // Playoff tiers, shallowest → deepest. `marker` is the SVG glyph drawn on the
 // chart line at each playoff season; `label` is the legend / tooltip name.
 export const POSTSEASON = {
-	wsWin:        { tier: 5, color: GOLD,           label: 'World Series win',        glyph: '★' },
-	wsApp:        { tier: 4, color: '#FFD66B',      label: 'World Series appearance',  glyph: '◆' },
+	wsWin:        { tier: 5, color: GOLD,           label: `${SITE.championship} win`,        glyph: '★' },
+	wsApp:        { tier: 4, color: '#FFD66B',      label: `${SITE.championship} appearance`,  glyph: '◆' },
 	lcs:          { tier: 3, color: '#7FC4FF',      label: 'LCS appearance',           glyph: '▲' },
 	division:     { tier: 2, color: '#9BD7A3',      label: 'Division Series',          glyph: '■' },
 	wildcard:     { tier: 1, color: '#C9A8E8',      label: 'Wild Card',                glyph: '●' },
@@ -19,7 +20,7 @@ export const POSTSEASON = {
 // Map a season's deepest `postseason` round code (F/D/L/W) + World Series
 // result to the highest applicable tier. wsWin outranks a WS appearance.
 export function postseasonTier(s) {
-	if (s.champion && s.worldseries) return 'wsWin';
+	if (s.champion && s.championship) return 'wsWin';
 	switch (s.postseason) {
 		case 'W': return 'wsApp';
 		case 'L': return 'lcs';
@@ -35,8 +36,8 @@ export function postseasonTier(s) {
 export const METRICS = {
 	winPct: { label: 'Win %', color: GOLD, group: 'pct' },
 	wins: { label: 'Wins', color: WHITE, group: 'count' },
-	pf: { label: 'Runs Scored', color: '#7FC4FF', group: 'points' },
-	pa: { label: 'Runs Allowed', color: '#FF6B6B', group: 'points' },
+	pf: { label: SITE.scoreForLabel, color: '#7FC4FF', group: 'points' },
+	pa: { label: SITE.scoreAgainstLabel, color: '#FF6B6B', group: 'points' },
 };
 
 // history: computeSeasonHistory() output. Options:

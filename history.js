@@ -8,6 +8,7 @@ import { parseBiofile, parseTeamstatsMgr, parseManagersCsv, computeCoachesFromDa
 import { buildChartSvg, METRICS, POSTSEASON, postseasonTier } from './history-chart.js';
 import { shareButtonsHtml, labeledShareButtonsHtml, wireShareRow, wireShareDropdown } from './share-core.js';
 import { sortableHeadHtml, sortRows, wireSortable } from './sortable.js';
+import { SITE } from './site.js';
 
 const chartEl = document.getElementById('history-chart');
 const tooltip = document.getElementById('history-tooltip');
@@ -17,7 +18,7 @@ const pct = (p) => (p >= 1 ? '1.000' : p.toFixed(3).replace(/^0/, ''));
 
 function seasonLabel(s) {
 	const notes = [];
-	if (s.worldseries) notes.push('World Series champions');
+	if (s.championship) notes.push(`${SITE.championship} champions`);
 	else if (s.champion) notes.push('MLB champions');
 	const tier = postseasonTier(s);
 	if (tier && tier !== 'wsWin') notes.push(POSTSEASON[tier].label);
@@ -90,7 +91,7 @@ const TABLE_COLUMNS = [
 	{ key: 'pf',       label: 'RF',     title: 'Runs scored', num: true, defaultDir: -1 },
 	{ key: 'pa',       label: 'RA',     title: 'Runs allowed', num: true, defaultDir: -1 },
 	{ key: 'diff',     label: 'Diff',   title: 'Run differential (RF - RA)', num: true, sortKey: (s) => s.pf - s.pa, defaultDir: -1 },
-	{ key: 'finish',   label: 'Finish', title: 'Postseason result', sortKey: (s) => s.champion && s.worldseries ? 5 : ({ W: 4, L: 3, D: 2, F: 1 }[s.postseason] || 0), defaultDir: -1 },
+	{ key: 'finish',   label: 'Finish', title: 'Postseason result', sortKey: (s) => s.champion && s.championship ? 5 : ({ W: 4, L: 3, D: 2, F: 1 }[s.postseason] || 0), defaultDir: -1 },
 ];
 
 let tableSort = { key: 'season', dir: -1 }; // most recent first by default

@@ -163,7 +163,92 @@ function getBoxIndices() {
   return _boxIndicesPromise;
 }
 
+/** Load the precomputed indices, or null if there is no usable artifact.
+ *
+ *  Everything below this is the fallback: building the same indices by
+ *  streaming ~457MB of CSV, which takes 5.7 seconds and peaks at a 339MB heap
+ *  against this box's 400MB cap. The artifact is 6.6MB and loads in 0.8s at
+ *  174MB, so the fallback exists to be correct rather than to be used.
+ *
+ *  Every failure here returns null and falls through. A missing file is the
+ *  ordinary case on a fresh clone before scripts/build-indices.mjs has run; a
+ *  format mismatch means boxscore-core changed shape and the committed file is
+ *  stale. Both should cost a slow boot, never a wrong box score. */
+async function loadPrecomputedIndices() {
+  const started = Date.now();
+  try {
+    const { readFile } = await import('node:fs/promises');
+    const { createReadStream } = await import('node:fs');
+    const { createInterface } = await import('node:readline');
+    const { createBrotliDecompress } = await import('node:zlib');
+    const { ARTIFACT_DIR, FORMAT, reviver } = await import('./scripts/build-indices.mjs');
+
+    const manifest = JSON.parse(await readFile(join(ARTIFACT_DIR, 'manifest.json'), 'utf8'));
+    if (manifest?.format !== FORMAT) {
+      console.warn(`indices: artifacts are format ${manifest?.format}, expected ${FORMAT} — rebuilding from CSV`);
+      return null;
+    }
+
+    // Streamed, decompressed and parsed a line at a time.
+    //
+    // Not an optimisation — it is the only shape that fits. Reading a whole
+    // index and calling JSON.parse on it needs the entire document as a UTF-16
+    // string, which for the batting index alone is ~94MB before the Map is
+    // built. Doing that for all thirteen wanted a 600MB heap against this box's
+    // 512MB. A line at a time costs one entry.
+    //
+    // This is the same reason the CSV fallback below streams rather than
+    // reading files whole, and the comment there says so.
+    const readIndex = async (name) => {
+      const rl = createInterface({
+        input: createReadStream(join(ARTIFACT_DIR, `${name}.ndjson.br`)).pipe(createBrotliDecompress()),
+        crlfDelay: Infinity,
+      });
+      let header = null;
+      let plain;
+      const map = new Map();
+      for await (const line of rl) {
+        if (!line) continue;
+        if (!header) { header = JSON.parse(line); continue; }
+        // The reviver matters at every depth: pitchCounts, firstPa and risp are
+        // Maps of Maps, and without it the inner ones arrive as plain objects
+        // and every box score throws on .get().
+        if (header.kind === 'map') { const [k, v] = JSON.parse(line, reviver); map.set(k, v); }
+        else plain = JSON.parse(line, reviver);
+      }
+      if (!header) throw new Error(`${name}: empty artifact`);
+      if (header.kind !== 'map') return plain;
+      // The header carries the entry count, so a file truncated mid-write is
+      // caught here rather than becoming an index that is quietly short.
+      if (map.size !== header.size) {
+        throw new Error(`${name}: ${map.size} entries, header says ${header.size}`);
+      }
+      return map;
+    };
+
+    const indices = {};
+    for (const name of manifest.indices) indices[name] = await readIndex(name);
+
+    // The reviver turns the tagged Maps back into Maps. If that ever silently
+    // stopped working, every .get() below would return undefined and every box
+    // score would render empty rather than throwing, so it is checked once here
+    // where the failure is still cheap to describe.
+    if (!(indices.games instanceof Map)) {
+      console.warn('indices: artifacts did not revive Maps — rebuilding from CSV');
+      return null;
+    }
+    console.log(`indices: loaded ${manifest.indices.length} artifacts in ${Date.now() - started}ms`);
+    return indices;
+  } catch (err) {
+    if (err?.code !== 'ENOENT') console.warn(`indices: ${err.message} — rebuilding from CSV`);
+    return null;
+  }
+}
+
 async function buildBoxIndices() {
+  const precomputed = await loadPrecomputedIndices();
+  if (precomputed) return finishIndices(precomputed);
+
   const started = Date.now();
   const { promises: p, createReadStream } = await import('node:fs');
   const { createInterface } = await import('node:readline');
@@ -202,6 +287,23 @@ async function buildBoxIndices() {
     parks: parseBallparksCsv(parksRaw),
     lineScores: parseTeamstatsLineScores(teamstatsRaw),
   };
+  console.log(`box score indices built from CSV in ${((Date.now() - started) / 1000).toFixed(1)}s`);
+  return finishIndices(indices);
+}
+
+/** Everything that has to happen whichever way the indices arrived.
+ *
+ *  Split out when the precomputed artifact was added, because these steps are
+ *  cheap, derive from the indices rather than from the CSVs, and register
+ *  things with other modules as a side effect. Running them on one path and
+ *  not the other would mean the fast boot quietly served a site with no
+ *  prev/next navigation and no batting feats — a difference that shows up as
+ *  missing content rather than as an error.
+ *
+ *  gameNav in particular is deliberately not in the artifact: it is derived in
+ *  a few milliseconds from games, and storing it would add a second copy of
+ *  every gid to a file that already holds them once. */
+function finishIndices(indices) {
   // Chronological neighbors for prev/next navigation between games.
   const ordered = [...indices.games.keys()].sort((a, b) => {
     const ga = indices.games.get(a), gb = indices.games.get(b);
@@ -236,7 +338,6 @@ async function buildBoxIndices() {
     }));
   }
   registerTriplePlayFielders(tpByGid);
-  console.log(`box score indices built in ${((Date.now() - started) / 1000).toFixed(1)}s`);
   return indices;
 }
 
