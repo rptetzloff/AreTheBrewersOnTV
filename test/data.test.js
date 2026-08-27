@@ -224,8 +224,32 @@ test('no season is perfect, and a perfect one would mean the data is wrong', () 
 	assert.deepEqual(supers.perfectSeasons, [],
 		'a perfect baseball season means games are missing, not that history changed')
 
-	const best = Math.max(...history.map((s) => s.winPct))
-	assert.ok(best < 0.75, `best season win rate is ${best.toFixed(3)}, which is implausible`)
+	// .700 rather than a looser figure, because .700 is already near-mythical:
+	// exactly two full seasons have cleared it since 1955 — Seattle's 116–46 in
+	// 2001 (.716) and New York's 114–48 in 1998 (.704). This franchise has
+	// never exceeded .599 and has existed only since 1969, entirely inside that
+	// era, so anything at .700 deserves a human look whether it turns out to be
+	// a broken import or something worth celebrating.
+	const best = history.reduce((a, b) => (b.winPct > a.winPct ? b : a))
+	assert.ok(best.winPct < 0.700,
+		`${best.season} is ${best.winPct.toFixed(3)} (${best.record}) — check the import before celebrating`)
+})
+
+// The gap in the test above, named rather than left to be discovered.
+//
+// A rate says nothing without a denominator, and the clearest evidence is real:
+// the 2020 Dodgers finished .717 in a 60-game season, above both full seasons
+// since 1955. A short season and a half-imported one produce the same shape, so
+// the rate alone cannot tell a record from a truncated file.
+//
+// This franchise's own 2020 was 29–31, so nothing here trips today. The check
+// that actually holds is the games floor below it.
+test('a high win rate over few games is not evidence of anything', () => {
+	const shortSeasons = history.filter((s) => s.wins + s.losses + s.ties < 100)
+	for (const s of shortSeasons) {
+		assert.ok(s.winPct < 0.700,
+			`${s.season}: ${s.record} over ${s.wins + s.losses + s.ties} games is a rate without a season behind it`)
+	}
 })
 
 test('every season has enough games to be a season', () => {
