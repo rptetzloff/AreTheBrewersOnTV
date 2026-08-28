@@ -36,6 +36,7 @@ import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const PORT = process.env.RENDER_CHECK_PORT || '3199';
 const ORIGIN = `http://localhost:${PORT}`;
@@ -299,10 +300,22 @@ function diff(beforeDir, afterDir) {
 	return 0;
 }
 
-const [cmd, a, b] = process.argv.slice(2);
-if (cmd === 'capture' && a) process.exit(await capture(a));
-else if (cmd === 'diff' && a && b) process.exit(diff(a, b));
-else if (cmd) {
-	console.error(`unknown command: ${cmd}`);
-	process.exit(2);
+// Only when run directly, so normalise/compare/missingMarkers stay importable
+// without the CLI firing. Without this guard, importing the module from another
+// script hands it that script's arguments: `node mine.mjs before after` was read
+// as the command `before` and exited 2 before mine.mjs did anything. The tests
+// were unaffected and said nothing, because node --test passes no extra argv.
+//
+// pathToFileURL rather than string surgery, matching scripts/build-indices.mjs.
+// On Windows argv[1] is a drive path and import.meta.url is file:///C:/... with
+// three slashes, so the obvious comparison never matches and the script silently
+// does nothing at all.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+	const [cmd, a, b] = process.argv.slice(2);
+	if (cmd === 'capture' && a) process.exit(await capture(a));
+	else if (cmd === 'diff' && a && b) process.exit(diff(a, b));
+	else {
+		console.error('usage: render-check.mjs capture <dir> | diff <before> <after>');
+		process.exit(2);
+	}
 }
