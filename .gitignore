@@ -1,2 +1,6 @@
 node_modules/
 .env
+
+# Render-check captures: two builds compared, then thrown away. The PNGs are
+# only reproducible on the machine that took them, so they are never committed.
+.render/
