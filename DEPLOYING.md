@@ -56,6 +56,38 @@ The other 76MB stays. gameinfo, batting, pitching, fielding, biofile and
 teamstats are the fallback the server reads when an artifact is missing, and
 dropping them would turn a slow boot into a broken one.
 
+## PUBLIC_ORIGIN — set this, or the social cards are wrong
+
+`PUBLIC_ORIGIN` fixes the canonical and `og:` URLs for a deployment. **Set it on
+Coolify.** Without it the page advertises itself over `http://` on an HTTPS site.
+
+    PUBLIC_ORIGIN=https://dev.arethebrewersontv.com
+
+This is not theoretical. It was live on `dev.arethebrewersontv.com` and looked fine in a browser,
+which is why it needs writing down:
+
+    <link rel="canonical" href="https://dev.arethebrewersontv.com/records">
+    <meta property="og:url"   content="http://dev.arethebrewersontv.com/records">
+    <meta property="og:image" content="http://dev.arethebrewersontv.com/og/records/overview.png">
+
+Both tags are built from one variable in `server.js`, so the server cannot have
+emitted two schemes. The proxy rewrote the `href` and left the `meta content`
+alone — so the visible tag was correct and the two that matter to a social
+scraper were not. A browser shows nothing wrong; the card is what breaks.
+
+The cause is that the app saw no `x-forwarded-proto` and fell back to `http`.
+Render sends it and has always been correct; Coolify did not.
+
+`PUBLIC_ORIGIN` also settles a second thing the header path gets wrong: without
+it, *any* Host header becomes the canonical URL, so reaching the app by its
+container name or a stray domain pointed at the same proxy makes every page
+advertise that instead.
+
+`render.yaml` deliberately does not set it. Render's headers work, and pinning
+an origin there would change the canonical tags on a production site that is
+currently correct — worth doing on purpose, as its own change, not as a side
+effect of this one.
+
 ## Coolify
 
 - **Port** — the container listens on `PORT`, defaulting to 3000. `EXPOSE 3000`

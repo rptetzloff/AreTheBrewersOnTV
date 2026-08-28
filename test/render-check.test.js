@@ -122,3 +122,13 @@ test('normalising the countdown does not eat the element around it', () => {
 		'<div class="countdown-small">COUNTDOWN</div><div class="score">7-3</div>',
 	)
 })
+
+test('importing the module does not run its command line', () => {
+	// This file is the proof. Before the entry-point guard the CLI ran on import;
+	// it stayed quiet here only because node --test passes no extra argv. A
+	// script that did pass arguments — importing normalise() to compare two
+	// captures — had them read as commands and exited 2 before doing anything.
+	assert.equal(typeof normalise, 'function')
+	assert.equal(typeof compare, 'function')
+	assert.equal(typeof missingMarkers, 'function')
+})

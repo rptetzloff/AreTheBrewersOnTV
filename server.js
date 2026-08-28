@@ -9,6 +9,7 @@ import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, normalize, extname } from 'node:path';
 import { renderPng, renderRecordsPng, renderH2hPng, renderHistoryPng, renderCoachesPng } from './lib/cards.js';
+import { originOf } from './lib/origin.js';
 import { getSeasonState, defaultSeason } from './lib/seasons.js';
 import { records, recordsMeta, isRecordSlug, seasonHistory, historyMeta, registerBattingFeats, registerNoHitterPitchers, registerTriplePlayFielders } from './lib/records.js';
 import { coaches, coachesMeta } from './lib/coaches.js';
@@ -108,11 +109,7 @@ function metaBlock({ title, desc, img, canonical }) {
     <meta name="twitter:image" content="${esc(img)}">`;
 }
 
-function originOf(req) {
-  const proto = (req.headers['x-forwarded-proto'] || 'http').split(',')[0].trim();
-  const host = req.headers['x-forwarded-host'] || req.headers.host;
-  return `${proto}://${host}`;
-}
+
 
 function notFound(res) {
   res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
