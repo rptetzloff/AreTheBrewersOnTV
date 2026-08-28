@@ -845,6 +845,101 @@ export function otdPick(pool, exclude = null, random = Math.random) {
 	return items[items.length - 1];
 }
 
+/** Win-loss(-tie) joined with ASCII hyphens, as the streak banner writes them.
+ *
+ *  Deliberately not `rec` above, which joins with en dashes. The two look nearly
+ *  identical in a diff and are different bytes on the page, so folding them
+ *  together would change the rendered text while every test still passed.
+ */
+export const hyphenRecord = (games) => {
+	let w = 0, l = 0, t = 0;
+	for (const g of games) {
+		if (g.result === 'WIN') w++;
+		else if (g.result === 'LOSS') l++;
+		else t++;
+	}
+	return t > 0 ? `${w}-${l}-${t}` : `${w}-${l}`;
+};
+
+/** The streak banner's sentence, or null when there is nothing to say.
+ *
+ *  Character-for-character the same function as the football repo's, which is
+ *  the point: these six sentences were duplicated across two files and are now
+ *  duplicated across two files that can be diffed to zero. The recent-form
+ *  additions below are this site's alone and stay separate for that reason.
+ *
+ *  **A tie ends the opening run, and the sentence then calls it a loss.** The
+ *  loop counts WIN and stops on anything else. Baseball ties are rare enough
+ *  that this has less bite here than on the football site, where 1929 went
+ *  12-0-1 and the front page describes its eleventh game as a defeat. Left
+ *  alone in both repos, pinned by a test in both, and listed in ROADMAP.md as a
+ *  copy decision rather than a refactor.
+ */
+export function streakBannerHtml(completedGames, { isPastSeason = false, site = SITE } = {}) {
+	if (completedGames.length === 0) return null;
+	const sorted = [...completedGames].sort((a, b) => a.date - b.date);
+
+	let openingStreak = 0;
+	let firstLoss = null;
+	for (const g of sorted) {
+		if (g.result === 'WIN') openingStreak++;
+		else { firstLoss = g; break; }
+	}
+
+	const plural = (n, noun) => (n === 1 ? `1 ${noun}` : `${n} ${noun}s`);
+	const daysToLoss = () =>
+		Math.round((firstLoss.date - sorted[0].date) / (1000 * 60 * 60 * 24));
+
+	if (isPastSeason) {
+		if (!firstLoss) return `Finished the regular season undefeated &mdash; <strong>${openingStreak}-0</strong>`;
+		if (openingStreak === 0) return `Lost the opener &mdash; undefeated for <strong>0 games</strong> to start the season`;
+		return `Undefeated for <strong>${plural(openingStreak, 'game')}</strong> (${daysToLoss()} days) to start the season before first loss`;
+	}
+
+	let winStreak = 0;
+	for (let i = sorted.length - 1; i >= 0; i--) {
+		if (sorted[i].result === 'WIN') winStreak++;
+		else break;
+	}
+
+	if (!firstLoss) return `Undefeated to start the season &mdash; <strong>${openingStreak}</strong>-game win streak`;
+	if (openingStreak === 0) return `Lost the opener. Currently on a <strong>${winStreak}-game</strong> win streak.`;
+	return `The ${site.team} started the season undefeated for <strong>${plural(openingStreak, 'game')}</strong> (${plural(daysToLoss(), 'day')}). Currently on a <strong>${winStreak}-game</strong> win streak.`;
+}
+
+/** The "recent form" line under the banner: last ten and the calendar month.
+ *
+ *  Baseball's alone, and it is the reason this method was 105 lines here against
+ *  62 on the football site. It only makes sense in a sport that plays most days:
+ *  "last 10" across a seventeen-game season is most of the season, and a
+ *  calendar month is two or three games.
+ *
+ *  `now` is a parameter so the month line can be tested at all; it was
+ *  new Date() inline.
+ */
+export function recentFormParts(sorted, now = new Date()) {
+	const parts = [];
+	if (sorted.length >= 10) parts.push(`Last 10: <strong>${hyphenRecord(sorted.slice(-10))}</strong>`);
+	const monthGames = sorted.filter(
+		(g) => g.date.getMonth() === now.getMonth() && g.date.getFullYear() === now.getFullYear());
+	if (monthGames.length) {
+		parts.push(`${now.toLocaleDateString('en-US', { month: 'long' })}: <strong>${hyphenRecord(monthGames)}</strong>`);
+	}
+	return parts;
+}
+
+/** The most recent `n` decided meetings with one franchise, oldest first.
+ *
+ *  The opponent still has to be resolved from the live ESPN payload, which is
+ *  main.js's problem; this is the part that only needs rows.
+ */
+export function lastMeetings(rows, franchise, n = 10) {
+	return rows
+		.filter((r) => r.franchise === franchise && RESULTS.has(r.result))
+		.sort((a, b) => (a.date < b.date ? -1 : 1))
+		.slice(-n);
+}
+
 // Meta copy for the /history page, shared by server OG meta and client share.
 export function historyCopy(history, site = SITE) {
 	const first = history[0].season, last = history[history.length - 1].season;
