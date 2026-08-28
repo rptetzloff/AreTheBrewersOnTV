@@ -148,3 +148,24 @@ test('fewer than ten meetings returns what there is', () => {
 	const rows = [meeting('CHN', 'WIN', '2011-04-01'), meeting('CHN', 'LOSS', '2011-04-02')]
 	assert.equal(lastMeetings(rows, 'CHN').length, 2)
 })
+
+test('a one-day gap reads as a day, not as days', () => {
+	// Live on the 1982 page until this was fixed: "Undefeated for 1 game
+	// (1 days) to start the season before first loss". The current-season branch
+	// had always used the singular; this one had not, and the football repo
+	// carried a comment claiming the case was unreachable because that sport
+	// plays weekly. True there. Baseball plays most days, so it was not only
+	// reachable, it was on screen.
+	const games = [
+		{ result: 'WIN', date: new Date(2011, 3, 5) },
+		{ result: 'LOSS', date: new Date(2011, 3, 6) },
+	]
+	assert.equal(
+		streakBannerHtml(games, { isPastSeason: true }),
+		'Undefeated for <strong>1 game</strong> (1 day) to start the season before first loss',
+	)
+})
+
+test('more than one day is still plural', () => {
+	assert.match(past('WWWL'), /\(3 days\)/)
+})
