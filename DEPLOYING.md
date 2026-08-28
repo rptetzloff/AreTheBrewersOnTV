@@ -1,14 +1,21 @@
 # Deploying
 
-Two ways, both live at once. Neither is a migration away from the other.
+**Coolify is where this is going.** `dev.arethebrewersontv.com` already runs there. Production
+follows; see the cutover list below.
 
-- **Render** — `render.yaml`, deploying `arethebrewersontv.com` from `main` and
-  `dev.arethebrewersontv.com` from `dev`. Unchanged.
+**`render.yaml` stays, and stays working.** Not as a leftover — as the fallback,
+and as the only written record of what the service actually needs. Deleting it
+would take the heap cap, the health path and the branch mapping with it.
+
 - **Coolify, or any Docker host** — `Dockerfile` and `.dockerignore`.
+- **Render** — `render.yaml`, deploying `arethebrewersontv.com` from `main` and `dev.arethebrewersontv.com` from
+  `dev`.
 
-The same commit works either way. The Dockerfile is not used by Render, and
+The same commit works either way. The Dockerfile is not read by Render and
 `render.yaml` is not read by Coolify, so they cannot contradict each other at
-runtime — but they can drift, and the list at the bottom says where.
+runtime — but they can drift, and the list at the bottom says where. Keeping the
+fallback is only worth anything if it still works, so the drift list is the part
+of this file to actually maintain.
 
 ## What the image is
 
@@ -104,6 +111,42 @@ effect of this one.
 - **Build cache** — the Dockerfile copies `package.json` and `package-lock.json`
   before the rest, so a data refresh does not reinstall dependencies.
 
+## Moving production to Coolify
+
+In order, because two of these are only correct once the one before is done.
+
+1. **Set `PUBLIC_ORIGIN=https://arethebrewersontv.com`** on the production service — the apex,
+   not `www`. Without it the `og:` tags come out `http://` behind the proxy; see
+   the section above. Set it *before* DNS moves, so the first request served is
+   already right.
+
+2. **Give the container at least 512MB.** `NODE_OPTIONS=--max-old-space-size=400`
+   is baked into the image and assumes it.
+
+3. **Point DNS at Coolify** and let it issue a certificate. Both `arethebrewersontv.com` and
+   `www.arethebrewersontv.com` if you want the second to keep resolving.
+
+4. **Check the things a 200 will not tell you**, because a page can answer 200
+   and be wrong — that is how this repo shipped every past season as 0-0:
+
+       curl -s https://arethebrewersontv.com/records | grep -E 'og:url|canonical'
+       curl -sI https://arethebrewersontv.com/og/records/overview.png   # image/png, not an error page
+
+   Then `npm run render:capture` against a local checkout of `main` and compare.
+   `/records`, `/vs` and `/history` came out byte-identical to the container on
+   the dev site; the season pages differ only in the client-side share link,
+   which embeds `window.location.href`.
+
+5. **Then deal with Render.** `render.yaml` has `autoDeploy: true`, so Render
+   keeps building on every push to a service nobody visits. Suspending the
+   services in the dashboard stops that without touching the blueprint — the
+   config survives, the builds do not.
+
+`www` canonicalisation comes free with step 1: with the origin pinned to the
+apex, a visitor arriving at `www` gets a canonical tag pointing at the apex.
+Render never did that, because it derives the origin from whatever `Host` header
+turned up, so each hostname self-canonicalised.
+
 ## What can drift
 
 These are written in two places and nothing checks that they agree:
@@ -118,3 +161,8 @@ These are written in two places and nothing checks that they agree:
 The last row is the one to watch: the Dockerfile pins a major version and Render
 does not, so the two can be running different Node releases without anything
 saying so.
+
+`PUBLIC_ORIGIN` is deliberately absent from that table. Coolify needs it and
+`render.yaml` does not set it, which is not drift — Render derives the origin
+from headers and gets it right. If `render.yaml` ever gains it, the two values
+have to agree, and nothing will check that either.
