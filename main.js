@@ -1,4 +1,4 @@
-        import { parseGamesCsv, parseGameinfoCsv, parseCurrentNamesCsv, BREWERS_IDS, computeSeasonHistory, parseTeamstatsLineScores, seasonTally, onThisDayCandidates, otdInterest, otdPick, localDate as parseLocalDate } from './records-core.js';
+        import { parseGamesCsv, parseGameinfoCsv, parseCurrentNamesCsv, BREWERS_IDS, computeSeasonHistory, parseTeamstatsLineScores, seasonTally, onThisDayCandidates, otdInterest, otdPick, localDate as parseLocalDate, streakBannerHtml, recentFormParts, lastMeetings, hyphenRecord } from './records-core.js';
         import { computeHeadToHead } from './h2h-core.js';
         import { buildChartSvg } from './history-chart.js';
         import { intentUrls, copyText, flashCopied, wireShareDropdown } from './share-core.js';
@@ -1567,107 +1567,35 @@ computeStreak(completedGames) {
 updateStreakBanner(completedGames, isPastSeason, nextGame) {
   const el = document.getElementById('streak-banner');
   if (!el) return;
-  if (completedGames.length === 0) {
-     el.hidden = true;
-     return;
- }
- const sorted = [...completedGames].sort((a, b) => a.date - b.date);
+  // The six sentences are shared with the football site; recent form is ours.
+  let html = streakBannerHtml(completedGames, { isPastSeason });
+  if (html === null) { el.hidden = true; return; }
 
- if (isPastSeason) {
-        			// Opening win streak: wins before the first loss
-     let openingStreak = 0;
-     let firstLoss = null;
-     for (const g of sorted) {
-        if (g.result === 'WIN') openingStreak++;
-        else { firstLoss = g; break; }
-    }
-    let html;
-    if (!firstLoss) {
-        html = `Finished the regular season undefeated &mdash; <strong>${openingStreak}-0</strong>`;
-    } else if (openingStreak === 0) {
-        html = `Lost the opener &mdash; undefeated for <strong>0 games</strong> to start the season`;
-    } else {
-        const firstGame = sorted[0];
-        const daysToLoss = Math.round((firstLoss.date - firstGame.date) / (1000 * 60 * 60 * 24));
-        const gamesText = openingStreak === 1 ? '1 game' : `${openingStreak} games`;
-        html = `Undefeated for <strong>${gamesText}</strong> (${daysToLoss} days) to start the season before first loss`;
-    }
-    el.innerHTML = html;
-    el.hidden = false;
-} else {
-        			// Current season: opening streak + active win streak
- let openingStreak = 0;
- let firstLoss = null;
- for (const g of sorted) {
-    if (g.result === 'WIN') openingStreak++;
-    else { firstLoss = g; break; }
-}
-let winStreak = 0;
-for (let i = sorted.length - 1; i >= 0; i--) {
-    if (sorted[i].result === 'WIN') winStreak++;
-    else break;
+  if (!isPastSeason) {
+    const sorted = [...completedGames].sort((a, b) => a.date - b.date);
+    const parts = recentFormParts(sorted);
+    const vs = this._lastTenVsNext(nextGame);
+    if (vs) parts.push(vs);
+    if (parts.length) html += `<div class="streak-extra">${parts.join(' &middot; ')}</div>`;
+  }
+
+  el.innerHTML = html;
+  el.hidden = false;
 }
 
-let html;
-if (!firstLoss) {
-    html = `Undefeated to start the season &mdash; <strong>${openingStreak}</strong>-game win streak`;
-} else if (openingStreak === 0) {
-    const streakText = winStreak === 1 ? '1-game' : `${winStreak}-game`;
-    html = `Lost the opener. Currently on a <strong>${streakText}</strong> win streak.`;
-} else {
-    const firstGame = sorted[0];
-    const daysToLoss = Math.round((firstLoss.date - firstGame.date) / (1000 * 60 * 60 * 24));
-    const gamesText = openingStreak === 1 ? '1 game' : `${openingStreak} games`;
-    const daysText = daysToLoss === 1 ? '1 day' : `${daysToLoss} days`;
-    const streakText = winStreak === 1 ? '1-game' : `${winStreak}-game`;
-    html = `The Brewers started the season undefeated for <strong>${gamesText}</strong> (${daysText}). Currently on a <strong>${streakText}</strong> win streak.`;
-}
-
-// Recent form: last 10 games and the current calendar month.
-const recordOf = (games) => {
-    let w = 0, l = 0, t = 0;
-    for (const g of games) {
-        if (g.result === 'WIN') w++;
-        else if (g.result === 'LOSS') l++;
-        else t++;
-    }
-    return t > 0 ? `${w}-${l}-${t}` : `${w}-${l}`;
-};
-const now = new Date();
-const monthGames = sorted.filter(g => g.date.getMonth() === now.getMonth() && g.date.getFullYear() === now.getFullYear());
-const parts = [];
-if (sorted.length >= 10) parts.push(`Last 10: <strong>${recordOf(sorted.slice(-10))}</strong>`);
-if (monthGames.length) parts.push(`${now.toLocaleDateString('en-US', { month: 'long' })}: <strong>${recordOf(monthGames)}</strong>`);
-
-// Last 10 vs the next opponent (live game counts as "next"), pooled from
-// all seasons — h2hRows already includes the current season's ESPN games.
-if (nextGame && this.h2hRows) {
-    const oppTeam = nextGame.competitions?.[0]?.competitors?.find(c => c.team?.abbreviation !== 'MIL')?.team;
-    const fran = oppTeam && this.displayNameToFranchise?.get(oppTeam.displayName);
-    const o = fran && this.h2hByFranchise?.get(fran);
-    if (o) {
-        const vsGames = this.h2hRows
-            .filter(r => r.franchise === fran && ['WIN', 'LOSS', 'TIE'].includes(r['result']))
-            .sort((a, b) => (a.date < b.date ? -1 : 1))
-            .slice(-10);
-        if (vsGames.length) {
-            let w = 0, l = 0, t = 0;
-            for (const g of vsGames) {
-                if (g['result'] === 'WIN') w++;
-                else if (g['result'] === 'LOSS') l++;
-                else t++;
-            }
-            const recText = t > 0 ? `${w}-${l}-${t}` : `${w}-${l}`;
-            const short = oppTeam.shortDisplayName || o.name;
-            parts.push(`Last ${vsGames.length} vs <a href="/vs/${o.slug}">${short}</a>: <strong>${recText}</strong>`);
-        }
-    }
-}
-if (parts.length) html += `<div class="streak-extra">${parts.join(' &middot; ')}</div>`;
-
-el.innerHTML = html;
-el.hidden = false;
-}
+// Resolving the next opponent out of the live ESPN payload, which is this
+// file's job; lastMeetings does the part that only needs rows.
+_lastTenVsNext(nextGame) {
+  if (!nextGame || !this.h2hRows) return null;
+  const oppTeam = nextGame.competitions?.[0]?.competitors
+    ?.find(c => c.team?.abbreviation !== 'MIL')?.team;
+  const fran = oppTeam && this.displayNameToFranchise?.get(oppTeam.displayName);
+  const o = fran && this.h2hByFranchise?.get(fran);
+  if (!o) return null;
+  const vsGames = lastMeetings(this.h2hRows, fran);
+  if (!vsGames.length) return null;
+  const short = oppTeam.shortDisplayName || o.name;
+  return `Last ${vsGames.length} vs <a href="/vs/${o.slug}">${short}</a>: <strong>${hyphenRecord(vsGames)}</strong>`;
 }
 
 updateLastUndefeated(currentSeasonWins, currentSeasonLosses) {
