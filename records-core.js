@@ -672,6 +672,274 @@ export function computeTeamstatsRecords(rows, teamstatsRaw, { top = 5, now = new
 	return { bestSeasons, worstSeasons, noHitters, perfectGames, triplePlays, mostTeamHrGames, mostTeamErrorGames };
 }
 
+/** The numbers a single season's page shows: the regular-season record, the
+ *  postseason record beside it, and the championship's name if it was won.
+ *
+ *  `rows` is one season's games as parseGameinfoCsv produces them.
+ *
+ *  Lifted out of main.js, where it sat inline in processCsvSeasonData and
+ *  tallied and rendered in one pass. The football repo's copy of this function
+ *  was extracted first and the two are deliberately convergent, because a shared
+ *  core is the point of the exercise.
+ *
+ *  The one place they read differently is the championship, and the difference
+ *  turned out not to need a flag. A World Series is a best-of-seven, so winning
+ *  a single game in it is not winning it — the test is more championship-round
+ *  wins than losses. Applied to a Super Bowl, which is one game, that same test
+ *  gives exactly the football answer: a win is 1 > 0, a defeat is 0 > 1. The
+ *  series rule is the general one and the single-game rule is a special case of
+ *  it, so both sites can run this line unchanged.
+ *
+ *  Deliberately not folded into computeSeasonHistory, which looks like it
+ *  already does this and does not: it exposes no postseason record, only a
+ *  boolean for the championship rather than its name, and a different notion of
+ *  undefeated — see below.
+ */
+export function seasonTally(rows, site = SITE) {
+	let wins = 0, losses = 0, ties = 0;
+	let postWins = 0, postLosses = 0, postTies = 0;
+	let titleWins = 0, titleLosses = 0, titleName = null;
+
+	for (const g of rows) {
+		if (g.regular_season === '1') {
+			if (g.result === 'WIN') wins++;
+			else if (g.result === 'LOSS') losses++;
+			else if (g.result === 'TIE') ties++;
+		} else if (g.playoff === '1') {
+			if (g.result === 'WIN') postWins++;
+			else if (g.result === 'LOSS') postLosses++;
+			else if (g.result === 'TIE') postTies++;
+		}
+		if (g.championship && g.championship.trim() !== '') {
+			titleName = `${site.championship} ${g.championship.toUpperCase()}`;
+			if (g.result === 'WIN') titleWins++;
+			else if (g.result === 'LOSS') titleLosses++;
+		}
+	}
+
+	return {
+		wins, losses, ties,
+		// A postseason of ties alone does not count as one. Preserved from the
+		// inline version rather than tidied: the only rows that could produce it
+		// are unplayed or malformed.
+		postseason: (postWins > 0 || postLosses > 0)
+			? { w: postWins, l: postLosses, t: postTies }
+			: null,
+		championshipName: titleWins > titleLosses ? titleName : null,
+		// Undefeated *so far*, which is not computeSeasonHistory's `undefeated`.
+		// That one also requires the season to have finished, because the records
+		// page lists completed lossless seasons. This one answers what the front
+		// page asks, which a team can be answering yes to in April.
+		//
+		// It is reachable here in a way it is not in football: a baseball team
+		// opens 1-0 roughly half the time. It has never survived to the end of a
+		// season and, per site.js, never will.
+		undefeated: losses === 0 && wins > 0,
+	};
+}
+
+/** 'YYYY-MM-DD' -> local-time Date. new Date('YYYY-MM-DD') parses as UTC
+ *  midnight, which any timezone west of UTC displays as the PREVIOUS day.
+ *
+ *  main.js had this as `parseLocalDate`, built by string concatenation rather
+ *  than from components; it now imports this one under that name, so there is
+ *  one implementation instead of two that have to agree. The football repo has
+ *  had the component form in its core all along, and this is a copy of it, so
+ *  the two are now the same function under the same name.
+ */
+export function localDate(iso) {
+	const [y, m, d] = iso.split('-').map((n) => parseInt(n, 10));
+	return new Date(y, m - 1, d);
+}
+
+/** Games played within `windowDays` of a given month and day, in any season.
+ *
+ *  `bySeason` is the season-keyed map main.js already builds. `month` is
+ *  0-based, matching Date#getMonth, because the caller gets it from a Date.
+ *
+ *  The window comes from the manifest: zero here, three on the football site.
+ *  Across 50-odd seasons of near-daily baseball there is almost always a game on
+ *  the exact date; a sport playing seventeen games a year has empty calendar
+ *  dates by the hundred. Same code path, one number.
+ *
+ *  The proximity test is `month * 31 + day`, which is not a date calculation. At
+ *  a window of zero it is exact and the arithmetic does not matter. It does
+ *  matter on the football site, where the window does not wrap around the end of
+ *  the year — see the test there.
+ */
+export function onThisDayCandidates(bySeason, month, day, { windowDays = SITE.onThisDayWindowDays } = {}) {
+	const target = month * 31 + day;
+	const out = [];
+	for (const [yr, games] of Object.entries(bySeason)) {
+		for (const g of games) {
+			if (!g.date) continue;
+			const d = localDate(g.date);
+			if (isNaN(d)) continue;
+			if (Math.abs((d.getMonth() * 31 + d.getDate()) - target) <= windowDays) {
+				out.push({ game: g, season: parseInt(yr, 10), date: d });
+			}
+		}
+	}
+	return out;
+}
+
+/** How interesting a game is, for choosing which one the panel shows.
+ *
+ *  Baseball-only, and the reason this site picks by weight where the football
+ *  one picks uniformly: with a game on almost every calendar date, fifty-odd
+ *  candidates arrive and most of them are a routine 4-2 in July. The scores
+ *  below are not derived from anything — they are a judgement about what is
+ *  worth reading, and they were previously buried in main.js where nothing could
+ *  check them.
+ *
+ *  `lineScores` is the gid-keyed map from teamstats; absent for older games, so
+ *  every clause that reads it is optional. `teamIds` decides which side of the
+ *  line score is ours.
+ */
+export function otdInterest({ game: g }, lineScores = null, teamIds = BREWERS_IDS) {
+	let score = 0;
+	const bs = parseInt(g.scoreFor, 10), os = parseInt(g.scoreAgainst, 10);
+	if (Number.isFinite(bs) && Number.isFinite(os)) {
+		const diff = Math.abs(bs - os), total = bs + os;
+		if (diff >= 10) score += 6; else if (diff >= 7) score += 4; else if (diff >= 5) score += 2;
+		if (total >= 20) score += 3; else if (total >= 15) score += 2;
+		if (g.result === 'WIN') { score += 1; if (os === 0) score += 1; }
+	}
+	if (g.championship && g.championship.trim()) score += 8;
+	else if (g.playoff === '1') score += 5;
+
+	const ls = g.gid ? lineScores?.get(g.gid) : null;
+	if (ls?.visitor && ls?.home) {
+		const inns = Math.max(
+			ls.visitor.inns.filter((x) => x !== '').length,
+			ls.home.inns.filter((x) => x !== '').length);
+		if (inns >= 13) score += 5; else if (inns >= 10) score += 3;
+		const mine = teamIds.has(ls.home.team) ? ls.home : ls.visitor;
+		const opp = mine === ls.home ? ls.visitor : ls.home;
+		if (mine.hr >= 4) score += 5; else if (mine.hr >= 3) score += 3;
+		if (mine.hr + opp.hr >= 6) score += 2;
+		// A no-hitter outscores everything else on the list combined, which is
+		// the intent: it is the rarest thing in the file.
+		if (opp.h === 0 && inns >= 9) score += 12;
+		else if (opp.h === 0 || mine.h === 0) score += 6;
+	}
+	return score;
+}
+
+/** Weighted random choice from scored candidates, optionally excluding one (the
+ *  refresh button, which must not hand back the game already on screen).
+ *
+ *  `random` is injectable so this is testable at all; it was `Math.random()`
+ *  inline, which meant the weighting could never be checked. Weight is
+ *  `1 + interest * 2`, so a dull game is never impossible, only unlikely.
+ */
+export function otdPick(pool, exclude = null, random = Math.random) {
+	const items = exclude ? pool.filter((c) => c !== exclude) : pool;
+	if (!items.length) return null;
+	const weights = items.map((c) => 1 + (c.interest || 0) * 2);
+	let r = random() * weights.reduce((a, b) => a + b, 0);
+	for (let i = 0; i < items.length; i++) {
+		r -= weights[i];
+		if (r <= 0) return items[i];
+	}
+	return items[items.length - 1];
+}
+
+/** Win-loss(-tie) joined with ASCII hyphens, as the streak banner writes them.
+ *
+ *  Deliberately not `rec` above, which joins with en dashes. The two look nearly
+ *  identical in a diff and are different bytes on the page, so folding them
+ *  together would change the rendered text while every test still passed.
+ */
+export const hyphenRecord = (games) => {
+	let w = 0, l = 0, t = 0;
+	for (const g of games) {
+		if (g.result === 'WIN') w++;
+		else if (g.result === 'LOSS') l++;
+		else t++;
+	}
+	return t > 0 ? `${w}-${l}-${t}` : `${w}-${l}`;
+};
+
+/** The streak banner's sentence, or null when there is nothing to say.
+ *
+ *  Character-for-character the same function as the football repo's, which is
+ *  the point: these six sentences were duplicated across two files and are now
+ *  duplicated across two files that can be diffed to zero. The recent-form
+ *  additions below are this site's alone and stay separate for that reason.
+ *
+ *  **A tie ends the opening run, and the sentence then calls it a loss.** The
+ *  loop counts WIN and stops on anything else. Baseball ties are rare enough
+ *  that this has less bite here than on the football site, where 1929 went
+ *  12-0-1 and the front page describes its eleventh game as a defeat. Left
+ *  alone in both repos, pinned by a test in both, and listed in ROADMAP.md as a
+ *  copy decision rather than a refactor.
+ */
+export function streakBannerHtml(completedGames, { isPastSeason = false, site = SITE } = {}) {
+	if (completedGames.length === 0) return null;
+	const sorted = [...completedGames].sort((a, b) => a.date - b.date);
+
+	let openingStreak = 0;
+	let firstLoss = null;
+	for (const g of sorted) {
+		if (g.result === 'WIN') openingStreak++;
+		else { firstLoss = g; break; }
+	}
+
+	const plural = (n, noun) => (n === 1 ? `1 ${noun}` : `${n} ${noun}s`);
+	const daysToLoss = () =>
+		Math.round((firstLoss.date - sorted[0].date) / (1000 * 60 * 60 * 24));
+
+	if (isPastSeason) {
+		if (!firstLoss) return `Finished the regular season undefeated &mdash; <strong>${openingStreak}-0</strong>`;
+		if (openingStreak === 0) return `Lost the opener &mdash; undefeated for <strong>0 games</strong> to start the season`;
+		return `Undefeated for <strong>${plural(openingStreak, 'game')}</strong> (${daysToLoss()} days) to start the season before first loss`;
+	}
+
+	let winStreak = 0;
+	for (let i = sorted.length - 1; i >= 0; i--) {
+		if (sorted[i].result === 'WIN') winStreak++;
+		else break;
+	}
+
+	if (!firstLoss) return `Undefeated to start the season &mdash; <strong>${openingStreak}</strong>-game win streak`;
+	if (openingStreak === 0) return `Lost the opener. Currently on a <strong>${winStreak}-game</strong> win streak.`;
+	return `The ${site.team} started the season undefeated for <strong>${plural(openingStreak, 'game')}</strong> (${plural(daysToLoss(), 'day')}). Currently on a <strong>${winStreak}-game</strong> win streak.`;
+}
+
+/** The "recent form" line under the banner: last ten and the calendar month.
+ *
+ *  Baseball's alone, and it is the reason this method was 105 lines here against
+ *  62 on the football site. It only makes sense in a sport that plays most days:
+ *  "last 10" across a seventeen-game season is most of the season, and a
+ *  calendar month is two or three games.
+ *
+ *  `now` is a parameter so the month line can be tested at all; it was
+ *  new Date() inline.
+ */
+export function recentFormParts(sorted, now = new Date()) {
+	const parts = [];
+	if (sorted.length >= 10) parts.push(`Last 10: <strong>${hyphenRecord(sorted.slice(-10))}</strong>`);
+	const monthGames = sorted.filter(
+		(g) => g.date.getMonth() === now.getMonth() && g.date.getFullYear() === now.getFullYear());
+	if (monthGames.length) {
+		parts.push(`${now.toLocaleDateString('en-US', { month: 'long' })}: <strong>${hyphenRecord(monthGames)}</strong>`);
+	}
+	return parts;
+}
+
+/** The most recent `n` decided meetings with one franchise, oldest first.
+ *
+ *  The opponent still has to be resolved from the live ESPN payload, which is
+ *  main.js's problem; this is the part that only needs rows.
+ */
+export function lastMeetings(rows, franchise, n = 10) {
+	return rows
+		.filter((r) => r.franchise === franchise && RESULTS.has(r.result))
+		.sort((a, b) => (a.date < b.date ? -1 : 1))
+		.slice(-n);
+}
+
 // Meta copy for the /history page, shared by server OG meta and client share.
 export function historyCopy(history, site = SITE) {
 	const first = history[0].season, last = history[history.length - 1].season;

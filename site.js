@@ -100,6 +100,18 @@ export const SITE = {
 	 *  False across 162 games, which is why there is no card for it. */
 	perfectSeasonIsPlausible: false,
 
+	/** How far either side of today's calendar date "on this day" will look.
+	 *
+	 *  Zero here: across 50-odd seasons of near-daily baseball there is almost
+	 *  always a game on the exact date, so widening it would only dilute the
+	 *  panel. The football site uses 3, because a sport playing seventeen games
+	 *  a year has empty calendar dates by the hundred and an exact match would
+	 *  leave the panel hidden most of the time.
+	 *
+	 *  Same function, same code path, one number — which is the shape every
+	 *  difference between these two sites should end up in. */
+	onThisDayWindowDays: 0,
+
 	// --- which records this sport has ---
 
 	/** The record cards this site publishes, in display order.

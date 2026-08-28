@@ -1,13 +1,7 @@
-        import { parseGamesCsv, parseGameinfoCsv, parseCurrentNamesCsv, BREWERS_IDS, computeSeasonHistory, parseTeamstatsLineScores } from './records-core.js';
+        import { parseGamesCsv, parseGameinfoCsv, parseCurrentNamesCsv, BREWERS_IDS, computeSeasonHistory, parseTeamstatsLineScores, seasonTally, onThisDayCandidates, otdInterest, otdPick, localDate as parseLocalDate, streakBannerHtml, recentFormParts, lastMeetings, hyphenRecord } from './records-core.js';
         import { computeHeadToHead } from './h2h-core.js';
         import { buildChartSvg } from './history-chart.js';
         import { intentUrls, copyText, flashCopied, wireShareDropdown } from './share-core.js';
-
-        // Parse 'YYYY-MM-DD' at LOCAL midnight. new Date('YYYY-MM-DD') parses as
-        // UTC midnight, which renders as the previous day in US timezones.
-        function parseLocalDate(iso) {
-        	return new Date(`${iso}T00:00:00`);
-        }
 
         function buildSeasonMap(games) {
         	const map = {};
@@ -452,42 +446,11 @@ processCsvSeasonData(season) {
 
  document.getElementById('schedule-title').innerHTML = `<i class="mdi mdi-calendar-month"></i> ${season} Season Schedule`;
 
-        		// Tally regular season and playoff records from CSV
- let wins = 0, losses = 0, ties = 0;
- let postWins = 0, postLosses = 0, postTies = 0;
+        		// The tally lives in records-core so it can be tested; this method
+        		// renders. Both halves used to be here.
+ const { wins, losses, ties, postseason, championshipName, undefeated } = seasonTally(games);
 
- games.forEach(g => {
-     const result = g['result'];
-     const isPlayoff = g.playoff === '1';
-     const isRegular = g.regular_season === '1';
-
-     if (isRegular) {
-        if (result === 'WIN') wins++;
-        else if (result === 'LOSS') losses++;
-        else if (result === 'TIE') ties++;
-    } else if (isPlayoff) {
-        if (result === 'WIN') postWins++;
-        else if (result === 'LOSS') postLosses++;
-        else if (result === 'TIE') postTies++;
-    }
-});
-
-        		// World Series champions only if the Brewers won the series
-        		// (more WS game wins than losses), not just a single WS game.
- let wsWins = 0, wsLosses = 0, wsName = '';
- games.forEach(g => {
-     if (g.championship && g.championship.trim() !== '') {
-        wsName = `World Series ${g.championship.toUpperCase()}`;
-        if (g['result'] === 'WIN') wsWins++;
-        else if (g['result'] === 'LOSS') wsLosses++;
-    }
-});
- const worldSeriesName = wsWins > wsLosses ? wsName : null;
-
- const isUndefeated = losses === 0 && wins > 0;
- const postRecord = (postWins > 0 || postLosses > 0) ? { w: postWins, l: postLosses, t: postTies } : null;
-
- this.displayResult(isUndefeated, wins, losses, ties, true, worldSeriesName, postRecord, null);
+ this.displayResult(undefeated, wins, losses, ties, true, championshipName, postseason, null);
  this.displayCsvSchedule(games, season);
  this.scrollToGameAnchor();
  this.showLastUpdated();
@@ -1506,47 +1469,7 @@ async copyLink() {
 
 // How noteworthy was this game? Blowouts, slugfests, extra innings, playoff
 // games, homer barrages, and no-hitters float to the top of On This Day.
-_otdInterest(c) {
-  const g = c.game;
-  let score = 0;
-  const bs = parseInt(g.scoreFor, 10), os = parseInt(g.scoreAgainst, 10);
-  if (Number.isFinite(bs) && Number.isFinite(os)) {
-    const diff = Math.abs(bs - os), total = bs + os;
-    if (diff >= 10) score += 6; else if (diff >= 7) score += 4; else if (diff >= 5) score += 2;
-    if (total >= 20) score += 3; else if (total >= 15) score += 2;
-    if (g['result'] === 'WIN') { score += 1; if (os === 0) score += 1; }
-  }
-  if (g.championship && g.championship.trim()) score += 8;
-  else if (g.playoff === '1') score += 5;
-  const ls = g.gid ? this.lineScores?.get(g.gid) : null;
-  if (ls?.visitor && ls?.home) {
-    const inns = Math.max(
-      ls.visitor.inns.filter(x => x !== '').length,
-      ls.home.inns.filter(x => x !== '').length);
-    if (inns >= 13) score += 5; else if (inns >= 10) score += 3;
-    const mil = BREWERS_IDS.has(ls.home.team) ? ls.home : ls.visitor;
-    const opp = mil === ls.home ? ls.visitor : ls.home;
-    if (mil.hr >= 4) score += 5; else if (mil.hr >= 3) score += 3;
-    if (mil.hr + opp.hr >= 6) score += 2;
-    if (opp.h === 0 && inns >= 9) score += 12;   // no-hitter
-    else if (opp.h === 0 || mil.h === 0) score += 6;
-  }
-  return score;
-}
-
 // Random pick weighted by interest — ordinary games still show up, just less.
-_otdPick(pool, exclude) {
-  const items = exclude ? pool.filter(c => c !== exclude) : pool;
-  if (!items.length) return null;
-  const weights = items.map(c => 1 + (c.interest || 0) * 2);
-  let r = Math.random() * weights.reduce((a, b) => a + b, 0);
-  for (let i = 0; i < items.length; i++) {
-    r -= weights[i];
-    if (r <= 0) return items[i];
-  }
-  return items[items.length - 1];
-}
-
 buildOnThisDay() {
   const el = document.getElementById('on-this-day');
   if (!el) return;
@@ -1556,25 +1479,14 @@ buildOnThisDay() {
   const todayMonth = isNaN(today) ? new Date().getMonth() : today.getMonth();
   const todayDay = isNaN(today) ? new Date().getDate() : today.getDate();
 
-  // Exact calendar date only — with 50+ seasons of daily baseball there is
-  // nearly always a game on this date, no ±3-day window needed.
-  const candidates = [];
-  for (const [yr, games] of Object.entries(this.csvBySeason)) {
-     for (const g of games) {
-        if (!g.date) continue;
-        const d = parseLocalDate(g.date);
-        if (isNaN(d)) continue;
-        if (d.getMonth() === todayMonth && d.getDate() === todayDay) {
-          const c = { game: g, season: parseInt(yr), date: d };
-          c.interest = this._otdInterest(c);
-          candidates.push(c);
-        }
-    }
-}
+  // The window is site.js's onThisDayWindowDays: exact here, three days either
+  // side on the football site. Same function, one number.
+  const candidates = onThisDayCandidates(this.csvBySeason, todayMonth, todayDay);
+  for (const c of candidates) c.interest = otdInterest(c, this.lineScores);
 
-if (candidates.length === 0) { el.hidden = true; return; }
+  if (candidates.length === 0) { el.hidden = true; return; }
 
-this._renderOnThisDay(el, this._otdPick(candidates), candidates);
+  this._renderOnThisDay(el, otdPick(candidates), candidates);
 }
 
 _renderOnThisDay(el, pick, pool) {
@@ -1629,7 +1541,7 @@ el.hidden = false;
 
 document.getElementById('otd-refresh')?.addEventListener('click', () => {
  if (pool.length > 1) {
-    this._renderOnThisDay(el, this._otdPick(pool, pick), pool);
+    this._renderOnThisDay(el, otdPick(pool, pick), pool);
 }
 });
 }
@@ -1655,107 +1567,35 @@ computeStreak(completedGames) {
 updateStreakBanner(completedGames, isPastSeason, nextGame) {
   const el = document.getElementById('streak-banner');
   if (!el) return;
-  if (completedGames.length === 0) {
-     el.hidden = true;
-     return;
- }
- const sorted = [...completedGames].sort((a, b) => a.date - b.date);
+  // The six sentences are shared with the football site; recent form is ours.
+  let html = streakBannerHtml(completedGames, { isPastSeason });
+  if (html === null) { el.hidden = true; return; }
 
- if (isPastSeason) {
-        			// Opening win streak: wins before the first loss
-     let openingStreak = 0;
-     let firstLoss = null;
-     for (const g of sorted) {
-        if (g.result === 'WIN') openingStreak++;
-        else { firstLoss = g; break; }
-    }
-    let html;
-    if (!firstLoss) {
-        html = `Finished the regular season undefeated &mdash; <strong>${openingStreak}-0</strong>`;
-    } else if (openingStreak === 0) {
-        html = `Lost the opener &mdash; undefeated for <strong>0 games</strong> to start the season`;
-    } else {
-        const firstGame = sorted[0];
-        const daysToLoss = Math.round((firstLoss.date - firstGame.date) / (1000 * 60 * 60 * 24));
-        const gamesText = openingStreak === 1 ? '1 game' : `${openingStreak} games`;
-        html = `Undefeated for <strong>${gamesText}</strong> (${daysToLoss} days) to start the season before first loss`;
-    }
-    el.innerHTML = html;
-    el.hidden = false;
-} else {
-        			// Current season: opening streak + active win streak
- let openingStreak = 0;
- let firstLoss = null;
- for (const g of sorted) {
-    if (g.result === 'WIN') openingStreak++;
-    else { firstLoss = g; break; }
-}
-let winStreak = 0;
-for (let i = sorted.length - 1; i >= 0; i--) {
-    if (sorted[i].result === 'WIN') winStreak++;
-    else break;
+  if (!isPastSeason) {
+    const sorted = [...completedGames].sort((a, b) => a.date - b.date);
+    const parts = recentFormParts(sorted);
+    const vs = this._lastTenVsNext(nextGame);
+    if (vs) parts.push(vs);
+    if (parts.length) html += `<div class="streak-extra">${parts.join(' &middot; ')}</div>`;
+  }
+
+  el.innerHTML = html;
+  el.hidden = false;
 }
 
-let html;
-if (!firstLoss) {
-    html = `Undefeated to start the season &mdash; <strong>${openingStreak}</strong>-game win streak`;
-} else if (openingStreak === 0) {
-    const streakText = winStreak === 1 ? '1-game' : `${winStreak}-game`;
-    html = `Lost the opener. Currently on a <strong>${streakText}</strong> win streak.`;
-} else {
-    const firstGame = sorted[0];
-    const daysToLoss = Math.round((firstLoss.date - firstGame.date) / (1000 * 60 * 60 * 24));
-    const gamesText = openingStreak === 1 ? '1 game' : `${openingStreak} games`;
-    const daysText = daysToLoss === 1 ? '1 day' : `${daysToLoss} days`;
-    const streakText = winStreak === 1 ? '1-game' : `${winStreak}-game`;
-    html = `The Brewers started the season undefeated for <strong>${gamesText}</strong> (${daysText}). Currently on a <strong>${streakText}</strong> win streak.`;
-}
-
-// Recent form: last 10 games and the current calendar month.
-const recordOf = (games) => {
-    let w = 0, l = 0, t = 0;
-    for (const g of games) {
-        if (g.result === 'WIN') w++;
-        else if (g.result === 'LOSS') l++;
-        else t++;
-    }
-    return t > 0 ? `${w}-${l}-${t}` : `${w}-${l}`;
-};
-const now = new Date();
-const monthGames = sorted.filter(g => g.date.getMonth() === now.getMonth() && g.date.getFullYear() === now.getFullYear());
-const parts = [];
-if (sorted.length >= 10) parts.push(`Last 10: <strong>${recordOf(sorted.slice(-10))}</strong>`);
-if (monthGames.length) parts.push(`${now.toLocaleDateString('en-US', { month: 'long' })}: <strong>${recordOf(monthGames)}</strong>`);
-
-// Last 10 vs the next opponent (live game counts as "next"), pooled from
-// all seasons — h2hRows already includes the current season's ESPN games.
-if (nextGame && this.h2hRows) {
-    const oppTeam = nextGame.competitions?.[0]?.competitors?.find(c => c.team?.abbreviation !== 'MIL')?.team;
-    const fran = oppTeam && this.displayNameToFranchise?.get(oppTeam.displayName);
-    const o = fran && this.h2hByFranchise?.get(fran);
-    if (o) {
-        const vsGames = this.h2hRows
-            .filter(r => r.franchise === fran && ['WIN', 'LOSS', 'TIE'].includes(r['result']))
-            .sort((a, b) => (a.date < b.date ? -1 : 1))
-            .slice(-10);
-        if (vsGames.length) {
-            let w = 0, l = 0, t = 0;
-            for (const g of vsGames) {
-                if (g['result'] === 'WIN') w++;
-                else if (g['result'] === 'LOSS') l++;
-                else t++;
-            }
-            const recText = t > 0 ? `${w}-${l}-${t}` : `${w}-${l}`;
-            const short = oppTeam.shortDisplayName || o.name;
-            parts.push(`Last ${vsGames.length} vs <a href="/vs/${o.slug}">${short}</a>: <strong>${recText}</strong>`);
-        }
-    }
-}
-if (parts.length) html += `<div class="streak-extra">${parts.join(' &middot; ')}</div>`;
-
-el.innerHTML = html;
-el.hidden = false;
-}
+// Resolving the next opponent out of the live ESPN payload, which is this
+// file's job; lastMeetings does the part that only needs rows.
+_lastTenVsNext(nextGame) {
+  if (!nextGame || !this.h2hRows) return null;
+  const oppTeam = nextGame.competitions?.[0]?.competitors
+    ?.find(c => c.team?.abbreviation !== 'MIL')?.team;
+  const fran = oppTeam && this.displayNameToFranchise?.get(oppTeam.displayName);
+  const o = fran && this.h2hByFranchise?.get(fran);
+  if (!o) return null;
+  const vsGames = lastMeetings(this.h2hRows, fran);
+  if (!vsGames.length) return null;
+  const short = oppTeam.shortDisplayName || o.name;
+  return `Last ${vsGames.length} vs <a href="/vs/${o.slug}">${short}</a>: <strong>${hyphenRecord(vsGames)}</strong>`;
 }
 
 updateLastUndefeated(currentSeasonWins, currentSeasonLosses) {
