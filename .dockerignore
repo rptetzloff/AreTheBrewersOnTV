@@ -1,0 +1,40 @@
+# What never belongs in the image. Everything else is copied, because the server
+# reads the HTML shells, the CSVs, the indices and lib/ at runtime and guessing
+# wrong there fails at request time on one route rather than at build time.
+
+.git
+.gitattributes
+.github
+node_modules
+
+# The play-by-play file: 388MB, Git LFS, and input to scripts/build-indices.mjs
+# rather than to the server. data/indices/ is committed and the server prefers
+# it, falling back to the CSVs only if an artifact is missing or stale.
+#
+# Measured, not assumed: with this file moved aside the server boots, loads all
+# 13 artifacts in 3.6s, and serves /, /1982, /records and a box score. It takes
+# data/ from 464MB to 76MB — the remaining 76MB is gameinfo, batting, pitching,
+# fielding, biofile and teamstats, which stay because they are the fallback the
+# server reads if an artifact is ever missing or stale. Dropping those too would
+# turn a slow boot into a broken one.
+#
+# The clone is a separate matter — a build host that smudges LFS still downloads
+# it before this file gets a say. See DEPLOYING.md.
+data/plays.lfs.csv
+
+# Test suite and its fixtures: 198 tests that run in CI and locally, never in
+# the container.
+test
+
+# Render-check captures.
+.render
+
+# Build tooling that produces committed artifacts rather than running in
+# production. build-indices.mjs is the one that needs plays.lfs.csv, and it is
+# run by hand on a data refresh, not in the container.
+scripts
+vite.config.js
+vite.config.ts
+
+# Notes for people, not for the runtime.
+CLAUDE.md
