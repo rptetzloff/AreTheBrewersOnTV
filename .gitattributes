@@ -21,6 +21,16 @@
 *.svg  text eol=lf
 *.txt  text eol=lf
 
+# Docker's files have no extension between them, so none of the rules above
+# reaches either. This is not cosmetic: a CRLF Dockerfile breaks backslash line
+# continuations, and the HEALTHCHECK here is written across two lines. `git add`
+# printing "LF will be replaced by CRLF" is what surfaced it.
+Dockerfile    text eol=lf
+.dockerignore text eol=lf
+# And this file, which is extensionless too and was declaring rules it did not
+# apply to itself.
+.gitattributes text eol=lf
+
 # Retrosheet ships its files with CRLF and they are consumed byte-for-byte —
 # CurrentNames.csv carries 126 CRs, allplayers.csv over 2,000. Others in the
 # same directory are LF. Both are correct: whatever arrived is what is stored.
