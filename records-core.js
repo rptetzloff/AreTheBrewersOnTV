@@ -893,7 +893,7 @@ export function streakBannerHtml(completedGames, { isPastSeason = false, site = 
 	if (isPastSeason) {
 		if (!firstLoss) return `Finished the regular season undefeated &mdash; <strong>${openingStreak}-0</strong>`;
 		if (openingStreak === 0) return `Lost the opener &mdash; undefeated for <strong>0 games</strong> to start the season`;
-		return `Undefeated for <strong>${plural(openingStreak, 'game')}</strong> (${daysToLoss()} days) to start the season before first loss`;
+		return `Undefeated for <strong>${plural(openingStreak, 'game')}</strong> (${plural(daysToLoss(), 'day')}) to start the season before first loss`;
 	}
 
 	let winStreak = 0;
