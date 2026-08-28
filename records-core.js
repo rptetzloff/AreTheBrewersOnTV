@@ -672,6 +672,72 @@ export function computeTeamstatsRecords(rows, teamstatsRaw, { top = 5, now = new
 	return { bestSeasons, worstSeasons, noHitters, perfectGames, triplePlays, mostTeamHrGames, mostTeamErrorGames };
 }
 
+/** The numbers a single season's page shows: the regular-season record, the
+ *  postseason record beside it, and the championship's name if it was won.
+ *
+ *  `rows` is one season's games as parseGameinfoCsv produces them.
+ *
+ *  Lifted out of main.js, where it sat inline in processCsvSeasonData and
+ *  tallied and rendered in one pass. The football repo's copy of this function
+ *  was extracted first and the two are deliberately convergent, because a shared
+ *  core is the point of the exercise.
+ *
+ *  The one place they read differently is the championship, and the difference
+ *  turned out not to need a flag. A World Series is a best-of-seven, so winning
+ *  a single game in it is not winning it — the test is more championship-round
+ *  wins than losses. Applied to a Super Bowl, which is one game, that same test
+ *  gives exactly the football answer: a win is 1 > 0, a defeat is 0 > 1. The
+ *  series rule is the general one and the single-game rule is a special case of
+ *  it, so both sites can run this line unchanged.
+ *
+ *  Deliberately not folded into computeSeasonHistory, which looks like it
+ *  already does this and does not: it exposes no postseason record, only a
+ *  boolean for the championship rather than its name, and a different notion of
+ *  undefeated — see below.
+ */
+export function seasonTally(rows, site = SITE) {
+	let wins = 0, losses = 0, ties = 0;
+	let postWins = 0, postLosses = 0, postTies = 0;
+	let titleWins = 0, titleLosses = 0, titleName = null;
+
+	for (const g of rows) {
+		if (g.regular_season === '1') {
+			if (g.result === 'WIN') wins++;
+			else if (g.result === 'LOSS') losses++;
+			else if (g.result === 'TIE') ties++;
+		} else if (g.playoff === '1') {
+			if (g.result === 'WIN') postWins++;
+			else if (g.result === 'LOSS') postLosses++;
+			else if (g.result === 'TIE') postTies++;
+		}
+		if (g.championship && g.championship.trim() !== '') {
+			titleName = `${site.championship} ${g.championship.toUpperCase()}`;
+			if (g.result === 'WIN') titleWins++;
+			else if (g.result === 'LOSS') titleLosses++;
+		}
+	}
+
+	return {
+		wins, losses, ties,
+		// A postseason of ties alone does not count as one. Preserved from the
+		// inline version rather than tidied: the only rows that could produce it
+		// are unplayed or malformed.
+		postseason: (postWins > 0 || postLosses > 0)
+			? { w: postWins, l: postLosses, t: postTies }
+			: null,
+		championshipName: titleWins > titleLosses ? titleName : null,
+		// Undefeated *so far*, which is not computeSeasonHistory's `undefeated`.
+		// That one also requires the season to have finished, because the records
+		// page lists completed lossless seasons. This one answers what the front
+		// page asks, which a team can be answering yes to in April.
+		//
+		// It is reachable here in a way it is not in football: a baseball team
+		// opens 1-0 roughly half the time. It has never survived to the end of a
+		// season and, per site.js, never will.
+		undefeated: losses === 0 && wins > 0,
+	};
+}
+
 // Meta copy for the /history page, shared by server OG meta and client share.
 export function historyCopy(history, site = SITE) {
 	const first = history[0].season, last = history[history.length - 1].season;

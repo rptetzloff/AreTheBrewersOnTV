@@ -1,4 +1,4 @@
-        import { parseGamesCsv, parseGameinfoCsv, parseCurrentNamesCsv, BREWERS_IDS, computeSeasonHistory, parseTeamstatsLineScores } from './records-core.js';
+        import { parseGamesCsv, parseGameinfoCsv, parseCurrentNamesCsv, BREWERS_IDS, computeSeasonHistory, parseTeamstatsLineScores, seasonTally } from './records-core.js';
         import { computeHeadToHead } from './h2h-core.js';
         import { buildChartSvg } from './history-chart.js';
         import { intentUrls, copyText, flashCopied, wireShareDropdown } from './share-core.js';
@@ -452,42 +452,11 @@ processCsvSeasonData(season) {
 
  document.getElementById('schedule-title').innerHTML = `<i class="mdi mdi-calendar-month"></i> ${season} Season Schedule`;
 
-        		// Tally regular season and playoff records from CSV
- let wins = 0, losses = 0, ties = 0;
- let postWins = 0, postLosses = 0, postTies = 0;
+        		// The tally lives in records-core so it can be tested; this method
+        		// renders. Both halves used to be here.
+ const { wins, losses, ties, postseason, championshipName, undefeated } = seasonTally(games);
 
- games.forEach(g => {
-     const result = g['result'];
-     const isPlayoff = g.playoff === '1';
-     const isRegular = g.regular_season === '1';
-
-     if (isRegular) {
-        if (result === 'WIN') wins++;
-        else if (result === 'LOSS') losses++;
-        else if (result === 'TIE') ties++;
-    } else if (isPlayoff) {
-        if (result === 'WIN') postWins++;
-        else if (result === 'LOSS') postLosses++;
-        else if (result === 'TIE') postTies++;
-    }
-});
-
-        		// World Series champions only if the Brewers won the series
-        		// (more WS game wins than losses), not just a single WS game.
- let wsWins = 0, wsLosses = 0, wsName = '';
- games.forEach(g => {
-     if (g.championship && g.championship.trim() !== '') {
-        wsName = `World Series ${g.championship.toUpperCase()}`;
-        if (g['result'] === 'WIN') wsWins++;
-        else if (g['result'] === 'LOSS') wsLosses++;
-    }
-});
- const worldSeriesName = wsWins > wsLosses ? wsName : null;
-
- const isUndefeated = losses === 0 && wins > 0;
- const postRecord = (postWins > 0 || postLosses > 0) ? { w: postWins, l: postLosses, t: postTies } : null;
-
- this.displayResult(isUndefeated, wins, losses, ties, true, worldSeriesName, postRecord, null);
+ this.displayResult(undefeated, wins, losses, ties, true, championshipName, postseason, null);
  this.displayCsvSchedule(games, season);
  this.scrollToGameAnchor();
  this.showLastUpdated();
