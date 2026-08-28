@@ -738,6 +738,113 @@ export function seasonTally(rows, site = SITE) {
 	};
 }
 
+/** 'YYYY-MM-DD' -> local-time Date. new Date('YYYY-MM-DD') parses as UTC
+ *  midnight, which any timezone west of UTC displays as the PREVIOUS day.
+ *
+ *  main.js had this as `parseLocalDate`, built by string concatenation rather
+ *  than from components; it now imports this one under that name, so there is
+ *  one implementation instead of two that have to agree. The football repo has
+ *  had the component form in its core all along, and this is a copy of it, so
+ *  the two are now the same function under the same name.
+ */
+export function localDate(iso) {
+	const [y, m, d] = iso.split('-').map((n) => parseInt(n, 10));
+	return new Date(y, m - 1, d);
+}
+
+/** Games played within `windowDays` of a given month and day, in any season.
+ *
+ *  `bySeason` is the season-keyed map main.js already builds. `month` is
+ *  0-based, matching Date#getMonth, because the caller gets it from a Date.
+ *
+ *  The window comes from the manifest: zero here, three on the football site.
+ *  Across 50-odd seasons of near-daily baseball there is almost always a game on
+ *  the exact date; a sport playing seventeen games a year has empty calendar
+ *  dates by the hundred. Same code path, one number.
+ *
+ *  The proximity test is `month * 31 + day`, which is not a date calculation. At
+ *  a window of zero it is exact and the arithmetic does not matter. It does
+ *  matter on the football site, where the window does not wrap around the end of
+ *  the year — see the test there.
+ */
+export function onThisDayCandidates(bySeason, month, day, { windowDays = SITE.onThisDayWindowDays } = {}) {
+	const target = month * 31 + day;
+	const out = [];
+	for (const [yr, games] of Object.entries(bySeason)) {
+		for (const g of games) {
+			if (!g.date) continue;
+			const d = localDate(g.date);
+			if (isNaN(d)) continue;
+			if (Math.abs((d.getMonth() * 31 + d.getDate()) - target) <= windowDays) {
+				out.push({ game: g, season: parseInt(yr, 10), date: d });
+			}
+		}
+	}
+	return out;
+}
+
+/** How interesting a game is, for choosing which one the panel shows.
+ *
+ *  Baseball-only, and the reason this site picks by weight where the football
+ *  one picks uniformly: with a game on almost every calendar date, fifty-odd
+ *  candidates arrive and most of them are a routine 4-2 in July. The scores
+ *  below are not derived from anything — they are a judgement about what is
+ *  worth reading, and they were previously buried in main.js where nothing could
+ *  check them.
+ *
+ *  `lineScores` is the gid-keyed map from teamstats; absent for older games, so
+ *  every clause that reads it is optional. `teamIds` decides which side of the
+ *  line score is ours.
+ */
+export function otdInterest({ game: g }, lineScores = null, teamIds = BREWERS_IDS) {
+	let score = 0;
+	const bs = parseInt(g.scoreFor, 10), os = parseInt(g.scoreAgainst, 10);
+	if (Number.isFinite(bs) && Number.isFinite(os)) {
+		const diff = Math.abs(bs - os), total = bs + os;
+		if (diff >= 10) score += 6; else if (diff >= 7) score += 4; else if (diff >= 5) score += 2;
+		if (total >= 20) score += 3; else if (total >= 15) score += 2;
+		if (g.result === 'WIN') { score += 1; if (os === 0) score += 1; }
+	}
+	if (g.championship && g.championship.trim()) score += 8;
+	else if (g.playoff === '1') score += 5;
+
+	const ls = g.gid ? lineScores?.get(g.gid) : null;
+	if (ls?.visitor && ls?.home) {
+		const inns = Math.max(
+			ls.visitor.inns.filter((x) => x !== '').length,
+			ls.home.inns.filter((x) => x !== '').length);
+		if (inns >= 13) score += 5; else if (inns >= 10) score += 3;
+		const mine = teamIds.has(ls.home.team) ? ls.home : ls.visitor;
+		const opp = mine === ls.home ? ls.visitor : ls.home;
+		if (mine.hr >= 4) score += 5; else if (mine.hr >= 3) score += 3;
+		if (mine.hr + opp.hr >= 6) score += 2;
+		// A no-hitter outscores everything else on the list combined, which is
+		// the intent: it is the rarest thing in the file.
+		if (opp.h === 0 && inns >= 9) score += 12;
+		else if (opp.h === 0 || mine.h === 0) score += 6;
+	}
+	return score;
+}
+
+/** Weighted random choice from scored candidates, optionally excluding one (the
+ *  refresh button, which must not hand back the game already on screen).
+ *
+ *  `random` is injectable so this is testable at all; it was `Math.random()`
+ *  inline, which meant the weighting could never be checked. Weight is
+ *  `1 + interest * 2`, so a dull game is never impossible, only unlikely.
+ */
+export function otdPick(pool, exclude = null, random = Math.random) {
+	const items = exclude ? pool.filter((c) => c !== exclude) : pool;
+	if (!items.length) return null;
+	const weights = items.map((c) => 1 + (c.interest || 0) * 2);
+	let r = random() * weights.reduce((a, b) => a + b, 0);
+	for (let i = 0; i < items.length; i++) {
+		r -= weights[i];
+		if (r <= 0) return items[i];
+	}
+	return items[items.length - 1];
+}
+
 // Meta copy for the /history page, shared by server OG meta and client share.
 export function historyCopy(history, site = SITE) {
 	const first = history[0].season, last = history[history.length - 1].season;
