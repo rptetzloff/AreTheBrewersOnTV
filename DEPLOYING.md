@@ -147,6 +147,64 @@ apex, a visitor arriving at `www` gets a canonical tag pointing at the apex.
 Render never did that, because it derives the origin from whatever `Host` header
 turned up, so each hostname self-canonicalised.
 
+## Cloudflare, and telling an edge redirect from an origin one
+
+Two things are configured in Cloudflare and exist nowhere in this repository, so
+they are written down here or not at all.
+
+**A Redirect Rule sends `www` to the apex.** A 301, path and query preserved,
+answered at the edge — the request never reaches Coolify:
+
+    When:  http.host eq "www.arethebrewersontv.com"
+    Then:  concat("https://arethebrewersontv.com", http.request.uri.path)
+           301, preserve query string
+
+Path preservation is the part to check if it is ever rebuilt. A static redirect
+to the bare apex sends every deep link to the homepage, and `/records/<slug>` is
+exactly the kind of URL people share.
+
+Because it answers at the edge, `www` does **not** need to be one of the
+application's domains in Coolify. Adding it there is harmless; leaving it out is
+what stops a stray hostname 404ing from the origin.
+
+**"Always Use HTTPS" is on.** Without it, `http://arethebrewersontv.com` is served in the clear
+rather than upgraded — which it was, on the baseball zone, until it was noticed.
+
+### Which of them answered?
+
+`Server: cloudflare` appears on every response through the proxy and identifies
+nothing. The header that does is `cf-cache-status`:
+
+    present (e.g. DYNAMIC)  the request reached the origin — Coolify answered
+    absent                  Cloudflare answered at the edge
+
+A body helps too: Cloudflare's errors are a bare `error code: 502`, and Traefik's
+redirects carry a short plain-text body like `Found`.
+
+This is written down because getting it wrong cost real time. A 307 redirect to
+`http://` was attributed to Cloudflare on the strength of `Server: cloudflare`;
+it was Traefik, and the giveaway — `cf-cache-status: DYNAMIC`, meaning the
+request had reached the origin — was in the headers the whole time.
+
+### The scheme, and why PUBLIC_ORIGIN is still set
+
+Cloudflare's SSL mode is Full (strict). Under the previous Flexible setting it
+spoke plain HTTP to the origin, so the origin correctly concluded the request was
+HTTP and built every absolute URL from it — `og:url` came out `http://` on an
+HTTPS page, and Traefik's redirects pointed at `http://` too. One cause, two
+symptoms.
+
+Strict mode fixes the cause. `PUBLIC_ORIGIN` stays anyway, because it answers a
+different question: without it, *any* Host header becomes the canonical URL. With
+it, every hostname serves pages that identify as the apex — which is what makes
+serving `www` and the apex from one application safe, with no redirect needed for
+correctness.
+
+**Changing the domain scheme on a live Coolify application took both production
+sites down** while this was being sorted out. If it needs revisiting, do it on
+the dev application first and check the dev hostname before touching production —
+the same order the branch rule already describes for code.
+
 ## What can drift
 
 These are written in two places and nothing checks that they agree:
