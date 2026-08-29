@@ -29,10 +29,18 @@ test
 # Render-check captures.
 .render
 
-# Build tooling that produces committed artifacts rather than running in
-# production. build-indices.mjs is the one that needs plays.lfs.csv, and it is
-# run by hand on a data refresh, not in the container.
-scripts
+# scripts/ is NOT excluded, and the comment that used to say it was build
+# tooling was wrong in a way that reached production.
+#
+# server.js imports ARTIFACT_DIR, FORMAT and reviver from
+# scripts/build-indices.mjs to *read* the committed indices. Excluding the
+# directory made that import fail, and the failure is caught: the server logged
+# "rebuilding from CSV" and carried on. With plays.lfs.csv also excluded — quite
+# correctly, it is 388MB — the scoring-plays collector then had nothing to read,
+# so every box score rendered without its Scoring Summary while returning 200.
+#
+# Two exclusions that were each defensible combined into a silent data loss. The
+# directory is 28KB.
 vite.config.js
 vite.config.ts
 
