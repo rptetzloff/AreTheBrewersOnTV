@@ -9,6 +9,7 @@ import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, normalize, extname } from 'node:path';
 import { renderPng, renderRecordsPng, renderH2hPng, renderHistoryPng, renderCoachesPng } from './lib/cards.js';
+import { indexLoadOutcome, isLfsPointer } from './lib/indices-health.js';
 import { originOf } from './lib/origin.js';
 import { getSeasonState, defaultSeason } from './lib/seasons.js';
 import { records, recordsMeta, isRecordSlug, seasonHistory, historyMeta, registerBattingFeats, registerNoHitterPitchers, registerTriplePlayFielders } from './lib/records.js';
@@ -160,6 +161,25 @@ function getBoxIndices() {
   return _boxIndicesPromise;
 }
 
+/** Refuse to start, loudly.
+ *
+ *  Exits rather than throwing so the container stops instead of limping: a
+ *  process that never listens fails its health check, the deploy is marked bad,
+ *  and the previous image keeps serving. The alternative — which is what
+ *  happened — is a healthy-looking container quietly missing a section of every
+ *  box score.
+ */
+function die(reason) {
+  console.error('');
+  console.error('FATAL: refusing to start.');
+  console.error(`  ${reason}`);
+  console.error('');
+  console.error('  Fix the deploy, or set INDICES_ALLOW_DEGRADED=1 to start anyway');
+  console.error('  and accept box scores without their Scoring Summary.');
+  console.error('');
+  process.exit(1);
+}
+
 /** Load the precomputed indices, or null if there is no usable artifact.
  *
  *  Everything below this is the fallback: building the same indices by
@@ -173,14 +193,26 @@ function getBoxIndices() {
  *  stale. Both should cost a slow boot, never a wrong box score. */
 async function loadPrecomputedIndices() {
   const started = Date.now();
+  // Set as soon as the manifest is read, and inspected by the catch below.
+  let manifestPresent = false;
   try {
     const { readFile } = await import('node:fs/promises');
     const { createReadStream } = await import('node:fs');
     const { createInterface } = await import('node:readline');
     const { createBrotliDecompress } = await import('node:zlib');
-    const { ARTIFACT_DIR, FORMAT, reviver } = await import('./scripts/build-indices.mjs');
+    // The manifest is checked FIRST, and its directory is derived here rather
+    // than imported, because the import below is itself a thing that can fail —
+    // it is precisely what failed when .dockerignore excluded scripts/. Asking
+    // build-indices.mjs where the artifacts live before knowing whether it can
+    // be loaded gets the order backwards, and the first version of this guard
+    // did exactly that: the import threw while manifestPresent was still false,
+    // so a broken deploy was classified as a fresh clone and fell through to a
+    // full CSV rebuild.
+    const manifestRaw = await readFile(join(ROOT, 'data', 'indices', 'manifest.json'), 'utf8');
+    manifestPresent = true;
 
-    const manifest = JSON.parse(await readFile(join(ARTIFACT_DIR, 'manifest.json'), 'utf8'));
+    const { ARTIFACT_DIR, FORMAT, reviver } = await import('./scripts/build-indices.mjs');
+    const manifest = JSON.parse(manifestRaw);
     if (manifest?.format !== FORMAT) {
       console.warn(`indices: artifacts are format ${manifest?.format}, expected ${FORMAT} — rebuilding from CSV`);
       return null;
@@ -231,12 +263,28 @@ async function loadPrecomputedIndices() {
     // score would render empty rather than throwing, so it is checked once here
     // where the failure is still cheap to describe.
     if (!(indices.games instanceof Map)) {
+      // The artifacts loaded and are wrong, which is strictly worse than not
+      // loading: every .get() would return undefined and every box score would
+      // render empty without throwing.
+      if (process.env.INDICES_ALLOW_DEGRADED !== '1') {
+        die('the committed indices loaded but did not revive Maps — every box score would render empty');
+      }
       console.warn('indices: artifacts did not revive Maps — rebuilding from CSV');
       return null;
     }
     console.log(`indices: loaded ${manifest.indices.length} artifacts in ${Date.now() - started}ms`);
     return indices;
   } catch (err) {
+    // A missing manifest is a fresh clone and always has been. A manifest that
+    // exists and then fails is a deploy that will serve box scores with no
+    // Scoring Summary while answering 200 to everything, which is what happened
+    // for a week and is why this branch is here rather than a bare `return null`.
+    const { fatal, reason } = indexLoadOutcome({
+      manifestPresent,
+      error: err?.message,
+      allowDegraded: process.env.INDICES_ALLOW_DEGRADED === '1',
+    });
+    if (fatal) die(reason);
     if (err?.code !== 'ENOENT') console.warn(`indices: ${err.message} — rebuilding from CSV`);
     return null;
   }
@@ -264,7 +312,21 @@ async function buildBoxIndices() {
   }
   const readScoringPlays = async () => {
     const collector = createScoringPlaysCollector();
-    for await (const line of fileLines('data/plays.lfs.csv')) collector.line(line);
+    let first = true;
+    for await (const line of fileLines('data/plays.lfs.csv')) {
+      // The first line decides whether this is the file or a stand-in for it.
+      // With the LFS smudge filter off — which is now how every image is built,
+      // deliberately, since the image excludes the 388MB file — the working tree
+      // holds a 130-byte pointer. Fed to the collector it yields zero scoring
+      // plays and no error, which is the failure this whole guard exists for.
+      if (first) {
+        first = false;
+        if (isLfsPointer(line) && process.env.INDICES_ALLOW_DEGRADED !== '1') {
+          die(indexLoadOutcome({ manifestPresent: false, playsIsPointer: true }).reason);
+        }
+      }
+      collector.line(line);
+    }
     return collector.result();
   };
 
