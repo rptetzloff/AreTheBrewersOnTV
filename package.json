@@ -6,9 +6,6 @@
     "node": ">=18"
   },
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
     "start": "node server.js",
     "update-data": "node update-data.js",
     "render:capture": "node scripts/render-check.mjs capture",
@@ -20,8 +17,5 @@
   "dependencies": {
     "@resvg/resvg-js": "^2.6.2",
     "opentype.js": "^2.0.0"
-  },
-  "devDependencies": {
-    "vite": "^5.0.0"
   }
 }

@@ -41,8 +41,6 @@ test
 #
 # Two exclusions that were each defensible combined into a silent data loss. The
 # directory is 28KB.
-vite.config.js
-vite.config.ts
 
 # Notes for people, not for the runtime.
 CLAUDE.md
