@@ -22,6 +22,6 @@
     "opentype.js": "^2.0.0"
   },
   "devDependencies": {
-    "vite": "^5.0.0"
+    "vite": "^8.2.2"
   }
 }
