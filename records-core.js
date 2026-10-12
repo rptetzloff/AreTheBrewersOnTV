@@ -121,6 +121,10 @@ export const BREWERS_IDS = new Set(SITE.teamIds);
 // Playoff round depth ordering: higher = deeper in the postseason.
 export const ROUND_ORDER = { F: 1, D: 2, L: 3, W: 4 };
 
+// What each gametype code is called on the page. The records page's series
+// list and the season page's series line both read this one table.
+export const ROUND_LABEL = { T: 'Tiebreaker', F: 'Wild Card', D: 'Division Series', L: 'LCS', W: 'World Series' };
+
 // Parse ballparks.csv into a park-id → {id, city, park, first, last} map.
 // `first`/`last` are 'YYYYMMDD' integers; `last` may be empty for active parks.
 export function parseBallparksCsv(raw) {
@@ -424,7 +428,6 @@ export function computeSuperlatives(rows, { top = 5, now = new Date() } = {}) {
 
 	// Postseason series results. Each series is grouped by (season, gametype,
 	// opponent); gametype codes: F=Wild Card, D=Division Series, L=LCS, W=World Series.
-	const ROUND_LABEL = { T: 'Tiebreaker', F: 'Wild Card', D: 'Division Series', L: 'LCS', W: 'World Series' };
 	const ROUND_ORDER = { T: 0, F: 1, D: 2, L: 3, W: 4 };
 	const seriesMap = new Map(); // key -> { season, round, opponent, wins, losses, firstGid, firstDate }
 	for (const g of games) {
@@ -926,6 +929,53 @@ export function recentFormParts(sorted, now = new Date()) {
 		parts.push(`${now.toLocaleDateString('en-US', { month: 'long' })}: <strong>${hyphenRecord(monthGames)}</strong>`);
 	}
 	return parts;
+}
+
+// Wins needed to take a series, by round, as the round is named now: ESPN's
+// game note ("NLDS - Game 4") for the season being played, ROUND_LABEL for the
+// rest. Wild card best of three, division series best of five, LCS and World
+// Series best of seven, and a tiebreaker is one game.
+//
+// That is the current format, and the Retrosheet years are not all current:
+// the 1982 ALCS was best of five, and 3-2 in a round needing four reads
+// "lead 3-2". Past seasons pass `settled` for that reason — every series in
+// them is over, so the result is whoever won more.
+const SERIES_WINS_NEEDED = [
+	[/tiebreaker/i, 1],
+	[/wild ?card/i, 2],
+	[/\b(?:[an]lds|division)\b/i, 3],
+	[/\b(?:[an]?lcs|championship|world series)\b/i, 4],
+];
+
+/** One line per playoff series in the season being played: who, and how it
+ *  stands. "NLDS vs Padres: won 3-1 · NLCS vs Dodgers: tied 0-0".
+ *
+ *  `games` is every postseason game, played or not, as `{ round, opponent,
+ *  result }` with `result` 'WIN'/'LOSS' once final and null before (a game in
+ *  progress is null too — the series is 0-0 until it ends). Scheduled games
+ *  are what make a series that has not started show at all.
+ *
+ *  A series is over when either side reaches the wins its round needs. A round
+ *  this table does not recognise is never called over: it reads "lead 3-1"
+ *  rather than guessing a length and declaring a winner.
+ */
+export function postseasonSeriesParts(games, { settled = false } = {}) {
+	const series = new Map();
+	for (const g of games) {
+		const key = `${g.round}|${g.opponent}`;
+		if (!series.has(key)) series.set(key, { round: g.round, opponent: g.opponent, w: 0, l: 0 });
+		const s = series.get(key);
+		if (g.result === 'WIN') s.w++;
+		else if (g.result === 'LOSS') s.l++;
+	}
+	return [...series.values()].map(({ round, opponent, w, l }) => {
+		const need = SERIES_WINS_NEEDED.find(([re]) => re.test(round))?.[1];
+		const state =
+			(need && w >= need) || (settled && w > l) ? 'won' :
+			(need && l >= need) || (settled && l > w) ? 'lost' :
+			w > l ? 'lead' : w < l ? 'trail' : 'tied';
+		return `${round} vs ${opponent}: <strong>${state} ${w}-${l}</strong>`;
+	});
 }
 
 /** The most recent `n` decided meetings with one franchise, oldest first.

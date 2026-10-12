@@ -1,4 +1,4 @@
-        import { parseGamesCsv, parseGameinfoCsv, parseCurrentNamesCsv, BREWERS_IDS, computeSeasonHistory, parseTeamstatsLineScores, seasonTally, onThisDayCandidates, otdInterest, otdPick, localDate as parseLocalDate, streakBannerHtml, recentFormParts, lastMeetings, hyphenRecord } from './records-core.js';
+        import { parseGamesCsv, parseGameinfoCsv, parseCurrentNamesCsv, BREWERS_IDS, computeSeasonHistory, parseTeamstatsLineScores, seasonTally, onThisDayCandidates, otdInterest, otdPick, localDate as parseLocalDate, streakBannerHtml, recentFormParts, postseasonSeriesParts, ROUND_LABEL, lastMeetings, hyphenRecord } from './records-core.js';
         import { computeHeadToHead } from './h2h-core.js';
         import { buildChartSvg } from './history-chart.js';
         import { liveSituation, isBetweenInnings, situationHtml } from './situation-core.js';
@@ -451,7 +451,15 @@ processCsvSeasonData(season) {
         		// renders. Both halves used to be here.
  const { wins, losses, ties, postseason, championshipName, undefeated } = seasonTally(games);
 
- this.displayResult(undefeated, wins, losses, ties, true, championshipName, postseason, null);
+ // A past season's series are all over, so `settled`: the 1982 ALCS was best
+ // of five and 3-2 is a win, not a lead.
+ const postSeries = postseasonSeriesParts(games
+   .filter(g => g.regular_season !== '1')
+   .sort((a, b) => (a.date < b.date ? -1 : 1))
+   .map(g => ({ round: ROUND_LABEL[g.gametype] || 'Playoffs', opponent: g.Opponent, result: g.result || null })),
+   { settled: true });
+
+ this.displayResult(undefeated, wins, losses, ties, true, championshipName, postseason, null, null, null, postSeries);
  this.displayCsvSchedule(games, season);
  this.scrollToGameAnchor();
  this.showLastUpdated();
@@ -773,6 +781,22 @@ createCsvGameItem(g, showH2h = false) {
         		});
         		const worldSeriesName = wsWins > wsLosses ? wsName : null;
 
+        		// Every postseason game, played or not: a series that has not
+        		// started still has to show, as 0-0. ESPN names the round in the
+        		// game's note ("NLCS - Game 5 If Necessary").
+        		const postSeries = postseasonSeriesParts(events
+        			.filter(event => event._seasonType === 'post')
+        			.sort((a, b) => new Date(a.date) - new Date(b.date))
+        			.map(event => {
+        				const comp = event.competitions?.[0];
+        				const round = (comp?.notes?.[0]?.headline || 'Postseason').split(' - ')[0].trim();
+        				const opp = comp?.competitors?.find(c => c.team?.abbreviation !== 'MIL')?.team;
+        				const final = comp?.status?.type?.name === 'STATUS_FINAL';
+        				const mil = comp?.competitors?.find(c => c.team?.abbreviation === 'MIL');
+        				const result = !final ? null : mil?.winner ? 'WIN' : 'LOSS';
+        				return { round, opponent: opp?.shortDisplayName || opp?.displayName || 'TBD', result };
+        			}));
+
         		const isUndefeated = losses === 0 && wins > 0;
 
         		// Determine TV status for today's game (current season only)
@@ -793,7 +817,7 @@ createCsvGameItem(g, showH2h = false) {
         			tvStatus = this.getTvStatus(tvGame);
         		}
 
-        		this.displayResult(isUndefeated, wins, losses, ties, isPastSeason, worldSeriesName, postRecord, preRecord, tvStatus, tvGame);
+        		this.displayResult(isUndefeated, wins, losses, ties, isPastSeason, worldSeriesName, postRecord, preRecord, tvStatus, tvGame, postSeries);
         		this.displaySchedule(events, isPastSeason);
         		this.showLastUpdated();
         		this.setDataCredit(false);
@@ -903,7 +927,7 @@ createCsvGameItem(g, showH2h = false) {
         		return `<div class="emoji-row">${spans}</div>`;
         	}
 
-        	displayResult(isUndefeated, wins, losses, ties, isPastSeason = false, worldSeriesName = null, postRecord = null, preRecord = null, tvStatus = null, tvGame = null) {
+        	displayResult(isUndefeated, wins, losses, ties, isPastSeason = false, worldSeriesName = null, postRecord = null, preRecord = null, tvStatus = null, tvGame = null, postSeries = []) {
         		const answerEl = document.getElementById('answer');
         		const recordEl = document.getElementById('record');
 
@@ -987,6 +1011,7 @@ createCsvGameItem(g, showH2h = false) {
                html += regularText;
              }
              if (postText) html += `<br><span class="playoff-record">${postText}</span>`;
+             if (postSeries.length) html += `<div class="playoff-series">${postSeries.map(p => `<span>${p}</span>`).join(' &middot; ')}</div>`;
              recordEl.innerHTML = html;
              if (!isPastSeason) {
                const link = recordEl.querySelector('.record-standings-link');
