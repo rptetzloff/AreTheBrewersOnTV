@@ -6,7 +6,7 @@
 //   race       — the last stretch of the regular season: magic numbers.
 //   postseason — once a playoff game is on the schedule: the series.
 
-import { postseasonSeries, seriesLine, esc } from './records-core.js';
+import { postseasonSeries, seriesText, esc } from './records-core.js';
 import { SITE } from './site.js';
 
 const TEAM = 'MIL';
@@ -137,7 +137,7 @@ export function currentPostseasonStatus(games) {
 	const series = postseasonSeries(games);
 	if (!series.length) return null;
 	const cur = series[series.length - 1];
-	return { code: cur.code, text: seriesLine(cur).replace(/<[^>]+>/g, '') };
+	return { code: cur.code, text: seriesText(cur) };
 }
 
 // ---------------------------------------------------------------------- race

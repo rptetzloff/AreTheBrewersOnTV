@@ -1012,7 +1012,12 @@ export function postseasonSeries(games, { settled = false } = {}) {
 }
 
 /** One line per series: "NLDS vs Padres: won 3-1 · NLCS vs Dodgers: tied 0-0". */
-export const seriesLine = (s) => `${s.round} vs ${s.opponent}: <strong>${s.state} ${s.w}-${s.l}</strong>`;
+export const seriesLine = (s) => `${esc(s.round)} vs ${esc(s.opponent)}: <strong>${s.state} ${s.w}-${s.l}</strong>`;
+
+/** The same, as plain text, for places that set text rather than HTML. Built
+ *  directly, not by stripping tags off seriesLine: CodeQL flagged that, since a
+ *  regex strip is not a sanitizer. */
+export const seriesText = (s) => `${s.round} vs ${s.opponent}: ${s.state} ${s.w}-${s.l}`;
 
 export const postseasonSeriesParts = (games, opts) => postseasonSeries(games, opts).map(seriesLine);
 
