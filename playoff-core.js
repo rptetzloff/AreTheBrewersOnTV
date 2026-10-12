@@ -1,0 +1,223 @@
+// The playoff race and the postseason, for the season being played. Pure
+// functions — no fetch/DOM — over ESPN's payloads, so both can be tested in
+// October and in June alike.
+//
+// Two modes, one panel:
+//   race       — the last stretch of the regular season: magic numbers.
+//   postseason — once a playoff game is on the schedule: the series.
+
+import { postseasonSeries, seriesLine, esc } from './records-core.js';
+
+const TEAM = 'MIL';
+
+// ---------------------------------------------------------------- postseason
+
+/** ESPN schedule events (seasontype=3) as the games postseasonSeries reads,
+ *  in date order. The extra fields are what the panel needs for the next
+ *  game: its number in the series, whether it is "If Necessary", when, where
+ *  to watch, and the live status line. */
+export function espnPostseasonGames(events, team = TEAM) {
+	return [...(events || [])]
+		.sort((a, b) => new Date(a.date) - new Date(b.date))
+		.map((event) => {
+			const comp = event.competitions?.[0];
+			const note = comp?.notes?.[0]?.headline || 'Postseason';
+			const [round, rest = ''] = note.split(' - ');
+			const us = comp?.competitors?.find((c) => c.team?.abbreviation === team);
+			const them = comp?.competitors?.find((c) => c.team?.abbreviation !== team)?.team;
+			const status = comp?.status?.type || {};
+			const final = status.name === 'STATUS_FINAL';
+			return {
+				round: round.trim(),
+				opponent: them?.shortDisplayName || them?.displayName || 'TBD',
+				opponentAbbr: them?.abbreviation || '',
+				result: !final ? null : us?.winner ? 'WIN' : 'LOSS',
+				game: (rest.match(/Game \d+/i) || [''])[0],
+				ifNecessary: /if necessary/i.test(rest),
+				date: new Date(event.date),
+				state: status.state || 'pre',
+				detail: status.detail || status.shortDetail || '',
+				// The schedule lists radio too; the scoreboard's shape has `names`.
+				networks: [...new Set((comp?.broadcasts || [])
+					.filter((b) => (b.type?.shortName ?? 'TV') === 'TV')
+					.flatMap((b) => b.names || (b.media?.shortName ? [b.media.shortName] : [])))],
+			};
+		});
+}
+
+// What winning each round earns.
+const NEXT = { T: 'the postseason', F: 'the Division Series', D: 'the LCS', L: 'the World Series', W: 'a World Series title' };
+const leagueOf = (round) => (/^\s*A/i.test(round) ? 'AL' : /^\s*N/i.test(round) ? 'NL' : '');
+const prize = (s) => {
+	const lg = leagueOf(s.round);
+	if (s.code === 'F' && lg) return `the ${lg}DS`;
+	if (s.code === 'D' && lg) return `the ${lg}CS`;
+	return NEXT[s.code] || 'the next round';
+};
+
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+/** The countdown under the scoreboard: how far from the next round, or how it
+ *  ended. */
+export function seriesCountdown(s) {
+	if (s.state === 'won') return s.code === 'W' ? 'World Series champions!' : `Won the ${s.round} — on to ${prize(s)}`;
+	if (s.state === 'lost') return `Season over — lost the ${s.round} to the ${s.opponent}, ${s.w}-${s.l}`;
+	if (!s.need) return null;
+	const left = s.need - s.w;
+	return `${plural(left, 'win')} from ${prize(s)}`;
+}
+
+/** The next game of a series still being played: the live one, else the
+ *  earliest not yet final. */
+export const nextSeriesGame = (s) =>
+	s.games.find((g) => g.state === 'in') || s.games.find((g) => g.result === null && g.state !== 'post') || null;
+
+const pips = (n, of, cls) =>
+	Array.from({ length: of }, (_, i) => `<span class="po-pip${i < n ? ` on ${cls}` : ''}"></span>`).join('');
+
+const whenText = (d, now) => {
+	const sameDay = d.toDateString() === now.toDateString();
+	const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+	if (sameDay) return `Today ${time}`;
+	return `${d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}, ${time}`;
+};
+
+/** The panel during the postseason. `games` from espnPostseasonGames.
+ *  Returns null when the Brewers have no postseason games this season. */
+export function postseasonPanelHtml(games, { now = new Date(), teamAbbr = TEAM } = {}) {
+	const series = postseasonSeries(games);
+	if (!series.length) return null;
+	const cur = series[series.length - 1];
+	const earlier = series.slice(0, -1);
+	const best = cur.need ? `Best of ${cur.need * 2 - 1}` : '';
+
+	let html = `<div class="po-head"><span class="po-round">${esc(cur.round)}</span> vs ${esc(cur.opponent)}${best ? ` <span class="po-best">${best}</span>` : ''}</div>`;
+	if (cur.need) {
+		html += `<div class="po-board" role="img" aria-label="${esc(`${teamAbbr} ${cur.w}, ${cur.games[0]?.opponentAbbr || cur.opponent} ${cur.l}, first to ${cur.need}`)}">` +
+			`<div class="po-row"><span class="po-team">${esc(teamAbbr)}</span>${pips(cur.w, cur.need, 'us')}<span class="po-wins">${cur.w}</span></div>` +
+			`<div class="po-row"><span class="po-team">${esc(cur.games[0]?.opponentAbbr || '')}</span>${pips(cur.l, cur.need, 'them')}<span class="po-wins">${cur.l}</span></div>` +
+			`</div>`;
+	}
+	const countdown = seriesCountdown(cur);
+	if (countdown) html += `<div class="po-countdown">${esc(countdown)}</div>`;
+
+	if (cur.state !== 'won' && cur.state !== 'lost') {
+		const next = nextSeriesGame(cur);
+		if (next) {
+			const label = [next.game, next.ifNecessary ? '(if necessary)' : ''].filter(Boolean).join(' ');
+			const when = next.state === 'in' ? `<span class="live-indicator-small"></span>Live · ${esc(next.detail)}` : esc(whenText(next.date, now));
+			const tv = next.networks.length ? ` · ${esc(next.networks.join(', '))}` : '';
+			html += `<div class="po-next">${label ? `${esc(label)} · ` : ''}${when}${tv}</div>`;
+		}
+	}
+	if (earlier.length) html += `<div class="po-path">${earlier.map(seriesLine).join(' &middot; ')}</div>`;
+	return html;
+}
+
+/** The current series as plain text for the history page, e.g. "NLCS vs
+ *  Dodgers: tied 0-0", and its round code for the chart marker. */
+export function currentPostseasonStatus(games) {
+	const series = postseasonSeries(games);
+	if (!series.length) return null;
+	const cur = series[series.length - 1];
+	return { code: cur.code, text: seriesLine(cur).replace(/<[^>]+>/g, '') };
+}
+
+// ---------------------------------------------------------------------- race
+
+/** ESPN's league standings payload (`standings?group=8` for the NL) as flat
+ *  rows: team, division, wins, losses, and ESPN's playoff seed. */
+export function standingsRows(data) {
+	const rows = [];
+	for (const div of data?.children || []) {
+		for (const e of div.standings?.entries || []) {
+			const stat = (name) => e.stats?.find((s) => s.name === name)?.value;
+			rows.push({
+				abbr: e.team?.abbreviation,
+				name: e.team?.shortDisplayName || e.team?.displayName,
+				division: div.name,
+				w: Number(stat('wins')) || 0,
+				l: Number(stat('losses')) || 0,
+				seed: Number(stat('playoffSeed')) || 99,
+			});
+		}
+	}
+	return rows;
+}
+
+/** Magic and elimination numbers for one team, from standings rows.
+ *
+ *  The standard formula: games in a season + 1, minus our wins, minus the
+ *  rival's losses. It is computed here rather than read from ESPN because
+ *  ESPN's own `magicNumberDivision` is only a magic number for a division
+ *  leader — for everyone else it is games back plus one — and its wild-card
+ *  figure is measured against a team its payload does not name.
+ *
+ *  Who is in a playoff position comes from ESPN's `playoffSeed` (1-6 in, 7+
+ *  out), because seeding needs tiebreakers this does not attempt. Against
+ *  the division, the rival that matters is the one with the fewest losses;
+ *  for a playoff spot it is the best team currently out. A number at or
+ *  below zero means clinched (magic) or eliminated (elimination).
+ */
+export function raceNumbers(rows, { team = TEAM, seasonGames = 162, spots = 6 } = {}) {
+	const us = rows.find((r) => r.abbr === team);
+	if (!us) return null;
+	const target = seasonGames + 1;
+	const divRivals = rows.filter((r) => r.division === us.division && r !== us);
+	const leader = [...rows.filter((r) => r.division === us.division)].sort((a, b) => a.seed - b.seed)[0];
+	const leadsDivision = leader === us;
+	const inPosition = us.seed <= spots;
+	const out = rows.filter((r) => r.seed > spots);
+	const lastIn = rows.filter((r) => r.seed <= spots && r !== us).sort((a, b) => b.seed - a.seed)[0];
+	const minL = (list) => Math.min(...list.map((r) => r.l));
+	return {
+		division: us.division,
+		seed: us.seed,
+		gamesLeft: seasonGames - us.w - us.l,
+		leadsDivision,
+		inPosition,
+		divisionMagic: leadsDivision && divRivals.length ? target - us.w - minL(divRivals) : null,
+		divisionElim: !leadsDivision ? target - leader.w - us.l : null,
+		divisionBehind: !leadsDivision ? ((leader.w - us.w) + (us.l - leader.l)) / 2 : null,
+		spotMagic: inPosition && out.length ? target - us.w - minL(out) : null,
+		spotElim: !inPosition && lastIn ? target - lastIn.w - us.l : null,
+		spotBehind: !inPosition && lastIn ? ((lastIn.w - us.w) + (us.l - lastIn.l)) / 2 : null,
+	};
+}
+
+// When the race panel appears: the last stretch of the regular season, and
+// only while there is something left to play for.
+export const RACE_WINDOW_GAMES = 30;
+
+const gb = (n) => (Number.isInteger(n) ? String(n) : `${Math.floor(n)}½`.replace(/^0½/, '½'));
+
+/** The panel during the race, or null outside the window or once there is
+ *  nothing left to chase. */
+export function racePanelHtml(n) {
+	if (!n || n.gamesLeft > RACE_WINDOW_GAMES || n.gamesLeft <= 0) return null;
+	const divName = n.division.replace('National League ', 'NL ').replace('American League ', 'AL ');
+	const lines = [];
+
+	if (n.leadsDivision) {
+		lines.push(n.divisionMagic <= 0
+			? `Clinched the ${esc(divName)}`
+			: `Magic number to win the ${esc(divName)}: <strong>${n.divisionMagic}</strong>`);
+	} else if (n.divisionElim > 0) {
+		lines.push(`${gb(n.divisionBehind)} back in the ${esc(divName)} · elimination number <strong>${n.divisionElim}</strong>`);
+	}
+
+	if (n.inPosition) {
+		lines.push(n.spotMagic <= 0
+			? 'Clinched a playoff spot'
+			: `Magic number for a playoff spot: <strong>${n.spotMagic}</strong>`);
+	} else if (n.spotElim > 0) {
+		lines.push(`${gb(n.spotBehind)} out of the last wild card · elimination number <strong>${n.spotElim}</strong>`);
+	}
+
+	// Eliminated from both: the race is over, and the panel goes.
+	if (!lines.length) return null;
+
+	const tail = [n.inPosition ? `Currently the #${n.seed} seed` : null, `${plural(n.gamesLeft, 'game')} left`].filter(Boolean).join(' · ');
+	return lines.map((l) => `<div class="po-line">${l}</div>`).join('') + `<div class="po-next">${tail}</div>`;
+}
+

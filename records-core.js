@@ -582,7 +582,14 @@ export function computeSeasonHistory(rows, { now = new Date(), playoffs = false 
 			pf += parseInt(g.scoreFor, 10) || 0;
 			pa += parseInt(g.scoreAgainst, 10) || 0;
 		}
-		const championship = wsWins > wsLosses;
+		// A title needs the Series to be over: four wins, or a season that has
+		// finished. "More wins than losses" alone crowned the 2026 team on the
+		// history page after the NLDS — its last playoff game was a win, which
+		// is what `champion` used to need — and credited Pat Murphy with a
+		// title on the managers page. It would have done the same after a 1-0
+		// lead in a World Series.
+		const settled = seasonSettled(yr, now);
+		const championship = wsWins >= 4 || (settled && wsWins > wsLosses);
 		const gamesPlayed = w + l + t;
 		return {
 			season: yr,
@@ -590,7 +597,7 @@ export function computeSeasonHistory(rows, { now = new Date(), playoffs = false 
 			record: rec(w, l, t),
 			winPct: gamesPlayed ? (w + t / 2) / gamesPlayed : 0,
 			pf, pa,
-			champion: championship || (lastPlayoff !== null && lastPlayoff.gametype !== 'W' && lastPlayoff['result'] === 'WIN'),
+			champion: championship || (settled && lastPlayoff !== null && lastPlayoff.gametype !== 'W' && lastPlayoff['result'] === 'WIN'),
 			championship,
 			postseason: deepestRound,
 			undefeated: regLosses === 0 && regWins > 0 && seasonSettled(yr, now),
@@ -940,43 +947,61 @@ export function recentFormParts(sorted, now = new Date()) {
 // the 1982 ALCS was best of five, and 3-2 in a round needing four reads
 // "lead 3-2". Past seasons pass `settled` for that reason — every series in
 // them is over, so the result is whoever won more.
-const SERIES_WINS_NEEDED = [
-	[/tiebreaker/i, 1],
-	[/wild ?card/i, 2],
-	[/\b(?:[an]lds|division)\b/i, 3],
-	[/\b(?:[an]?lcs|championship|world series)\b/i, 4],
+//
+// World Series is tested before "championship", which it would otherwise
+// match as an LCS.
+const ROUND_PATTERNS = [
+	[/tiebreaker/i, 'T'],
+	[/world series/i, 'W'],
+	[/wild ?card/i, 'F'],
+	[/\b(?:[an]lds|division)\b/i, 'D'],
+	[/\b(?:[an]?lcs|championship)\b/i, 'L'],
 ];
+const WINS_NEEDED = { T: 1, F: 2, D: 3, L: 4, W: 4 };
 
-/** One line per playoff series in the season being played: who, and how it
- *  stands. "NLDS vs Padres: won 3-1 · NLCS vs Dodgers: tied 0-0".
+/** The gametype code (T/F/D/L/W) for a round's name, or null. */
+export const roundCodeOf = (name) => ROUND_PATTERNS.find(([re]) => re.test(name || ''))?.[1] ?? null;
+
+/** Every playoff series in a season, in the order they were played, with how
+ *  each stands.
  *
  *  `games` is every postseason game, played or not, as `{ round, opponent,
  *  result }` with `result` 'WIN'/'LOSS' once final and null before (a game in
  *  progress is null too — the series is 0-0 until it ends). Scheduled games
- *  are what make a series that has not started show at all.
+ *  are what make a series that has not started show at all. Any other fields
+ *  ride along in `games`, so a caller can find the next game of a series.
  *
  *  A series is over when either side reaches the wins its round needs. A round
  *  this table does not recognise is never called over: it reads "lead 3-1"
  *  rather than guessing a length and declaring a winner.
  */
-export function postseasonSeriesParts(games, { settled = false } = {}) {
+export function postseasonSeries(games, { settled = false } = {}) {
 	const series = new Map();
 	for (const g of games) {
 		const key = `${g.round}|${g.opponent}`;
-		if (!series.has(key)) series.set(key, { round: g.round, opponent: g.opponent, w: 0, l: 0 });
+		if (!series.has(key)) {
+			const code = roundCodeOf(g.round);
+			series.set(key, { round: g.round, opponent: g.opponent, code, need: WINS_NEEDED[code] ?? null, w: 0, l: 0, games: [] });
+		}
 		const s = series.get(key);
+		s.games.push(g);
 		if (g.result === 'WIN') s.w++;
 		else if (g.result === 'LOSS') s.l++;
 	}
-	return [...series.values()].map(({ round, opponent, w, l }) => {
-		const need = SERIES_WINS_NEEDED.find(([re]) => re.test(round))?.[1];
+	return [...series.values()].map((s) => {
+		const { need, w, l } = s;
 		const state =
 			(need && w >= need) || (settled && w > l) ? 'won' :
 			(need && l >= need) || (settled && l > w) ? 'lost' :
 			w > l ? 'lead' : w < l ? 'trail' : 'tied';
-		return `${round} vs ${opponent}: <strong>${state} ${w}-${l}</strong>`;
+		return { ...s, state };
 	});
 }
+
+/** One line per series: "NLDS vs Padres: won 3-1 · NLCS vs Dodgers: tied 0-0". */
+export const seriesLine = (s) => `${s.round} vs ${s.opponent}: <strong>${s.state} ${s.w}-${s.l}</strong>`;
+
+export const postseasonSeriesParts = (games, opts) => postseasonSeries(games, opts).map(seriesLine);
 
 /** The most recent `n` decided meetings with one franchise, oldest first.
  *
