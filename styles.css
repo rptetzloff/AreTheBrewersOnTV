@@ -983,6 +983,58 @@ details:not([open]) > .collapsible-summary::before {
     font-weight: bold;
 }
 
+/* Live base-out state: diamond, out dots, count. Centred like every other line
+   of the card — flex does not inherit text-align, and left to itself it sat
+   flush left under a centred inning line. */
+.situation {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.6rem;
+    margin-top: 0.35rem;
+}
+
+.situation-bases {
+    width: 50px;
+    height: 35px;
+    flex: none;
+}
+
+.situation-bases .base {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.6);
+    stroke-width: 1.5;
+}
+
+.situation-bases .base.on {
+    fill: #FFC52F;
+    stroke: #FFC52F;
+}
+
+.situation-outs {
+    display: flex;
+    gap: 4px;
+}
+
+.out-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(255, 255, 255, 0.6);
+    box-sizing: border-box;
+}
+
+.out-dot.on {
+    background: #FFC52F;
+    border-color: #FFC52F;
+}
+
+.situation-count {
+    font-size: 0.8rem;
+    font-weight: bold;
+    font-variant-numeric: tabular-nums;
+}
+
 @media (max-width: 600px) {
     h1 {
         font-size: 2rem;

@@ -1,6 +1,7 @@
         import { parseGamesCsv, parseGameinfoCsv, parseCurrentNamesCsv, BREWERS_IDS, computeSeasonHistory, parseTeamstatsLineScores, seasonTally, onThisDayCandidates, otdInterest, otdPick, localDate as parseLocalDate, streakBannerHtml, recentFormParts, lastMeetings, hyphenRecord } from './records-core.js';
         import { computeHeadToHead } from './h2h-core.js';
         import { buildChartSvg } from './history-chart.js';
+        import { liveSituation, isBetweenInnings, situationHtml } from './situation-core.js';
         import { intentUrls, copyText, flashCopied, wireShareDropdown } from './share-core.js';
 
         function buildSeasonMap(games) {
@@ -638,6 +639,7 @@ createCsvGameItem(g, showH2h = false) {
 
         				if (currentGame.competitions?.[0]?.situation) {
         					const situation = currentGame.competitions[0].situation;
+        					liveGame.situation = liveSituation(situation);
         					liveGame.lastPlay = {
         						downDistanceText: situation.downDistanceText,
         						possession: situation.possession,
@@ -660,6 +662,8 @@ createCsvGameItem(g, showH2h = false) {
         						}
         					});
         				}
+
+        				liveGame.situation = liveSituation(boxscoreData.situation);
 
         				if (boxscoreData.drives?.current?.plays?.length > 0) {
         					const lastPlay = boxscoreData.drives.current.plays[boxscoreData.drives.current.plays.length - 1];
@@ -1212,6 +1216,10 @@ if (isLive || isInProgress) {
  statusDiv.className = 'game-status';
  statusDiv.textContent = status.type.detail || status.type.shortDetail || 'Live';
  gameDetails.appendChild(statusDiv);
+
+ if (event.situation && !isBetweenInnings(status.type.detail || status.type.shortDetail)) {
+    gameDetails.insertAdjacentHTML('beforeend', situationHtml(event.situation));
+ }
 
  if (event.lastPlay) {
     const lastPlayDiv = document.createElement('div');
