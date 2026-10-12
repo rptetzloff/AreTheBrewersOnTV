@@ -85,6 +85,31 @@ test('losing the World Series is an appearance, not a title', () => {
 	assert.equal(s.postseason, 'W')
 })
 
+// The season being played. These rows are 2026 as it stood on 11 October:
+// the NLDS won 3-1, so the last playoff game was a win.
+const DURING = new Date(2026, 9, 11)
+const nlds2026 = [
+	...season(2026, 'WW'),
+	...['WIN', 'WIN', 'LOSS', 'WIN'].map((result, i) =>
+		game({ date: `2026-10-0${4 + i}`, season: 2026, gametype: 'D', result })),
+]
+
+test('a season still being played is not a title because its last game was a win', () => {
+	const s = history(nlds2026, { now: DURING }).find((x) => x.season === 2026)
+	assert.equal(s.champion, false)
+	assert.equal(s.championship, false)
+	assert.equal(s.postseason, 'D')
+})
+
+test('a World Series lead is not a title; four wins is', () => {
+	const ws = (results) => [...nlds2026, ...results.map((result, i) =>
+		game({ date: `2026-10-2${i}`, season: 2026, gametype: 'W', result, championship: '2026' }))]
+	const at = (rows) => history(rows, { now: new Date(2026, 9, 28) }).find((x) => x.season === 2026)
+	assert.equal(at(ws(['WIN'])).championship, false)
+	assert.equal(at(ws(['WIN', 'WIN', 'LOSS'])).champion, false)
+	assert.equal(at(ws(['WIN', 'WIN', 'LOSS', 'WIN', 'WIN'])).championship, true)
+})
+
 test('winning an earlier round but losing the last one is not a title', () => {
 	const rows = [
 		...season(2018, 'WW'),

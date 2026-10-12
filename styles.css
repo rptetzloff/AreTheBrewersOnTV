@@ -109,17 +109,6 @@ h1 {
     opacity: 0.8;
 }
 
-.playoff-series {
-    font-size: 0.9rem;
-    opacity: 0.8;
-    margin-top: 0.2rem;
-}
-
-/* One series never splits across lines; the line breaks between series. */
-.playoff-series span {
-    white-space: nowrap;
-}
-
 .next-game {
     background: rgba(18, 40, 75, 0.8);
     padding: 1.5rem;
@@ -381,6 +370,134 @@ details:not([open]) > .collapsible-summary::before {
     color: #FFC52F;
     font-size: 1rem;
 }
+
+/* Playoff panel: the series scoreboard, or the race's magic numbers. Same
+   box as the streak banner so the three panels read as a set. */
+.playoff-panel {
+    background: rgba(255, 197, 47, 0.08);
+    border: 1px solid rgba(255, 197, 47, 0.3);
+    border-radius: 8px;
+    padding: 0.6rem 1rem;
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.85);
+    text-align: center;
+}
+
+.playoff-panel strong {
+    color: #FFC52F;
+}
+
+.po-head {
+    font-size: 1rem;
+    font-weight: bold;
+    color: #fff;
+}
+
+.po-round {
+    color: #FFC52F;
+}
+
+.po-best {
+    font-size: 0.75rem;
+    font-weight: normal;
+    opacity: 0.7;
+    margin-left: 0.3rem;
+}
+
+/* A grid, so the pips line up under a nickname of any length. */
+.po-board {
+    display: inline-grid;
+    grid-template-columns: auto auto auto;
+    align-items: center;
+    column-gap: 0.5rem;
+    row-gap: 0.3rem;
+    margin: 0.5rem 0 0.35rem;
+}
+
+.po-row {
+    display: contents;
+}
+
+.po-pips {
+    display: flex;
+    gap: 0.35rem;
+}
+
+.po-team {
+    text-align: right;
+    font-weight: bold;
+    font-size: 0.8rem;
+}
+
+.po-pip {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.45);
+    box-sizing: border-box;
+}
+
+.po-pip.on.us {
+    background: #FFC52F;
+    border-color: #FFC52F;
+}
+
+.po-pip.on.them {
+    background: rgba(255, 255, 255, 0.75);
+    border-color: rgba(255, 255, 255, 0.75);
+}
+
+.po-wins {
+    width: 1rem;
+    font-weight: bold;
+    font-variant-numeric: tabular-nums;
+}
+
+.po-countdown {
+    font-weight: bold;
+    color: #FFC52F;
+}
+
+.po-line + .po-line {
+    margin-top: 0.15rem;
+}
+
+.po-next {
+    margin-top: 0.3rem;
+    font-size: 0.8rem;
+    opacity: 0.85;
+}
+
+/* Earlier series: the same scoreboard, smaller, under a rule. */
+.po-earlier {
+    margin-top: 0.5rem;
+    padding-top: 0.45rem;
+    border-top: 1px solid rgba(255, 197, 47, 0.2);
+    font-size: 0.85rem;
+}
+
+.po-earlier .po-head {
+    font-size: 0.85rem;
+}
+
+.po-earlier .po-board {
+    margin: 0.3rem 0 0;
+}
+
+.po-earlier .po-pip {
+    width: 11px;
+    height: 11px;
+}
+
+.po-result {
+    margin-left: 0.3rem;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.po-result.po-won { color: #9BD7A3; }
+.po-result.po-lost { color: #f28b82; }
 
 .last-undefeated {
     margin-top: 1.25rem;
