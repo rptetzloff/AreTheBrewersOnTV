@@ -7,6 +7,7 @@
 //   postseason — once a playoff game is on the schedule: the series.
 
 import { postseasonSeries, seriesLine, esc } from './records-core.js';
+import { SITE } from './site.js';
 
 const TEAM = 'MIL';
 
@@ -31,6 +32,7 @@ export function espnPostseasonGames(events, team = TEAM) {
 				round: round.trim(),
 				opponent: them?.shortDisplayName || them?.displayName || 'TBD',
 				opponentAbbr: them?.abbreviation || '',
+				opponentNick: them?.shortDisplayName || them?.displayName || 'TBD',
 				result: !final ? null : us?.winner ? 'WIN' : 'LOSS',
 				game: (rest.match(/Game \d+/i) || [''])[0],
 				ifNecessary: /if necessary/i.test(rest),
@@ -82,22 +84,34 @@ const whenText = (d, now) => {
 	return `${d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}, ${time}`;
 };
 
-/** The panel during the postseason. `games` from espnPostseasonGames.
- *  Returns null when the Brewers have no postseason games this season. */
-export function postseasonPanelHtml(games, { now = new Date(), teamAbbr = TEAM } = {}) {
-	const series = postseasonSeries(games);
+const bestOf = (need) => (need === 1 ? 'One game' : need ? `Best of ${need * 2 - 1}` : '');
+
+/** One series as a scoreboard: a row of pips per team, filled to its wins,
+ *  as many as the wins the series needed. */
+function boardHtml(s, team) {
+	if (!s.need) return '';
+	const them = s.games[0]?.opponentNick || s.opponent;
+	return `<div class="po-board" role="img" aria-label="${esc(`${team} ${s.w}, ${them} ${s.l}, first to ${s.need}`)}">` +
+		`<div class="po-row"><span class="po-team">${esc(team)}</span><span class="po-pips">${pips(s.w, s.need, 'us')}</span><span class="po-wins">${s.w}</span></div>` +
+		`<div class="po-row"><span class="po-team">${esc(them)}</span><span class="po-pips">${pips(s.l, s.need, 'them')}</span><span class="po-wins">${s.l}</span></div>` +
+		`</div>`;
+}
+
+const headHtml = (s, extra = '') =>
+	`<div class="po-head"><span class="po-round">${esc(s.round)}</span> vs ${esc(s.opponent)}` +
+	`${bestOf(s.need) ? ` <span class="po-best">${bestOf(s.need)}</span>` : ''}${extra}</div>`;
+
+/** The postseason panel. `games` from espnPostseasonGames for the season
+ *  being played, or a past season's games with `settled`. The latest series
+ *  is on top with its countdown and next game; the ones before it follow,
+ *  each with its own scoreboard. Returns null with no postseason games. */
+export function postseasonPanelHtml(games, { now = new Date(), team = SITE.team, settled = false } = {}) {
+	const series = postseasonSeries(games, { settled });
 	if (!series.length) return null;
 	const cur = series[series.length - 1];
-	const earlier = series.slice(0, -1);
-	const best = cur.need ? `Best of ${cur.need * 2 - 1}` : '';
+	const earlier = series.slice(0, -1).reverse();
 
-	let html = `<div class="po-head"><span class="po-round">${esc(cur.round)}</span> vs ${esc(cur.opponent)}${best ? ` <span class="po-best">${best}</span>` : ''}</div>`;
-	if (cur.need) {
-		html += `<div class="po-board" role="img" aria-label="${esc(`${teamAbbr} ${cur.w}, ${cur.games[0]?.opponentAbbr || cur.opponent} ${cur.l}, first to ${cur.need}`)}">` +
-			`<div class="po-row"><span class="po-team">${esc(teamAbbr)}</span>${pips(cur.w, cur.need, 'us')}<span class="po-wins">${cur.w}</span></div>` +
-			`<div class="po-row"><span class="po-team">${esc(cur.games[0]?.opponentAbbr || '')}</span>${pips(cur.l, cur.need, 'them')}<span class="po-wins">${cur.l}</span></div>` +
-			`</div>`;
-	}
+	let html = headHtml(cur) + boardHtml(cur, team);
 	const countdown = seriesCountdown(cur);
 	if (countdown) html += `<div class="po-countdown">${esc(countdown)}</div>`;
 
@@ -106,11 +120,14 @@ export function postseasonPanelHtml(games, { now = new Date(), teamAbbr = TEAM }
 		if (next) {
 			const label = [next.game, next.ifNecessary ? '(if necessary)' : ''].filter(Boolean).join(' ');
 			const when = next.state === 'in' ? `<span class="live-indicator-small"></span>Live · ${esc(next.detail)}` : esc(whenText(next.date, now));
-			const tv = next.networks.length ? ` · ${esc(next.networks.join(', '))}` : '';
+			const tv = next.networks?.length ? ` · ${esc(next.networks.join(', '))}` : '';
 			html += `<div class="po-next">${label ? `${esc(label)} · ` : ''}${when}${tv}</div>`;
 		}
 	}
-	if (earlier.length) html += `<div class="po-path">${earlier.map(seriesLine).join(' &middot; ')}</div>`;
+
+	for (const s of earlier) {
+		html += `<div class="po-earlier">${headHtml(s, ` <span class="po-result po-${s.state}">${s.state} ${s.w}-${s.l}</span>`)}${boardHtml(s, team)}</div>`;
+	}
 	return html;
 }
 

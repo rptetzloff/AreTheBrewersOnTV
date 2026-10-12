@@ -75,7 +75,7 @@ export function parseCurrentNamesCsv(raw) {
 			const fran = franIdx >= 0 ? p[franIdx]?.trim() : '';
 			if (fran) {
 				if (fran !== id && !aliasNames[fran]) aliasNames[fran] = display;
-				const era = { start: toYyyymmdd(p[startIdx]?.trim()), end: toYyyymmdd(p[endIdx]?.trim()), display };
+				const era = { start: toYyyymmdd(p[startIdx]?.trim()), end: toYyyymmdd(p[endIdx]?.trim()), display, nick };
 				if (!franchiseEras[fran]) franchiseEras[fran] = [];
 				franchiseEras[fran].push(era);
 			}
@@ -95,11 +95,20 @@ export function parseCurrentNamesCsv(raw) {
 // Resolve the era-correct display name for a franchise at a given game date
 // (YYYYMMDD int). Returns null if no era matches.
 export function nameForFranchiseAt(eras, franchise, yyyymmdd) {
+	return eraAt(eras, franchise, yyyymmdd)?.display ?? null;
+}
+
+// The nickname alone ("Angels", "Red Sox"), for places with room for one word.
+export function nickForFranchiseAt(eras, franchise, yyyymmdd) {
+	return eraAt(eras, franchise, yyyymmdd)?.nick ?? null;
+}
+
+function eraAt(eras, franchise, yyyymmdd) {
 	const list = eras[franchise];
 	if (!list) return null;
 	for (let i = list.length - 1; i >= 0; i--) {
 		const e = list[i];
-		if (yyyymmdd >= e.start && (e.end === 0 || yyyymmdd <= e.end)) return e.display;
+		if (yyyymmdd >= e.start && (e.end === 0 || yyyymmdd <= e.end)) return e;
 	}
 	return null;
 }
@@ -347,6 +356,7 @@ export function parseGameinfoCsv(gamesRaw, namesRaw, teamstatsRaw = null) {
 				championship,
 				gametype: gt,
 				Opponent: opponentName,
+				OpponentNick: nickForFranchiseAt(franchiseEras, franchise, gameDateInt) || opponentName.split(' ').pop(),
 				franchise,
 				'result': result,
 				scoreFor: isNaN(brewersScore) ? '' : String(brewersScore),
@@ -989,12 +999,15 @@ export function postseasonSeries(games, { settled = false } = {}) {
 		else if (g.result === 'LOSS') s.l++;
 	}
 	return [...series.values()].map((s) => {
-		const { need, w, l } = s;
+		const { w, l } = s;
+		// A finished series was as long as its winner's wins: the 1982 ALCS
+		// went to three, not today's four.
+		const need = settled && w !== l ? Math.max(w, l) : s.need;
 		const state =
 			(need && w >= need) || (settled && w > l) ? 'won' :
 			(need && l >= need) || (settled && l > w) ? 'lost' :
 			w > l ? 'lead' : w < l ? 'trail' : 'tied';
-		return { ...s, state };
+		return { ...s, need, state };
 	});
 }
 

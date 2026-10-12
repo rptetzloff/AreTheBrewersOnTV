@@ -47,16 +47,37 @@ test('the night of NLCS Game 1: tied, four wins away, Game 1 live, the NLDS unde
 	assert.match(html, /NLCS<\/span> vs Dodgers <span class="po-best">Best of 7/)
 	assert.match(html, /4 wins from the World Series/)
 	assert.match(html, /Game 1 · <span class="live-indicator-small"><\/span>Live · Top 9th · Fox/)
-	assert.match(html, /NLDS vs Padres: <strong>won 3-1<\/strong>/)
-	assert.equal((html.match(/po-pip on/g) || []).length, 0)
+	const [current, nldsBoard] = html.split('<div class="po-earlier">')
+	assert.equal((current.match(/po-pip on/g) || []).length, 0)
+	// The NLDS underneath gets its own scoreboard: best of five, three
+	// bubbles a side, the Brewers' three filled and the Padres' one.
+	assert.match(nldsBoard, /NLDS<\/span> vs Padres <span class="po-best">Best of 5<\/span> <span class="po-result po-won">won 3-1/)
+	assert.equal((nldsBoard.match(/class="po-pip[ "]/g) || []).length, 6)
+	assert.equal((nldsBoard.match(/po-pip on us/g) || []).length, 3)
+	assert.equal((nldsBoard.match(/po-pip on them/g) || []).length, 1)
 })
 
 test('mid-series: pips fill, the countdown shrinks, the next game is the first unplayed one', () => {
-	const html = panel([...nlds, ...nlcs([true, false, true, true, false])])
+	const html = panel([...nlds, ...nlcs([true, false, true, true, false])]).split('<div class="po-earlier">')[0]
 	assert.equal((html.match(/po-pip on us/g) || []).length, 3)
 	assert.equal((html.match(/po-pip on them/g) || []).length, 2)
 	assert.match(html, /1 win from the World Series/)
 	assert.match(html, /Game 6 \(if necessary\)/)
+})
+
+test('a past season shows every series, each as long as it actually was', () => {
+	const g = (round, opponent, opponentNick, result) => ({ round, opponent, opponentNick, result })
+	const games = [
+		...['LOSS', 'LOSS', 'WIN', 'WIN', 'WIN'].map((r) => g('LCS', 'California Angels', 'Angels', r)),
+		...['WIN', 'LOSS', 'LOSS', 'WIN', 'WIN', 'LOSS', 'LOSS'].map((r) => g('World Series', 'St. Louis Cardinals', 'Cardinals', r)),
+	]
+	const html = postseasonPanelHtml(games, { settled: true })
+	const [ws, lcs] = html.split('<div class="po-earlier">')
+	assert.match(ws, /World Series<\/span> vs St. Louis Cardinals <span class="po-best">Best of 7/)
+	assert.match(ws, /Season over — lost the World Series to the St. Louis Cardinals, 3-4/)
+	assert.match(lcs, /LCS<\/span> vs California Angels <span class="po-best">Best of 5<\/span> <span class="po-result po-won">won 3-2/)
+	assert.match(lcs, /<span class="po-team">Angels<\/span>/)
+	assert.doesNotMatch(html, /po-next/)
 })
 
 test('a won series with the next not yet scheduled says where it leads', () => {
