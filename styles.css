@@ -382,6 +382,105 @@ details:not([open]) > .collapsible-summary::before {
     font-size: 1rem;
 }
 
+/* Playoff panel: the series scoreboard, or the race's magic numbers. Same
+   box as the streak banner so the three panels read as a set. */
+.playoff-panel {
+    background: rgba(255, 197, 47, 0.08);
+    border: 1px solid rgba(255, 197, 47, 0.3);
+    border-radius: 8px;
+    padding: 0.6rem 1rem;
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.85);
+    text-align: center;
+}
+
+.playoff-panel strong {
+    color: #FFC52F;
+}
+
+.po-head {
+    font-size: 1rem;
+    font-weight: bold;
+    color: #fff;
+}
+
+.po-round {
+    color: #FFC52F;
+}
+
+.po-best {
+    font-size: 0.75rem;
+    font-weight: normal;
+    opacity: 0.7;
+    margin-left: 0.3rem;
+}
+
+.po-board {
+    display: inline-grid;
+    gap: 0.3rem;
+    margin: 0.5rem 0 0.35rem;
+}
+
+.po-row {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.po-team {
+    width: 2.6rem;
+    text-align: right;
+    font-weight: bold;
+    font-size: 0.8rem;
+}
+
+.po-pip {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.45);
+    box-sizing: border-box;
+}
+
+.po-pip.on.us {
+    background: #FFC52F;
+    border-color: #FFC52F;
+}
+
+.po-pip.on.them {
+    background: rgba(255, 255, 255, 0.75);
+    border-color: rgba(255, 255, 255, 0.75);
+}
+
+.po-wins {
+    width: 1rem;
+    font-weight: bold;
+    font-variant-numeric: tabular-nums;
+}
+
+.po-countdown {
+    font-weight: bold;
+    color: #FFC52F;
+}
+
+.po-line + .po-line {
+    margin-top: 0.15rem;
+}
+
+.po-next {
+    margin-top: 0.3rem;
+    font-size: 0.8rem;
+    opacity: 0.85;
+}
+
+.po-path {
+    margin-top: 0.4rem;
+    padding-top: 0.35rem;
+    border-top: 1px solid rgba(255, 197, 47, 0.2);
+    font-size: 0.8rem;
+    opacity: 0.85;
+}
+
 .last-undefeated {
     margin-top: 1.25rem;
     font-size: 0.95rem;

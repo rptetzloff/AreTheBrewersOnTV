@@ -9,6 +9,7 @@ import { buildChartSvg, METRICS, POSTSEASON, postseasonTier } from './history-ch
 import { shareButtonsHtml, labeledShareButtonsHtml, wireShareRow, wireShareDropdown } from './share-core.js';
 import { sortableHeadHtml, sortRows, wireSortable } from './sortable.js';
 import { SITE } from './site.js';
+import { espnPostseasonGames, currentPostseasonStatus } from './playoff-core.js';
 
 const chartEl = document.getElementById('history-chart');
 const tooltip = document.getElementById('history-tooltip');
@@ -21,7 +22,8 @@ function seasonLabel(s) {
 	if (s.championship) notes.push(`${SITE.championship} champions`);
 	else if (s.champion) notes.push('MLB champions');
 	const tier = postseasonTier(s);
-	if (tier && tier !== 'wsWin') notes.push(POSTSEASON[tier].label);
+	if (s.status) notes.push(s.status);
+	else if (tier && tier !== 'wsWin') notes.push(POSTSEASON[tier].label);
 	return `${s.season} · ${s.record} · RS ${s.pf} · RA ${s.pa}${notes.length ? ` · ${notes.join(', ')}` : ''}`;
 }
 
@@ -98,6 +100,7 @@ let tableSort = { key: 'season', dir: -1 }; // most recent first by default
 let tableHistory = [];
 
 function finishLabel(s) {
+	if (s.status) return s.status;
 	const tier = postseasonTier(s);
 	if (!tier) return s.undefeated ? 'Undefeated' : '—';
 	return POSTSEASON[tier].label;
@@ -137,9 +140,33 @@ function renderHistoryTable() {
 	});
 }
 
+// The season being played has no finish yet, and the CSV only knows games
+// that are final — so after the NLDS it knew the Division Series and nothing
+// about the NLCS on the schedule. ESPN's postseason schedule does: the
+// current series becomes the season's status, and its round the chart marker.
+// Only until the season is over (December, as seasonSettled has it); after
+// that the games say how it ended.
+async function markCurrentPostseason(histories, postRes) {
+	try {
+		if (!postRes?.ok) return;
+		const data = await postRes.json();
+		const year = data.requestedSeason?.year || data.season?.year;
+		const now = new Date();
+		if (!year || now.getFullYear() !== year || now.getMonth() >= 11) return;
+		const status = currentPostseasonStatus(espnPostseasonGames(data.events));
+		if (!status) return;
+		for (const h of Object.values(histories)) {
+			const s = h.find((x) => x.season === year);
+			if (s) Object.assign(s, { postseason: status.code, status: status.text });
+		}
+	} catch {
+		// No status is the old behaviour; the page still renders.
+	}
+}
+
 async function init() {
 	try {
-		const [gamesRes, namesRes, teamstatsRes, biofileRes, managersRes, parksRes, curGamesRes, curTsRes] = await Promise.all([
+		const [gamesRes, namesRes, teamstatsRes, biofileRes, managersRes, parksRes, curGamesRes, curTsRes, postRes] = await Promise.all([
 			fetch('/data/gameinfo.csv'),
 			fetch('/data/CurrentNames.csv'),
 			fetch('/data/teamstats.csv'),
@@ -148,6 +175,7 @@ async function init() {
 			fetch('/data/ballparks.csv'),
 			fetch('/api/current/gameinfo.csv').catch(() => null),
 			fetch('/api/current/teamstats.csv').catch(() => null),
+			fetch('/api/espn/apis/site/v2/sports/baseball/mlb/teams/mil/schedule?seasontype=3').catch(() => null),
 		]);
 		if (!gamesRes.ok || !namesRes.ok || !teamstatsRes.ok || !biofileRes.ok || !managersRes.ok || !parksRes.ok) throw new Error('CSV fetch failed');
 		// Current-season games synthesized from ESPN (empty once Retrosheet
@@ -163,6 +191,7 @@ async function init() {
 			regular: computeSeasonHistory(rows),
 			playoffs: computeSeasonHistory(rows, { playoffs: true }),
 		};
+		await markCurrentPostseason(histories, postRes);
 		const champions = histories.regular.filter((s) => s.champion).map((s) => s.season);
 		const officialTenures = parseManagersCsv(await managersRes.text());
 		const { coaches } = computeCoachesFromData(rows, gidToMgr, mgrNames, champions, officialTenures);

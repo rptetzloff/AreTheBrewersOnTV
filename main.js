@@ -2,6 +2,7 @@
         import { computeHeadToHead } from './h2h-core.js';
         import { buildChartSvg } from './history-chart.js';
         import { liveSituation, isBetweenInnings, situationHtml } from './situation-core.js';
+        import { espnPostseasonGames, postseasonPanelHtml, standingsRows, raceNumbers, racePanelHtml, RACE_WINDOW_GAMES } from './playoff-core.js';
         import { intentUrls, copyText, flashCopied, wireShareDropdown } from './share-core.js';
 
         function buildSeasonMap(games) {
@@ -123,7 +124,7 @@
 
         	async init() {
         		try {
-        			['streak-details', 'otd-details'].forEach(id => {
+        			['playoff-details', 'streak-details', 'otd-details'].forEach(id => {
         				const details = document.getElementById(id);
         				if (!details) return;
         				const stored = localStorage.getItem(`sectionOpen:${id}`);
@@ -460,6 +461,7 @@ processCsvSeasonData(season) {
    { settled: true });
 
  this.displayResult(undefeated, wins, losses, ties, true, championshipName, postseason, null, null, null, postSeries);
+ this.updatePlayoffPanel([], null);
  this.displayCsvSchedule(games, season);
  this.scrollToGameAnchor();
  this.showLastUpdated();
@@ -714,6 +716,7 @@ createCsvGameItem(g, showH2h = false) {
         		const isPastSeason = this.currentSeason && this.latestSeason && this.currentSeason < this.latestSeason;
         		if (!isPastSeason && this.isOffseason(events)) {
         			this.displayOffseasonMessage();
+        			this.updatePlayoffPanel([], null);
         			this.displaySchedule(events, true);
         			this.showLastUpdated();
         			this.updateLastUndefeated(0, 0);
@@ -761,9 +764,11 @@ createCsvGameItem(g, showH2h = false) {
         		const { w: wins, l: losses, t: ties } = countRecord(completedRegular);
         		const postRecord = countRecord(completedPost);
 
-        		// World Series champions only if the Brewers won the series,
-        		// not just a single WS game. Tally wins vs losses across all
-        		// WS competitions in the schedule.
+        		// World Series champions only once the Brewers have won the
+        		// series: four wins. This was "more wins than losses", which a
+        		// 1-0 lead satisfies, so Game 1 would have put CHAMPIONS on the
+        		// front page. The name is the note's round, not the whole note,
+        		// which reads "World Series - Game 4".
         		let wsWins = 0, wsLosses = 0, wsName = null;
         		completedPost.forEach(event => {
         			const notes = event.competitions?.[0]?.notes || [];
@@ -775,27 +780,17 @@ createCsvGameItem(g, showH2h = false) {
         				if (c.team.abbreviation === 'MIL') brewersScore = parseInt(c.score?.value) || 0;
         				else opponentScore = parseInt(c.score?.value) || 0;
         			});
-        			wsName = wsName || sbNote.headline;
+        			wsName = wsName || sbNote.headline.split(' - ')[0].trim();
         			if (brewersScore > opponentScore) wsWins++;
         			else if (brewersScore < opponentScore) wsLosses++;
         		});
-        		const worldSeriesName = wsWins > wsLosses ? wsName : null;
+        		const worldSeriesName = wsWins >= 4 ? wsName : null;
 
         		// Every postseason game, played or not: a series that has not
         		// started still has to show, as 0-0. ESPN names the round in the
         		// game's note ("NLCS - Game 5 If Necessary").
-        		const postSeries = postseasonSeriesParts(events
-        			.filter(event => event._seasonType === 'post')
-        			.sort((a, b) => new Date(a.date) - new Date(b.date))
-        			.map(event => {
-        				const comp = event.competitions?.[0];
-        				const round = (comp?.notes?.[0]?.headline || 'Postseason').split(' - ')[0].trim();
-        				const opp = comp?.competitors?.find(c => c.team?.abbreviation !== 'MIL')?.team;
-        				const final = comp?.status?.type?.name === 'STATUS_FINAL';
-        				const mil = comp?.competitors?.find(c => c.team?.abbreviation === 'MIL');
-        				const result = !final ? null : mil?.winner ? 'WIN' : 'LOSS';
-        				return { round, opponent: opp?.shortDisplayName || opp?.displayName || 'TBD', result };
-        			}));
+        		const postGames = espnPostseasonGames(events.filter(event => event._seasonType === 'post'));
+        		const postSeries = postseasonSeriesParts(postGames);
 
         		const isUndefeated = losses === 0 && wins > 0;
 
@@ -837,6 +832,7 @@ createCsvGameItem(g, showH2h = false) {
         			return { result, date: new Date(event.date) };
         		});
         		this.updateStreakBanner(espnCompletedGames, isPastSeason, tvGame);
+        		this.updatePlayoffPanel(isPastSeason ? [] : postGames, isPastSeason ? null : completedRegular.length);
         	}
 
         	updateScheduleTitle(year, seasonType) {
@@ -1595,6 +1591,33 @@ computeStreak(completedGames) {
  ? Math.floor((now - lastLoss.date) / (1000 * 60 * 60 * 24))
  : null;
  return { winStreak, lastLoss, daysSince };
+}
+
+// The playoff panel: the series once a postseason game is on the schedule,
+// otherwise the race for one over the last RACE_WINDOW_GAMES of the regular
+// season. `gamesPlayed` is null for anything but the season being played.
+// The standings are fetched only inside that window, so most of the year
+// this costs nothing.
+async updatePlayoffPanel(postGames, gamesPlayed) {
+  const details = document.getElementById('playoff-details');
+  const body = document.getElementById('playoff-panel');
+  const title = document.getElementById('playoff-summary');
+  if (!details || !body) return;
+  const show = (label, html) => {
+    if (!html) { details.hidden = true; return; }
+    title.textContent = label;
+    body.innerHTML = html;
+    details.hidden = false;
+  };
+
+  if (postGames.length) return show('Postseason', postseasonPanelHtml(postGames));
+  if (gamesPlayed == null || 162 - gamesPlayed > RACE_WINDOW_GAMES) return show(null, null);
+  try {
+    const nl = await fetch('/api/espn/apis/v2/sports/baseball/mlb/standings?group=8').then(r => r.json());
+    show('Playoff Race', racePanelHtml(raceNumbers(standingsRows(nl))));
+  } catch {
+    show(null, null);
+  }
 }
 
 updateStreakBanner(completedGames, isPastSeason, nextGame) {
