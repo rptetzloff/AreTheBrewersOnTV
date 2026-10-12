@@ -109,6 +109,17 @@ h1 {
     opacity: 0.8;
 }
 
+.playoff-series {
+    font-size: 0.9rem;
+    opacity: 0.8;
+    margin-top: 0.2rem;
+}
+
+/* One series never splits across lines; the line breaks between series. */
+.playoff-series span {
+    white-space: nowrap;
+}
+
 .next-game {
     background: rgba(18, 40, 75, 0.8);
     padding: 1.5rem;
