@@ -101,6 +101,15 @@ test('a wild card win leads to the league\'s division series', () => {
 	assert.equal(seriesCountdown(s[0]), 'Won the NL Wild Card Series — on to the NLDS')
 })
 
+test('names from ESPN are escaped in the panel and plain text in the status', () => {
+	const evil = '<img src=x onerror=alert(1)>'
+	const games = [{ round: 'NLCS', opponent: evil, opponentNick: evil, result: 'WIN' }]
+	const html = postseasonPanelHtml(games)
+	assert.doesNotMatch(html, /<img/)
+	assert.match(html, /&lt;img src=x onerror=alert\(1\)&gt;/)
+	assert.equal(currentPostseasonStatus(games).text, `NLCS vs ${evil}: lead 1-0`)
+})
+
 test('no postseason games means no panel and no history status', () => {
 	assert.equal(panel([]), null)
 	assert.equal(currentPostseasonStatus([]), null)

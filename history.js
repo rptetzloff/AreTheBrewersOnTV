@@ -3,7 +3,7 @@
 // (records-core.js). Multiple metrics can be plotted at once, playoffs can be
 // folded in, manager-era strips carry each manager's record, hover shows a
 // season's numbers, and clicking a season opens its page.
-import { parseGameinfoCsv, computeSeasonHistory, historyCopy, parseBallparksCsv, computeFranchiseMilestones } from './records-core.js';
+import { parseGameinfoCsv, computeSeasonHistory, historyCopy, parseBallparksCsv, computeFranchiseMilestones, esc } from './records-core.js';
 import { parseBiofile, parseTeamstatsMgr, parseManagersCsv, computeCoachesFromData } from './coaches-core.js';
 import { buildChartSvg, METRICS, POSTSEASON, postseasonTier } from './history-chart.js';
 import { shareButtonsHtml, labeledShareButtonsHtml, wireShareRow, wireShareDropdown } from './share-core.js';
@@ -123,7 +123,7 @@ function renderHistoryTable() {
 			<td class="h2h-num">${s.pf}</td>
 			<td class="h2h-num">${s.pa}</td>
 			<td class="h2h-num${s.diff > 0 ? ' pos' : s.diff < 0 ? ' neg' : ''}">${s.diff > 0 ? '+' : ''}${s.diff}</td>
-			<td>${glyph}${s.finish}</td>
+			<td>${glyph}${esc(s.finish)}</td>
 		</tr>`;
 	}).join('');
 	tableWrap.innerHTML = `<table class="h2h-table season-table sortable-table">
