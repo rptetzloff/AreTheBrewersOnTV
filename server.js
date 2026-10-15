@@ -12,7 +12,7 @@ import { renderPng, renderRecordsPng, renderH2hPng, renderHistoryPng, renderCoac
 import { indexLoadOutcome, isLfsPointer } from './lib/indices-health.js';
 import { originOf } from './lib/origin.js';
 import { getSeasonState, defaultSeason, allGames } from './lib/seasons.js';
-import { records, recordsMeta, isRecordSlug, historyMeta, liveSeasonHistory, liveRecordsVersion, registerBattingFeats, registerNoHitterPitchers, registerTriplePlayFielders } from './lib/records.js';
+import { records, recordsMeta, isRecordSlug, historyMeta, liveSeasonHistory, liveRecordsVersion, registerBattingFeats, registerPitcherEra, registerNoHitterPitchers, registerTriplePlayFielders } from './lib/records.js';
 import { coaches, coachesMeta } from './lib/coaches.js';
 import { h2h, h2hMeta, isOpponentSlug } from './lib/h2h.js';
 import { getCurrentSeasonCsvs } from './lib/espn-current.js';
@@ -381,6 +381,7 @@ function finishIndices(indices) {
     ...computeBattingFeats(indices.batting, indices.playerNames),
     ...computeFieldingFeats(indices.fielding, indices.playerNames),
   });
+  registerPitcherEra(indices.pitching, indices.playerNames);
   // Pitcher names for each no-hitter (one name = individual, more = combined).
   const nhPitchers = {};
   for (const nh of [...(records.noHitters || []), ...(records.perfectGames || [])]) {
@@ -690,6 +691,8 @@ const server = http.createServer(async (req, res) => {
         playerErrorGames: records.playerErrorGames || [],
         noHitterPitchers: records.noHitterPitchers || {},
         triplePlayFielders: records.triplePlayFielders || {},
+        bestPitcherEra: records.bestPitcherEra || [],
+        worstPitcherEra: records.worstPitcherEra || [],
       }));
     }
 

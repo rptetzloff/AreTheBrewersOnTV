@@ -636,7 +636,7 @@ export function computeTeamstatsRecords(rows, teamstatsRaw, { top = 5, now = new
 	const idx = (name) => headers.indexOf(name);
 	const gidI = idx('gid'), teamI = idx('team');
 	const hitI = idx('p_h'), ipoutsI = idx('p_ipouts'), wI = idx('p_w'), hbpI = idx('p_hbp'), bfpI = idx('p_bfp');
-	const tpI = idx('d_tp'), teamHrI = idx('b_hr'), teamErrI = idx('d_e');
+	const tpI = idx('d_tp'), teamHrI = idx('b_hr'), teamErrI = idx('d_e'), erI = idx('p_er');
 	const pitch = new Map();
 	for (const line of lines.slice(1)) {
 		const v = splitCsvLine(line);
@@ -653,6 +653,7 @@ export function computeTeamstatsRecords(rows, teamstatsRaw, { top = 5, now = new
 			tp: tpI >= 0 ? parseInt(v[tpI], 10) || 0 : 0,
 			teamHr: teamHrI >= 0 ? parseInt(v[teamHrI], 10) || 0 : 0,
 			teamErr: teamErrI >= 0 ? parseInt(v[teamErrI], 10) || 0 : 0,
+			er: erI >= 0 ? parseInt(v[erI], 10) || 0 : 0,
 		});
 	}
 
@@ -706,6 +707,29 @@ export function computeTeamstatsRecords(rows, teamstatsRaw, { top = 5, now = new
 	errGames.sort((a, b) => b.e - a.e || (a.date < b.date ? -1 : 1));
 	const errCutoff = errGames[top - 1]?.e ?? 0;
 	const mostTeamErrorGames = errGames.filter((g) => g.e >= errCutoff && g.e > 0);
+	// Team ERA by completed regular season: 27 x earned runs / outs recorded,
+	// summed over the season's games. Same completeness rule as Best Seasons;
+	// a season with no teamstats (the one being played) has no outs and drops.
+	const eraBySeason = new Map();
+	for (const g of games) {
+		if (g.regular_season !== '1') continue;
+		const p = pitch.get(g.gid);
+		if (!p) continue;
+		const yr = parseInt(g.season, 10);
+		const s = eraBySeason.get(yr) || { er: 0, ipouts: 0 };
+		s.er += p.er;
+		s.ipouts += p.ipouts;
+		eraBySeason.set(yr, s);
+	}
+	const teamEra = completed
+		.filter((s) => eraBySeason.get(s.season)?.ipouts > 0)
+		.map((s) => {
+			const { er, ipouts } = eraBySeason.get(s.season);
+			return { season: s.season, record: s.record, era: (27 * er) / ipouts, er, ip: inningsPitched(ipouts) };
+		});
+	const bestTeamEra = teamEra.slice().sort((a, b) => a.era - b.era || a.season - b.season).slice(0, top);
+	const worstTeamEra = teamEra.slice().sort((a, b) => b.era - a.era || a.season - b.season).slice(0, top);
+
 	// The seasons these box score records actually cover: the ones with
 	// teamstats. The season being played has game results but no box scores
 	// until Retrosheet publishes it, so its cards must not claim it.
@@ -717,7 +741,59 @@ export function computeTeamstatsRecords(rows, teamstatsRaw, { top = 5, now = new
 		if (yr > boxLast) boxLast = yr;
 	}
 	const boxSeasonRange = boxLast >= boxFirst ? { first: boxFirst, last: boxLast } : null;
-	return { bestSeasons, worstSeasons, noHitters, perfectGames, triplePlays, mostTeamHrGames, mostTeamErrorGames, boxSeasonRange };
+	return { bestSeasons, worstSeasons, bestTeamEra, worstTeamEra, noHitters, perfectGames, triplePlays, mostTeamHrGames, mostTeamErrorGames, boxSeasonRange };
+}
+
+/** Innings pitched as baseball writes it: 212 outs and a third is "212.1". */
+export const inningsPitched = (outs) => `${Math.floor(outs / 3)}.${outs % 3}`;
+
+/** ERA to two places, as it is printed everywhere. */
+export const formatEra = (era) => era.toFixed(2);
+
+/** Best and worst single-season ERAs by a Brewers pitcher.
+ *
+ *  `pitching` is the box score pitching index (gid -> one line per pitcher),
+ *  `rowByGid` the parsed game rows, used to keep regular-season games and
+ *  read the season. A pitcher qualifies with one inning per team game, MLB's
+ *  rule for the ERA title, so the list is starters and the occasional
+ *  workhorse reliever, not a September call-up with two clean innings.
+ *  A pitcher traded mid-season counts only his Brewers innings, and against
+ *  the Brewers' game count. */
+export function computePitcherEra(pitching, rowByGid, playerNames, { top = 5, teamIds = BREWERS_IDS } = {}) {
+	const teamGames = new Map();
+	for (const r of rowByGid.values()) {
+		if (r.regular_season !== '1' || !RESULTS.has(r.result)) continue;
+		const yr = parseInt(r.season, 10);
+		teamGames.set(yr, (teamGames.get(yr) || 0) + 1);
+	}
+	const seasons = new Map(); // "season|id" -> totals
+	for (const [gid, lines] of pitching) {
+		const g = rowByGid.get(gid);
+		if (!g || g.regular_season !== '1') continue;
+		const season = parseInt(g.season, 10);
+		for (const p of lines) {
+			if (!teamIds.has(p.team)) continue;
+			const key = `${season}|${p.id}`;
+			const s = seasons.get(key) || { season, playerId: p.id, er: 0, ipouts: 0, gs: 0, g: 0 };
+			s.er += p.er;
+			s.ipouts += p.ipouts;
+			s.g += 1;
+			if (p.gs) s.gs += 1;
+			seasons.set(key, s);
+		}
+	}
+	const qualified = [...seasons.values()]
+		.filter((s) => s.ipouts > 0 && s.ipouts >= 3 * (teamGames.get(s.season) || Infinity))
+		.map((s) => ({
+			...s,
+			player: playerNames.get(s.playerId) || s.playerId,
+			era: (27 * s.er) / s.ipouts,
+			ip: inningsPitched(s.ipouts),
+		}));
+	return {
+		bestPitcherEra: qualified.slice().sort((a, b) => a.era - b.era || b.ipouts - a.ipouts).slice(0, top),
+		worstPitcherEra: qualified.slice().sort((a, b) => b.era - a.era || b.ipouts - a.ipouts).slice(0, top),
+	};
 }
 
 /** The numbers a single season's page shows: the regular-season record, the
@@ -1179,6 +1255,28 @@ export function recordsCopy(slug, data, site = SITE) {
 				desc: `The worst ${site.fullName} season: ${s.record} in ${s.season}. ${site.copy.worstStartAside}`,
 			};
 		}
+		case 'best-team-era':
+		case 'worst-team-era': {
+			const best = slug === 'best-team-era';
+			const s = (best ? data.bestTeamEra : data.worstTeamEra)?.[0];
+			const which = best ? 'Best' : 'Worst';
+			if (!s) return { title: `${which} ${site.team} Team ERAs`, desc: `The ${which.toLowerCase()} single-season team ERAs in ${site.fullName} history.` };
+			return {
+				title: `${which} ${site.team} Team ERAs — ${formatEra(s.era)} in ${s.season}`,
+				desc: `The ${which.toLowerCase()} ${site.fullName} team ERA: ${formatEra(s.era)} in ${s.season}, a ${s.record} season. Completed regular seasons.`,
+			};
+		}
+		case 'best-pitcher-era':
+		case 'worst-pitcher-era': {
+			const best = slug === 'best-pitcher-era';
+			const s = (best ? data.bestPitcherEra : data.worstPitcherEra)?.[0];
+			const which = best ? 'Best' : 'Worst';
+			if (!s) return { title: `${which} ${site.team} Pitcher ERAs`, desc: `The ${which.toLowerCase()} single-season ERAs by a ${site.team} pitcher, qualified at one inning per team game.` };
+			return {
+				title: `${which} ${site.team} Pitcher ERAs — ${s.player}, ${formatEra(s.era)} in ${s.season}`,
+				desc: `The ${which.toLowerCase()} single-season ERA by a qualified ${site.team} pitcher: ${s.player}, ${formatEra(s.era)} over ${s.ip} innings in ${s.season}.`,
+			};
+		}
 		case 'no-hitters': {
 			const n = data.noHitters;
 			if (!n.length) return { title: `${site.team} No-Hitters`, desc: site.copy.noNoHitter };
@@ -1306,5 +1404,6 @@ export const RECORD_SLUGS = SITE.records;
 // Records drawn from box scores, which stop at the last season Retrosheet has
 // published; the rest come from game results and include the season being
 // played. The page and the share cards both read this to say so.
-export const BOX_SCORE_RECORDS = new Set(['no-hitters', 'perfect-games', 'triple-plays', 'most-hr-game',
+export const BOX_SCORE_RECORDS = new Set(['best-team-era', 'worst-team-era', 'best-pitcher-era', 'worst-pitcher-era',
+	'no-hitters', 'perfect-games', 'triple-plays', 'most-hr-game',
 	'team-error-game', 'player-hr-game', 'player-rbi-game', 'player-error-game', 'cycles']);

@@ -74,9 +74,11 @@ test('the declared streak rule matches what the code actually does', () => {
 		'site.js and computeSuperlatives disagree about season boundaries')
 })
 
-test('the manifest lists twenty records, including the baseball-only ones', () => {
-	assert.equal(SITE.records.length, 20)
-	for (const baseballOnly of ['no-hitters', 'perfect-games', 'cycles', 'triple-plays']) {
+test('the manifest lists twenty-four records, including the baseball-only ones', () => {
+	// Twenty until the four ERA records (team and pitcher, best and worst).
+	assert.equal(SITE.records.length, 24)
+	for (const baseballOnly of ['no-hitters', 'perfect-games', 'cycles', 'triple-plays',
+		'best-team-era', 'worst-team-era', 'best-pitcher-era', 'worst-pitcher-era']) {
 		assert.ok(SITE.records.includes(baseballOnly), `${baseballOnly} is missing`)
 	}
 	// Computed but never published: across 162 games the answer is always an
