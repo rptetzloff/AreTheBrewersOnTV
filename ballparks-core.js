@@ -20,7 +20,7 @@ import { SITE } from './site.js';
 export function parseGameDay(gameinfoCsv) {
 	const lines = gameinfoCsv.trim().split('\n');
 	const h = splitCsvLine(lines[0]);
-	const I = Object.fromEntries(['gid', 'site', 'attendance', 'timeofgame', 'temp', 'daynight', 'sky'].map((k) => [k, h.indexOf(k)]));
+	const I = Object.fromEntries(['gid', 'site', 'attendance', 'timeofgame', 'temp', 'daynight', 'sky', 'innings'].map((k) => [k, h.indexOf(k)]));
 	const num = (s) => { const n = parseInt(s, 10); return n > 0 ? n : null; };
 	const out = new Map();
 	for (const line of lines.slice(1)) {
@@ -37,6 +37,9 @@ export function parseGameDay(gameinfoCsv) {
 			// Miller Park/American Family Field. The temperature recorded for
 			// those is outdoors, not what anyone played in.
 			roofClosed: v[I.sky]?.trim() === 'dome',
+			// Scheduled innings, which the column holds from 2020: 7 for the
+			// 2020-21 doubleheader games, else 9. Empty before 2020, so 9.
+			scheduled: num(v[I.innings]) || 9,
 		});
 	}
 	return out;

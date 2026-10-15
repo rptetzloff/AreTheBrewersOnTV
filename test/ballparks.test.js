@@ -23,7 +23,7 @@ test('innings come from the line score, an unplayed bottom of the ninth included
 test('game-day columns: zero means not recorded, and a closed roof is marked', () => {
 	const csv = 'gid,site,attendance,timeofgame,temp,daynight,sky\nA,MIL06,40000,181,0,night,dome\nB,MIL05,,0,55,day,sunny'
 	const d = parseGameDay(csv)
-	assert.deepEqual(d.get('A'), { site: 'MIL06', attendance: 40000, minutes: 181, temp: null, daynight: 'night', roofClosed: true })
+	assert.deepEqual(d.get('A'), { site: 'MIL06', attendance: 40000, minutes: 181, temp: null, daynight: 'night', roofClosed: true, scheduled: 9 })
 	assert.equal(d.get('B').attendance, null)
 	assert.equal(d.get('B').minutes, null)
 	assert.equal(d.get('B').temp, 55)
