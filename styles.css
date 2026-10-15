@@ -799,6 +799,39 @@ details:not([open]) > .collapsible-summary::before {
     gap: 0.5rem;
 }
 
+/* Calendar subscription row under the provider: label, three links, and a
+   one-line note that wraps under them on a phone. */
+.schedule-calendar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.4rem 0.6rem;
+    padding: 0.45rem 0.7rem;
+}
+
+.schedule-calendar-link {
+    background: none;
+    border: 1px solid rgba(255, 197, 47, 0.45);
+    border-radius: 999px;
+    color: #FFC52F;
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 0.2rem 0.65rem;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.schedule-calendar-link:hover {
+    background: rgba(255, 197, 47, 0.12);
+}
+
+.schedule-calendar-note {
+    flex-basis: 100%;
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.6);
+}
+
 .schedule-provider-display {
     display: flex;
     align-items: center;
