@@ -18,6 +18,9 @@ const TABS = {
 	fielding: { sort: { key: 'g', dir: -1 }, columns: [PLAYER_COLUMN, ...FIELDING_COLUMNS] },
 	// The Fielding tab's other view: one line per player across positions.
 	fieldingTotals: { sort: { key: 'g', dir: -1 }, columns: [PLAYER_COLUMN, ...FIELDING_TOTAL_COLUMNS] },
+	// The team's record split by where, when, how close and the opposing
+	// starter's hand: grouped rows in a fixed order, not a sortable table.
+	team: { splits: true },
 };
 
 const pathSeason = () => {
@@ -32,16 +35,49 @@ const hashTab = () => {
 let data = null;
 let tab = hashTab();
 
+// "95–67", a tie added only when there was one; a winning percentage as a
+// box score writes it; a run differential with its sign.
+const winLoss = (s) => (s.t ? `${s.w}–${s.l}–${s.t}` : `${s.w}–${s.l}`);
+const winPct = (s) => ((s.w + s.t / 2) / s.g).toFixed(3).replace(/^0/, '');
+const diff = (n) => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '0');
+
+function splitsHtml(splits) {
+	let group = null;
+	const body = splits.map((s) => {
+		// Each group gets a heading row; Overall is its own heading.
+		const head = s.group !== group && s.group !== 'Overall'
+			? `<tr class="splits-group"><th colspan="7" scope="colgroup">${esc(s.group)}</th></tr>` : '';
+		group = s.group;
+		const num = (v) => `<td class="h2h-num">${v}</td>`;
+		return `${head}<tr${s.group === 'Overall' ? ' class="splits-overall"' : ''}>
+			<td>${esc(s.label)}</td>
+			${num(s.g)}${num(winLoss(s))}${num(winPct(s))}${num(s.rs)}${num(s.ra)}${num(diff(s.rs - s.ra))}
+		</tr>`;
+	}).join('');
+	return `<table class="h2h-table stats-table splits-table"><thead><tr>
+		<th scope="col">Split</th><th scope="col" class="h2h-num" title="Games">G</th><th scope="col" class="h2h-num">W–L</th>
+		<th scope="col" class="h2h-num" title="Winning percentage">Pct</th><th scope="col" class="h2h-num" title="Runs scored">RS</th>
+		<th scope="col" class="h2h-num" title="Runs allowed">RA</th><th scope="col" class="h2h-num" title="Run differential">Diff</th>
+	</tr></thead><tbody>${body}</tbody></table>`;
+}
+
 function renderTable() {
 	const spec = TABS[tab];
-	const rows = sortRows(data[tab], spec.columns, spec.sort);
-	const head = sortableHeadHtml(spec.columns, spec.sort);
-	const body = rows.map((r) => `<tr>${spec.columns.map((c) => cellHtml(c, r)).join('')}</tr>`).join('');
-	wrap.innerHTML = rows.length
-		? `<table class="h2h-table stats-table sortable-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`
-		: '<p class="record-empty">Nothing recorded.</p>';
-	const table = wrap.querySelector('table');
-	if (table) wireSortable(table, spec.columns, spec.sort, renderTable);
+	document.querySelector('#stats-legend .history-legend-item').textContent = spec.splits
+		? 'Regular season, including tiebreaker games · extra innings are games past their scheduled length (seven for the 2020–21 doubleheaders) · opposing starter by throwing hand'
+		: 'Regular season, including tiebreaker games, which MLB counts as regular season · click a column to sort';
+	if (spec.splits) {
+		wrap.innerHTML = data.splits?.length ? splitsHtml(data.splits) : '<p class="record-empty">Nothing recorded.</p>';
+	} else {
+		const rows = sortRows(data[tab], spec.columns, spec.sort);
+		const head = sortableHeadHtml(spec.columns, spec.sort);
+		const body = rows.map((r) => `<tr>${spec.columns.map((c) => cellHtml(c, r)).join('')}</tr>`).join('');
+		wrap.innerHTML = rows.length
+			? `<table class="h2h-table stats-table sortable-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`
+			: '<p class="record-empty">Nothing recorded.</p>';
+		const table = wrap.querySelector('table');
+		if (table) wireSortable(table, spec.columns, spec.sort, renderTable);
+	}
 	const fielding = tab.startsWith('fielding');
 	markTabs('#season-view', fielding ? 'fielding' : tab);
 	const toggle = document.getElementById('fielding-view');
