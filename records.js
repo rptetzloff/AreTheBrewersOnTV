@@ -1,6 +1,6 @@
 // Records & Superlatives page: computes superlatives from the games CSV
 // (records-core.js, shared with the server) and renders one shareable card each.
-import { parseGameinfoCsv, computeSuperlatives, computeTeamstatsRecords, recordsCopy, formatDate, RECORD_SLUGS, BOX_SCORE_RECORDS, esc } from './records-core.js';
+import { parseGameinfoCsv, computeSuperlatives, computeTeamstatsRecords, recordsCopy, formatDate, formatEra, RECORD_SLUGS, BOX_SCORE_RECORDS, esc } from './records-core.js';
 import { shareButtonsHtml, labeledShareButtonsHtml, wireShareRow, wireShareDropdown } from './share-core.js';
 
 const yearLink = (yr) => `<a href="/${yr}">${yr}</a>`;
@@ -29,6 +29,16 @@ const noHitterEntry = (g) => {
 	};
 };
 
+const teamEraEntry = (s) => ({
+	main: formatEra(s.era),
+	subHtml: yearLink(s.season),
+	detail: `${s.record} · ${s.ip} innings`,
+});
+const pitcherEraEntry = (s) => ({
+	main: formatEra(s.era),
+	sub: s.player,
+	detailHtml: `${yearLink(s.season)} · ${esc(s.ip)} innings · ${s.gs} starts`,
+});
 const seasonEntry = (s) => ({
 	main: s.record,
 	subHtml: yearLink(s.season),
@@ -57,6 +67,28 @@ const CARDS = [
 		slug: 'worst-seasons', icon: 'mdi-emoticon-sad-outline', title: 'Worst Seasons',
 		note: 'Lowest winning percentage among completed regular seasons',
 		entries: (d) => d.worstSeasons.map(seasonEntry),
+	},
+	{
+		slug: 'best-team-era', icon: 'mdi-shield-check-outline', title: 'Best Team ERA',
+		note: 'Lowest team ERA among completed regular seasons',
+		entries: (d) => (d.bestTeamEra || []).map(teamEraEntry),
+	},
+	{
+		slug: 'worst-team-era', icon: 'mdi-fire-alert', title: 'Worst Team ERA',
+		note: 'Highest team ERA among completed regular seasons',
+		entries: (d) => (d.worstTeamEra || []).map(teamEraEntry),
+	},
+	{
+		slug: 'best-pitcher-era', icon: 'mdi-account-check-outline', title: 'Best Pitcher ERA',
+		note: 'Lowest single-season ERA by a Brewers pitcher, one inning per team game to qualify',
+		entries: (d) => (d.bestPitcherEra || []).map(pitcherEraEntry),
+		empty: 'Pitching data is still loading.',
+	},
+	{
+		slug: 'worst-pitcher-era', icon: 'mdi-account-alert-outline', title: 'Worst Pitcher ERA',
+		note: 'Highest single-season ERA by a Brewers pitcher, one inning per team game to qualify',
+		entries: (d) => (d.worstPitcherEra || []).map(pitcherEraEntry),
+		empty: 'Pitching data is still loading.',
 	},
 	{
 		slug: 'best-starts', icon: 'mdi-rocket-launch-outline', title: 'Best Season Starts',
@@ -282,6 +314,8 @@ async function init() {
 			cycles: featsJson?.cycles || [], playerHrGames: featsJson?.playerHrGames || [],
 			playerRbiGames: featsJson?.playerRbiGames || [],
 			playerErrorGames: featsJson?.playerErrorGames || [],
+			bestPitcherEra: featsJson?.bestPitcherEra || [],
+			worstPitcherEra: featsJson?.worstPitcherEra || [],
 		};
 		// Fielders credited on each triple play.
 		const tpFielders = featsJson?.triplePlayFielders || {};
