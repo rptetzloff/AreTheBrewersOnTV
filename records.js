@@ -1,11 +1,16 @@
 // Records & Superlatives page: computes superlatives from the games CSV
 // (records-core.js, shared with the server) and renders one shareable card each.
-import { parseGameinfoCsv, computeSuperlatives, computeTeamstatsRecords, recordsCopy, formatDate, RECORD_SLUGS, esc } from './records-core.js';
+import { parseGameinfoCsv, computeSuperlatives, computeTeamstatsRecords, recordsCopy, formatDate, RECORD_SLUGS, BOX_SCORE_RECORDS, esc } from './records-core.js';
 import { shareButtonsHtml, labeledShareButtonsHtml, wireShareRow, wireShareDropdown } from './share-core.js';
 
 const yearLink = (yr) => `<a href="/${yr}">${yr}</a>`;
-// Game links go straight to the box score page.
-const gameLink = (season, gid, label) => `<a href="/game/${esc(gid)}">${label}</a>`;
+// Game links go straight to the box score page — for the seasons Retrosheet
+// covers. The season being played has no box scores here yet, and its links
+// opened "Could not load this box score", so they go to that season's page,
+// which has the schedule and every score. Set in init().
+let boxScoresThrough = Infinity;
+const gameLink = (season, gid, label) =>
+	`<a href="${season > boxScoresThrough ? `/${esc(season)}` : `/game/${esc(gid)}`}">${label}</a>`;
 const gameFlag = (g) => (g.championship ? ' · World Series' : g.playoff ? ' · Playoffs' : '');
 const blowoutEntry = (g) => ({
 	main: `${g.pf}–${g.pa}`, sub: `vs ${g.opponent}`,
@@ -45,12 +50,12 @@ const streakEntries = (list) => (list || []).map((s) => ({
 const CARDS = [
 	{
 		slug: 'best-seasons', icon: 'mdi-crown', title: 'Best Seasons',
-		note: 'Highest winning percentage among completed seasons',
+		note: 'Highest winning percentage among completed regular seasons',
 		entries: (d) => d.bestSeasons.map(seasonEntry),
 	},
 	{
 		slug: 'worst-seasons', icon: 'mdi-emoticon-sad-outline', title: 'Worst Seasons',
-		note: 'Lowest winning percentage among completed seasons',
+		note: 'Lowest winning percentage among completed regular seasons',
 		entries: (d) => d.worstSeasons.map(seasonEntry),
 	},
 	{
@@ -141,7 +146,7 @@ const CARDS = [
 		highlightTop: false,
 		entries: (d) => d.playoffAppearances.map((p) => ({
 			main: String(p.season),
-			subHtml: p.series.map((s) => `<a href="/game/${esc(s.firstGid)}">${esc(s.result)} ${esc(s.roundLabel)} vs ${esc(s.opponent)} (${esc(s.record)})</a>`).join('<br>'),
+			subHtml: p.series.map((s) => gameLink(s.season, s.firstGid, `${esc(s.result)} ${esc(s.roundLabel)} vs ${esc(s.opponent)} (${esc(s.record)})`)).join('<br>'),
 		})),
 		empty: 'The Brewers have not yet reached the playoffs.',
 	},
@@ -151,7 +156,7 @@ const CARDS = [
 		highlightTop: false,
 		entries: (d) => d.championshipAppearances.map((p) => ({
 			main: String(p.season),
-			subHtml: `<a href="/game/${esc(p.firstGid)}">${esc(p.result)} vs ${esc(p.opponent)} (${esc(p.record)})</a>`,
+			subHtml: gameLink(p.season, p.firstGid, `${esc(p.result)} vs ${esc(p.opponent)} (${esc(p.record)})`),
 		})),
 		empty: 'The Brewers have not yet reached a World Series.',
 	},
@@ -212,6 +217,14 @@ function shareRowHtml(slug) {
 	return `<div class="record-share" data-slug="${slug}">${shareButtonsHtml('share-btn record-share-btn')}</div>`;
 }
 
+// Box score records stop where Retrosheet does; while the season being played
+// is on the page but not in them, they say how far they go.
+function throughNote(slug, data) {
+	const box = data.boxSeasonRange;
+	if (!BOX_SCORE_RECORDS.has(slug) || !box || box.last >= data.seasonRange.last) return '';
+	return ` · through ${box.last}`;
+}
+
 function cardHtml(card, data) {
 	const entries = card.entries(data);
 	const body = entries.length
@@ -219,7 +232,7 @@ function cardHtml(card, data) {
 		: `<p class="record-empty">${esc(card.empty || 'Nothing here yet.')}</p>`;
 	return `<section class="record-card" id="card-${card.slug}">
 		<h2 class="record-card-title"><i class="mdi ${card.icon}"></i> ${esc(card.title)}</h2>
-		<p class="record-note">${esc(card.note)}</p>
+		<p class="record-note">${esc(card.note)}${esc(throughNote(card.slug, data))}</p>
 		${body}
 		${shareRowHtml(card.slug)}
 	</section>`;
@@ -241,18 +254,28 @@ function requestedSlug() {
 async function init() {
 	const grid = document.getElementById('records-grid');
 	try {
-		const [gamesRes, namesRes, teamstatsRes, cyclesRes] = await Promise.all([
+		const [gamesRes, namesRes, teamstatsRes, cyclesRes, curGamesRes] = await Promise.all([
 			fetch('/data/gameinfo.csv'),
 			fetch('/data/CurrentNames.csv'),
 			fetch('/data/teamstats.csv'),
 			// Server-computed (needs the full batting file); optional — the cards
 			// show their empty state if unavailable.
 			fetch('/api/records/batting').catch(() => null),
+			fetch('/api/current/gameinfo.csv').catch(() => null),
 		]);
 		if (!gamesRes.ok || !namesRes.ok || !teamstatsRes.ok) throw new Error(`CSV fetch failed`);
 		const namesText = await namesRes.text();
 		const teamstatsText = await teamstatsRes.text();
-		const rows = parseGameinfoCsv(await gamesRes.text(), namesText, teamstatsText);
+		// The season being played, from ESPN, appended the way the history page
+		// does it — so streaks, starts, margins and the postseason count it.
+		// Its teamstats lines are not appended: they are placeholders with no
+		// stats, and the box score records (no-hitters, triple plays, errors)
+		// wait for Retrosheet.
+		const curGames = curGamesRes?.ok ? (await curGamesRes.text()).trim() : '';
+		const gamesText = (await gamesRes.text()).trimEnd() + (curGames ? '\n' + curGames : '');
+		const rows = parseGameinfoCsv(gamesText, namesText, teamstatsText);
+		const curGids = new Set(curGames.split('\n').map((l) => l.split(',', 1)[0]));
+		boxScoresThrough = rows.reduce((m, r) => (curGids.has(r.gid) ? m : Math.max(m, parseInt(r.season, 10) || 0)), 0);
 		const featsJson = cyclesRes?.ok ? await cyclesRes.json().catch(() => null) : null;
 		const data = {
 			...computeSuperlatives(rows), ...computeTeamstatsRecords(rows, teamstatsText),
