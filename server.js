@@ -16,6 +16,7 @@ import { records, recordsMeta, isRecordSlug, historyMeta, liveSeasonHistory, liv
 import { coaches, coachesMeta } from './lib/coaches.js';
 import { h2h, h2hMeta, isOpponentSlug } from './lib/h2h.js';
 import { getCurrentSeasonCsvs } from './lib/espn-current.js';
+import { seasonBatting, seasonPitching, seasonFielding, regularGidsBySeason } from './stats-core.js';
 import { espnTarget } from './lib/espn-target.js';
 import { esc, parseCurrentNamesCsv, parseBallparksCsv, parseTeamstatsLineScores, BREWERS_IDS } from './records-core.js';
 import { buildGameIndex, buildPitchingIndex, buildBattingIndex, buildFieldingIndex, buildPlayerNameMap, buildBoxscore, createScoringPlaysCollector, computeBattingFeats, computeFieldingFeats, POS_NAMES } from './boxscore-core.js';
@@ -53,6 +54,7 @@ const VS_VERSIONED = loadShell('vs.html', ['vs.js', 'styles.css']);
 const GAME_VERSIONED = loadShell('game.html', ['game.js', 'styles.css']);
 const HISTORY_VERSIONED = loadShell('history.html', ['history.js', 'styles.css']);
 const MANAGERS_VERSIONED = loadShell('managers.html', ['managers.js', 'styles.css']);
+const STATS_VERSIONED = loadShell('stats.html', ['stats.js', 'styles.css']);
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
@@ -490,6 +492,48 @@ async function serveBoxscoreApi(req, res, gid) {
 // Game rows by gid, for each box score's own share card.
 const gameByGid = new Map(allGames.map((r) => [r.gid, r]));
 
+// --- Player stats (stats.html) ---
+
+// Each season's regular-season games, and the player tables built from them.
+// A season's tables never change once Retrosheet has it, so each is built
+// once, on first request, from the box score indices already in memory.
+const statsGidsBySeason = regularGidsBySeason(allGames);
+const STATS_SEASONS = [...statsGidsBySeason.keys()].sort((a, b) => a - b);
+const statsCache = new Map();
+async function seasonStats(season) {
+  if (!statsCache.has(season)) {
+    const idx = await getBoxIndices();
+    const gids = statsGidsBySeason.get(season);
+    statsCache.set(season, {
+      season, seasons: STATS_SEASONS,
+      batting: seasonBatting(idx.batting, gids, idx.playerNames, BREWERS_IDS),
+      pitching: seasonPitching(idx.pitching, gids, idx.playerNames, BREWERS_IDS),
+      fielding: seasonFielding(idx.fielding, gids, idx.playerNames, BREWERS_IDS),
+    });
+  }
+  return statsCache.get(season);
+}
+
+async function serveStatsApi(res, season) {
+  if (!statsGidsBySeason.has(season)) {
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ error: 'No stats for that season' }));
+  }
+  const body = JSON.stringify(await seasonStats(season));
+  res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=86400' });
+  return res.end(body);
+}
+
+function serveStatsHtml(req, res, yr) {
+  const origin = originOf(req);
+  sendPage(res, STATS_VERSIONED, {
+    title: `${yr} Milwaukee Brewers Stats`,
+    desc: `Batting, pitching and fielding for every ${yr} Milwaukee Brewer: regular season, sortable.`,
+    img: `${origin}/og/${yr}.png`,
+    canonical: `${origin}/stats/${yr}`,
+  });
+}
+
 async function serveGameHtml(req, res, gid) {
   const origin = originOf(req);
   const canonical = `${origin}/game/${gid}`;
@@ -698,6 +742,21 @@ const server = http.createServer(async (req, res) => {
 
     const boxApi = pathname.match(/^\/api\/boxscore\/(.+)$/);
     if (boxApi) return await serveBoxscoreApi(req, res, boxApi[1]);
+
+    const statsApi = pathname.match(/^\/api\/stats\/(\d{4})$/);
+    if (statsApi) return await serveStatsApi(res, parseInt(statsApi[1], 10));
+    // No season in the path: send the newest, so every stats URL names one and
+    // the page never has to guess.
+    if (pathname === '/stats' || pathname === '/stats/' || pathname === '/stats.html') {
+      res.writeHead(302, { Location: `/stats/${STATS_SEASONS[STATS_SEASONS.length - 1]}` });
+      return res.end();
+    }
+    const statsPage = pathname.match(/^\/stats\/(\d{4})\/?$/);
+    if (statsPage) {
+      const yr = parseInt(statsPage[1], 10);
+      if (!statsGidsBySeason.has(yr)) return notFound(res);
+      return serveStatsHtml(req, res, yr);
+    }
 
     const gameRoute = pathname.match(/^\/game\/(.+)$/);
     if (gameRoute) return await serveGameHtml(req, res, gameRoute[1]);
