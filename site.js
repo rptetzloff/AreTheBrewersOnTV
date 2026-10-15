@@ -79,6 +79,18 @@ export const SITE = {
 	 *  different parser. */
 	teamIds: ['MIL', 'SE1'],
 
+	/** Home park names over time, by Retrosheet park id, for parks that were
+	 *  renamed. ballparks.csv carries one name per park — "Miller Park" for
+	 *  MIL06 to this day — so a 2023 game would have been at a park that no
+	 *  longer had that name. A game takes the name in use on its date; the
+	 *  last entry is the current name. Curated: no upstream publishes it. */
+	parkNames: {
+		MIL06: [
+			{ name: 'Miller Park', from: 2001, to: 2020 },
+			{ name: 'American Family Field', from: 2021 },
+		],
+	},
+
 	// --- rules, not words ---
 
 	/** Whether a win streak may continue across a season boundary.
