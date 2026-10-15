@@ -17,7 +17,7 @@ import { records, recordsMeta, isRecordSlug, historyMeta, liveSeasonHistory, liv
 import { coaches, coachesMeta } from './lib/coaches.js';
 import { h2h, h2hMeta, isOpponentSlug } from './lib/h2h.js';
 import { getCurrentSeasonCsvs } from './lib/espn-current.js';
-import { seasonBatting, seasonPitching, seasonFielding, seasonFieldingTotals, regularGidsBySeason, buildLeaders, playerSeasons, playerDirectory, parseBios, PLAYER_ID } from './stats-core.js';
+import { seasonBatting, seasonPitching, seasonFielding, seasonFieldingTotals, regularGidsBySeason, buildLeaders, playerSeasons, playerDirectory, bornOn, parseBios, PLAYER_ID } from './stats-core.js';
 import { espnTarget } from './lib/espn-target.js';
 import { esc, parseCurrentNamesCsv, parseBallparksCsv, parseTeamstatsLineScores, BREWERS_IDS } from './records-core.js';
 import { buildGameIndex, buildPitchingIndex, buildBattingIndex, buildFieldingIndex, buildPlayerNameMap, buildBoxscore, createScoringPlaysCollector, computeBattingFeats, computeFieldingFeats, POS_NAMES } from './boxscore-core.js';
@@ -599,6 +599,16 @@ async function servePlayersApi(res) {
   return res.end(statsDirectory);
 }
 
+// Brewers born on a day, for the On This Day panel. Small and fixed for a
+// given day, so the CDN can keep each one.
+let statsDirectoryList = null;
+async function serveBornApi(res, monthDay) {
+  statsDirectoryList ||= playerDirectory(await allSeasonStats());
+  const born = bornOn(statsDirectoryList, await bios(), monthDay);
+  res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=86400' });
+  return res.end(JSON.stringify(born));
+}
+
 async function servePlayerApi(res, id) {
   const p = await playerData(id);
   if (!p) {
@@ -885,6 +895,8 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === '/api/stats/leaders') return await serveLeadersApi(res);
     if (pathname === '/api/players') return await servePlayersApi(res);
+    const bornApi = pathname.match(/^\/api\/born\/((?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01]))$/);
+    if (bornApi) return await serveBornApi(res, bornApi[1]);
     const playerApi = pathname.match(/^\/api\/player\/([^/]+)$/);
     if (playerApi) return await servePlayerApi(res, playerApi[1]);
     const playerPage = pathname.match(/^\/player\/([^/]+)\/?$/);
