@@ -17,7 +17,7 @@ import { records, recordsMeta, isRecordSlug, historyMeta, liveSeasonHistory, liv
 import { coaches, coachesMeta } from './lib/coaches.js';
 import { h2h, h2hMeta, isOpponentSlug } from './lib/h2h.js';
 import { getCurrentSeasonCsvs } from './lib/espn-current.js';
-import { seasonBatting, seasonPitching, seasonFielding, regularGidsBySeason, buildLeaders, playerSeasons, parseBios, PLAYER_ID } from './stats-core.js';
+import { seasonBatting, seasonPitching, seasonFielding, seasonFieldingTotals, regularGidsBySeason, buildLeaders, playerSeasons, playerDirectory, parseBios, PLAYER_ID } from './stats-core.js';
 import { espnTarget } from './lib/espn-target.js';
 import { esc, parseCurrentNamesCsv, parseBallparksCsv, parseTeamstatsLineScores, BREWERS_IDS } from './records-core.js';
 import { buildGameIndex, buildPitchingIndex, buildBattingIndex, buildFieldingIndex, buildPlayerNameMap, buildBoxscore, createScoringPlaysCollector, computeBattingFeats, computeFieldingFeats, POS_NAMES } from './boxscore-core.js';
@@ -548,6 +548,7 @@ async function seasonStats(season) {
       batting: seasonBatting(idx.batting, gids, idx.playerNames, BREWERS_IDS),
       pitching: seasonPitching(idx.pitching, gids, idx.playerNames, BREWERS_IDS),
       fielding: seasonFielding(idx.fielding, gids, idx.playerNames, BREWERS_IDS),
+      fieldingTotals: seasonFieldingTotals(idx.fielding, gids, idx.playerNames, BREWERS_IDS),
     });
   }
   return statsCache.get(season);
@@ -588,6 +589,14 @@ async function playerData(id) {
   const p = playerSeasons(await allSeasonStats(), id);
   if (!p) return null;
   return { ...p, bio: (await bios()).get(id) || null };
+}
+
+// The player search's list: every Brewer once — 1,074 through 2025, 85KB.
+let statsDirectory = null;
+async function servePlayersApi(res) {
+  if (!statsDirectory) statsDirectory = JSON.stringify(playerDirectory(await allSeasonStats()));
+  res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=86400' });
+  return res.end(statsDirectory);
 }
 
 async function servePlayerApi(res, id) {
@@ -875,6 +884,7 @@ const server = http.createServer(async (req, res) => {
     if (calendarFor) return await serveCalendar(req, res, calendarFor[1], url.searchParams.get('area'));
 
     if (pathname === '/api/stats/leaders') return await serveLeadersApi(res);
+    if (pathname === '/api/players') return await servePlayersApi(res);
     const playerApi = pathname.match(/^\/api\/player\/([^/]+)$/);
     if (playerApi) return await servePlayerApi(res, playerApi[1]);
     const playerPage = pathname.match(/^\/player\/([^/]+)\/?$/);

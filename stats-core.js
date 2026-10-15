@@ -197,10 +197,58 @@ export function seasonFielding(fielding, gids, playerNames, teamIds) {
 	}));
 }
 
+/** Each player's fielding across all his positions in a season. Games and
+ *  starts are distinct games, not the per-position counts added up: Yount
+ *  playing left and center in one game is one game. DH lines are left out —
+ *  a designated hitter does not field, so his games would only pad G. */
+export function seasonFieldingTotals(fielding, gids, playerNames, teamIds) {
+	const by = new Map();
+	for (const gid of gids) {
+		for (const f of fielding.get(gid) || []) {
+			if (!teamIds.has(f.team) || f.pos < 1 || f.pos > 9) continue;
+			let p = by.get(f.id);
+			if (!p) { p = { id: f.id, games: new Set(), starts: new Set(), positions: new Set(), po: 0, a: 0, e: 0, dp: 0 }; by.set(f.id, p); }
+			p.games.add(gid);
+			if (f.gs) p.starts.add(gid);
+			p.positions.add(f.pos);
+			p.po += f.po; p.a += f.a; p.e += f.e; p.dp += f.dp;
+		}
+	}
+	return [...by.values()].map((p) => ({
+		id: p.id, name: playerNames.get(p.id) || p.id, pos: 'All', positions: p.positions.size,
+		posList: [...p.positions].sort((a, b) => a - b).map((n) => POS_NAMES[n] || String(n)).join(', '),
+		g: p.games.size, gs: p.starts.size, po: p.po, a: p.a, e: p.e, dp: p.dp,
+		fpct: ratio(p.po + p.a, p.po + p.a + p.e),
+	}));
+}
+
 /** Retrosheet player ids: five letters (or hyphens, for short surnames) and
  *  three digits — younr001, a-rod001. Checked rather than trusted, since it
  *  arrives in a URL. */
 export const PLAYER_ID = /^[a-z][a-z-]{4}\d{3}$/;
+
+/** Every Brewer, for the player search: id, name, first and last Brewers
+ *  season, and whether he was mostly a pitcher — more innings than a quarter
+ *  of his plate appearances, the same rule the player page uses to lead with
+ *  pitching. Sorted by name. */
+export function playerDirectory(seasons) {
+	const by = new Map();
+	const touch = (line, season) => {
+		let p = by.get(line.id);
+		if (!p) { p = { id: line.id, name: line.name, first: season, last: season, pa: 0, ipouts: 0 }; by.set(line.id, p); }
+		p.first = Math.min(p.first, season);
+		p.last = Math.max(p.last, season);
+		return p;
+	};
+	for (const s of seasons) {
+		for (const l of s.batting) touch(l, s.season).pa += l.pa;
+		for (const l of s.pitching) touch(l, s.season).ipouts += l.ipouts;
+		for (const l of s.fielding || []) touch(l, s.season);
+	}
+	return [...by.values()]
+		.map(({ id, name, first, last, pa, ipouts }) => ({ id, name, first, last, pitcher: ipouts / 3 > pa / 4 }))
+		.sort((a, b) => a.name.localeCompare(b.name));
+}
 
 /** One player's Brewers seasons, from the season tables, plus career totals.
  *  `seasons` is [{ season, batting, pitching, fielding }]. */
@@ -218,17 +266,29 @@ export function playerSeasons(seasons, id) {
 	const career = careerLines(mine);
 	const name = (batting[0] || pitching[0] || fielding[0]).name;
 	const years = [...new Set([...batting, ...pitching, ...fielding].map((l) => l.season))].sort((a, b) => a - b);
+	// All positions, by season and for the career. A season's games are
+	// already distinct; seasons never share a game, so a career is their sum.
+	const fieldingTotals = pick('fieldingTotals');
+	let fieldingCareer = null;
+	if (fieldingTotals.length) {
+		const c = { pos: 'All', g: 0, gs: 0, po: 0, a: 0, e: 0, dp: 0 };
+		for (const t of fieldingTotals) for (const k of ['g', 'gs', 'po', 'a', 'e', 'dp']) c[k] += t[k];
+		c.positions = new Set(fielding.filter((l) => l.pos !== 'DH').map((l) => l.pos)).size;
+		c.fpct = ratio(c.po + c.a, c.po + c.a + c.e);
+		fieldingCareer = c;
+	}
 	return {
 		id, name, first: years[0], last: years[years.length - 1], seasons: years.length,
-		batting, pitching, fielding,
-		career: { batting: career.batting[0] || null, pitching: career.pitching[0] || null },
+		batting, pitching, fielding, fieldingTotals,
+		career: { batting: career.batting[0] || null, pitching: career.pitching[0] || null, fielding: fieldingCareer },
 	};
 }
 
 const ymd = (s) => (s && /^\d{8}$/.test(s) ? `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}` : null);
 
 /** Biographical lines from biofile0.csv, for the ids asked for only — the
- *  file covers every major leaguer, and the site needs about two thousand. */
+ *  file covers every major leaguer (about 27,000), and the site needs the
+ *  1,074 who played for the Brewers through 2025. */
 export function parseBios(csv, ids) {
 	const lines = csv.split('\n');
 	const h = splitCsvLine(lines[0]);

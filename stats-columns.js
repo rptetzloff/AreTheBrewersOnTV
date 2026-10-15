@@ -48,6 +48,14 @@ export const FIELDING_COLUMNS = [
 	n('fpct', 'FPCT', 'Fielding percentage', { sortKey: low('fpct'), fmt: rate }),
 ];
 
+/** All positions in one line per player: the positions he played, and games
+ *  counted once however many positions he played in them. */
+export const FIELDING_TOTAL_COLUMNS = [
+	{ key: 'posList', label: 'Pos', title: 'Positions played', defaultDir: -1, sortKey: (r) => r.positions },
+	n('g', 'G', 'Games in the field, any position'), n('gs', 'GS', 'Games started in the field'),
+	...FIELDING_COLUMNS.slice(3),
+];
+
 /** The Player column: the name links to that player's page. */
 export const PLAYER_COLUMN = {
 	key: 'name', label: 'Player', title: 'Player', defaultDir: 1,
