@@ -202,6 +202,29 @@ export function seasonFielding(fielding, gids, playerNames, teamIds) {
  *  arrives in a URL. */
 export const PLAYER_ID = /^[a-z][a-z-]{4}\d{3}$/;
 
+/** Every Brewer, for the player search: id, name, first and last Brewers
+ *  season, and whether he was mostly a pitcher — more innings than a quarter
+ *  of his plate appearances, the same rule the player page uses to lead with
+ *  pitching. Sorted by name. */
+export function playerDirectory(seasons) {
+	const by = new Map();
+	const touch = (line, season) => {
+		let p = by.get(line.id);
+		if (!p) { p = { id: line.id, name: line.name, first: season, last: season, pa: 0, ipouts: 0 }; by.set(line.id, p); }
+		p.first = Math.min(p.first, season);
+		p.last = Math.max(p.last, season);
+		return p;
+	};
+	for (const s of seasons) {
+		for (const l of s.batting) touch(l, s.season).pa += l.pa;
+		for (const l of s.pitching) touch(l, s.season).ipouts += l.ipouts;
+		for (const l of s.fielding || []) touch(l, s.season);
+	}
+	return [...by.values()]
+		.map(({ id, name, first, last, pa, ipouts }) => ({ id, name, first, last, pitcher: ipouts / 3 > pa / 4 }))
+		.sort((a, b) => a.name.localeCompare(b.name));
+}
+
 /** One player's Brewers seasons, from the season tables, plus career totals.
  *  `seasons` is [{ season, batting, pitching, fielding }]. */
 export function playerSeasons(seasons, id) {
@@ -228,7 +251,8 @@ export function playerSeasons(seasons, id) {
 const ymd = (s) => (s && /^\d{8}$/.test(s) ? `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}` : null);
 
 /** Biographical lines from biofile0.csv, for the ids asked for only — the
- *  file covers every major leaguer, and the site needs about two thousand. */
+ *  file covers every major leaguer (about 27,000), and the site needs the
+ *  1,074 who played for the Brewers through 2025. */
 export function parseBios(csv, ids) {
 	const lines = csv.split('\n');
 	const h = splitCsvLine(lines[0]);

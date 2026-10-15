@@ -5,6 +5,9 @@
 import { esc } from './records-core.js';
 import { labeledShareButtonsHtml, wireShareRow, wireShareDropdown } from './share-core.js';
 import { BATTING_COLUMNS, PITCHING_COLUMNS, FIELDING_COLUMNS, cellHtml } from './stats-columns.js';
+import { mountPlayerSearch } from './player-search.js';
+
+mountPlayerSearch(document.getElementById('player-search'));
 
 const tables = document.getElementById('player-tables');
 const id = (window.location.pathname.match(/^\/player\/([^/]+)/) || [])[1] || '';
