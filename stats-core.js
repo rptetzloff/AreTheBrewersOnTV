@@ -286,6 +286,18 @@ export function playerSeasons(seasons, id) {
 
 const ymd = (s) => (s && /^\d{8}$/.test(s) ? `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}` : null);
 
+/** Brewers born on a month and day ("09-16"), for the On This Day panel:
+ *  longest Brewers career first, then the earliest born. `directory` is
+ *  playerDirectory's list, `bios` parseBios's map. A February 29th birthday
+ *  appears on February 29th only. */
+export function bornOn(directory, bios, monthDay) {
+	return directory
+		.map((p) => ({ p, born: bios.get(p.id)?.born }))
+		.filter(({ born }) => born && born.slice(5) === monthDay)
+		.map(({ p, born }) => ({ id: p.id, name: p.name, year: Number(born.slice(0, 4)), first: p.first, last: p.last }))
+		.sort((a, b) => (b.last - b.first) - (a.last - a.first) || a.year - b.year);
+}
+
 /** Biographical lines from biofile0.csv, for the ids asked for only — the
  *  file covers every major leaguer (about 27,000), and the site needs the
  *  1,074 who played for the Brewers through 2025. */
@@ -320,13 +332,15 @@ export function parseBios(csv, ids) {
  *  lists the functions above take.
  *
  *  Tiebreakers count. MLB folds a tiebreaker game into regular-season stats
- *  (it was "Game 163"), and the parsed rows mark it T, not regular, so it was
- *  left out: Christian Yelich's 2018 came out .323 with 184 hits against his
- *  official .326 with 187, the three hits he had in Game 163 at Wrigley. */
+ *  (it was "Game 163"). This function used to add T games itself, because
+ *  the parsed rows marked them postseason and Christian Yelich's 2018 came
+ *  out .323 with 184 hits, not his official .326 with 187; the parser now
+ *  marks a tiebreaker regular season for the whole site, so it needs no
+ *  special case here. */
 export function regularGidsBySeason(rows) {
 	const out = new Map();
 	for (const r of rows) {
-		if ((r.regular_season !== '1' && r.gametype !== 'T') || !r.gid) continue;
+		if (r.regular_season !== '1' || !r.gid) continue;
 		const yr = parseInt(r.season, 10);
 		if (!out.has(yr)) out.set(yr, []);
 		out.get(yr).push(r.gid);

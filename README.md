@@ -46,6 +46,8 @@ The box is hidden automatically when there are no completed games to analyze (e.
 
 Near the top of the page, below the streak box, the app surfaces a random Brewers game played on (or within a few days of) today's calendar date, pulled from the full historical record.
 
+Under it, the Brewers born that day — the three longest Brewers careers, linked to their player pages, and a count of the rest — from `/api/born/<MM-DD>` (birth dates from `biofile0.csv`). On a date with no Brewers game, most of the winter, the birthdays are the card; it used to hide.
+
 Both the streak box and the On This Day card are independently collapsible — click the small toggle label above each one to hide or show it.
 
 ### Testing with a specific date
@@ -92,7 +94,9 @@ The chart is built by `history-chart.js`, a pure SVG-string module shared by the
 
 `/player/<id>` is one Brewer's seasons — batting, pitching and fielding, each with a career line — where `<id>` is the Retrosheet player id (`/player/younr001`). Every name on the stats tables and leaderboards links there, and the stats and player pages carry a search box ("Find a Brewer…") over all 1,074 Brewers from `/api/players`, loaded on first use. It ignores accents and punctuation ("nunez", "bj"), ranks a whole-word match above a partial one — so "robin" is Robin Yount before Ron Robinson — and longer Brewers careers first; arrow keys and Enter work (`player-search.js`). The biographical line comes from `biofile0.csv`. Brewers seasons only: a player's years elsewhere are not in this data. JSON at `/api/player/<id>`.
 
-Regular season only, with one exception MLB makes too: a tiebreaker game ("Game 163") counts toward the season, so Christian Yelich's 2018 reads .326 with 187 hits, as it does officially. Fielding is one line per player per position, with an "All positions" view (`#fieldingTotals`) giving each player one line across them; the player page adds a Total row to each multi-position season and an All positions career line. Those totals count a game once however many positions he played in it, and leave DH out. Rate stats with no denominator (an AVG with no at-bats, an ERA with no innings) show a dash rather than zero.
+The stats cover the seasons Retrosheet has published; the season being played is added when Retrosheet publishes it, usually over the winter, and the page says so in its legend until then.
+
+Regular season only. A tiebreaker game ("Game 163") is regular season everywhere on the site, as MLB counts it: 2018 is 96–67 with a 6–4 postseason, and Christian Yelich's 2018 reads .326 with 187 hits, as it does officially. (Until October 2026 the rest of the site filed it under the postseason and showed 2018 at 95–67; Retrosheet tags it `playoff`.) Fielding is one line per player per position, with an "All positions" view (`#fieldingTotals`) giving each player one line across them; the player page adds a Total row to each multi-position season and an All positions career line. Those totals count a game once however many positions he played in it, and leave DH out. Rate stats with no denominator (an AVG with no at-bats, an ERA with no innings) show a dash rather than zero.
 
 ## Box Scores
 

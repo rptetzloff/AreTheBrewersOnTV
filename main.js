@@ -1468,9 +1468,41 @@ buildOnThisDay() {
   const candidates = onThisDayCandidates(this.csvBySeason, todayMonth, todayDay);
   for (const c of candidates) c.interest = otdInterest(c, this.lineScores);
 
-  if (candidates.length === 0) { el.hidden = true; return; }
+  // Brewers born today, from /api/born. The game renders at once and the
+  // birthdays join it when they arrive; on a day with no game — most of the
+  // winter — the birthdays are the panel, which used to hide.
+  this._otdBirths = [];
+  const pick = candidates.length ? otdPick(candidates) : null;
+  const render = () => {
+    if (pick) this._renderOnThisDay(el, pick, candidates);
+    else if (this._otdBirths.length) this._renderBirthsOnly(el);
+    else el.hidden = true;
+  };
+  render();
+  const monthDay = `${String(todayMonth + 1).padStart(2, '0')}-${String(todayDay).padStart(2, '0')}`;
+  fetch(`/api/born/${monthDay}`)
+    .then((r) => (r.ok ? r.json() : []))
+    .then((born) => { this._otdBirths = Array.isArray(born) ? born : []; if (this._otdBirths.length) render(); })
+    .catch(() => {});
+}
 
-  this._renderOnThisDay(el, otdPick(candidates), candidates);
+// "Born on this day: Robin Yount (1955) · ..." — the three longest Brewers
+// careers, linked to their pages, and a count of the rest.
+_birthsHtml() {
+  const born = this._otdBirths || [];
+  if (!born.length) return '';
+  const shown = born.slice(0, 3).map((b) => `<a href="/player/${esc(b.id)}">${esc(b.name)}</a> <span class="otd-born-year">(${b.year})</span>`);
+  const more = born.length > 3 ? ` <span class="otd-born-year">+ ${born.length - 3} more</span>` : '';
+  return `<div class="otd-born"><i class="mdi mdi-cake-variant"></i> Born on this day: ${shown.join(' · ')}${more}</div>`;
+}
+
+_renderBirthsOnly(el) {
+  el.innerHTML = `
+    <div class="otd-header">
+      <span class="otd-label"><i class="mdi mdi-calendar-today"></i> On This Day in Brewers History</span>
+    </div>
+    ${this._birthsHtml()}`;
+  el.hidden = false;
 }
 
 _renderOnThisDay(el, pick, pool) {
@@ -1520,6 +1552,7 @@ _renderOnThisDay(el, pick, pool) {
         					<div class="otd-date">${dateStr}, ${season}</div>
         				</div>
         			</div>
+        			${this._birthsHtml()}
 `;
 el.hidden = false;
 

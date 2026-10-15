@@ -258,6 +258,10 @@ function normalizeGametype(gt) {
 	if (u === 'D' || u === 'DS' || u === 'DIVISIONSERIES' || u === 'DIVISION') return 'D';
 	if (u === 'F' || u === 'WILDCARD' || u === 'WILDCARDGAME') return 'F';
 	if (u === 'PLAYOFF' || u === 'PLAYOFFS' || u === 'P') return 'T';
+	// A postseason game whose round could not be read (lib/espn-current's
+	// fallback). It must stay postseason now that T counts as regular
+	// season; division series is the round it is filed under.
+	if (u === 'POSTSEASON') return 'D';
 	return '';
 }
 
@@ -343,8 +347,13 @@ export function parseGameinfoCsv(gamesRaw, namesRaw, teamstatsRaw = null) {
 			const rawGt = (r.gametype || '').toUpperCase().trim();
 			const normGt = normalizeGametype(rawGt);
 			const gt = normGt || (tsPlayoff.has(r.gid) ? (tsWorldSeries.has(r.gid) ? 'W' : 'D') : 'R');
-			const regularSeason = gt === 'R' ? '1' : '0';
-			const playoff = gt !== 'R' ? '1' : '0';
+			// A tiebreaker is regular season, as MLB counts it: Game 163 in 2018
+			// made that season 96-67, not 95-67 and a one-game "series" in the
+			// playoffs. Retrosheet tags it 'playoff'; it keeps its T so it can
+			// still be told apart, but counts with the regular season everywhere
+			// — standings, streaks, history, records and stats.
+			const regularSeason = gt === 'R' || gt === 'T' ? '1' : '0';
+			const playoff = regularSeason === '1' ? '0' : '1';
 			const championship = gt === 'W' ? r.season : '';
 
 			return {

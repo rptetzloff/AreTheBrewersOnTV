@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { seasonBatting, seasonPitching, seasonFielding, seasonFieldingTotals, regularGidsBySeason, careerLines, leaderboard, buildLeaders, BATTING_BOARDS, PITCHING_BOARDS, playerSeasons, parseBios, PLAYER_ID } from '../stats-core.js'
+import { seasonBatting, seasonPitching, seasonFielding, seasonFieldingTotals, regularGidsBySeason, careerLines, leaderboard, buildLeaders, BATTING_BOARDS, PITCHING_BOARDS, playerSeasons, parseBios, bornOn, PLAYER_ID } from '../stats-core.js'
 import { game } from './helpers/rows.js'
 
 const MIL = new Set(['MIL'])
@@ -162,6 +162,24 @@ test('a player page carries each season\'s fielding total and an all-positions c
 	const p = playerSeasons(seasons, 'yount')
 	assert.deepEqual(p.fieldingTotals.map((x) => [x.season, x.g]), [[1984, 120], [1985, 70]])
 	assert.deepEqual([p.career.fielding.g, p.career.fielding.po, p.career.fielding.positions], [190, 349, 3])
+})
+
+// --- born on this day ---
+
+test('Brewers born on a day: longest Brewers career first, then the earliest born', () => {
+	const directory = [
+		{ id: 'cupof001', name: 'Cup of Coffee', first: 1999, last: 1999 },
+		{ id: 'younr001', name: 'Robin Yount', first: 1974, last: 1993 },
+		{ id: 'other001', name: 'Other Day', first: 1980, last: 1990 },
+		{ id: 'older001', name: 'Older Coffee', first: 1970, last: 1970 },
+	]
+	const bios = new Map([
+		['cupof001', { born: '1975-09-16' }], ['younr001', { born: '1955-09-16' }],
+		['other001', { born: '1955-09-17' }], ['older001', { born: '1940-09-16' }],
+	])
+	assert.deepEqual(bornOn(directory, bios, '09-16').map((b) => [b.name, b.year]),
+		[['Robin Yount', 1955], ['Older Coffee', 1940], ['Cup of Coffee', 1975]])
+	assert.deepEqual(bornOn(directory, bios, '01-01'), [])
 })
 
 // --- player pages ---
