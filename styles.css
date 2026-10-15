@@ -2386,6 +2386,31 @@ details:not([open]) > .collapsible-summary::before {
     margin-bottom: 0.75rem;
 }
 
+/* Ballparks page: section headings between the park cards and the boards. */
+.ballparks-heading {
+    color: #FFC52F;
+    font-size: 1.15rem;
+    margin: 1.5rem 0 0.75rem;
+    text-align: left;
+}
+
+/* A park's card is facts, not a ranking: no gold first row. */
+.ballparks-facts .record-entry-top .record-entry-main {
+    color: inherit;
+}
+
+.records-see-also {
+    text-align: center;
+    margin: -0.5rem 0 1rem;
+    font-size: 0.9rem;
+}
+
+.records-see-also a {
+    color: #FFC52F;
+    font-weight: 600;
+    text-decoration: none;
+}
+
 /* Player search, on the stats and player pages. The list floats over the
    page below the box rather than pushing the tables down. */
 .player-search {

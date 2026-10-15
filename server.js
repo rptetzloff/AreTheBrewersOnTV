@@ -8,10 +8,11 @@ import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, normalize, extname } from 'node:path';
-import { renderPng, renderRecordsPng, renderH2hPng, renderHistoryPng, renderCoachesPng, renderGamePng } from './lib/cards.js';
+import { renderPng, renderRecordsPng, renderH2hPng, renderHistoryPng, renderCoachesPng, renderGamePng, renderBallparksPng } from './lib/cards.js';
 import { indexLoadOutcome, isLfsPointer } from './lib/indices-health.js';
 import { originOf } from './lib/origin.js';
-import { getSeasonState, defaultSeason, allGames, fetchEspn, tvLookup, simulcasts } from './lib/seasons.js';
+import { getSeasonState, defaultSeason, allGames, teamstatsRaw, fetchEspn, tvLookup, simulcasts } from './lib/seasons.js';
+import { parseGameDay, ballparkStats } from './ballparks-core.js';
 import { buildCalendar } from './lib/calendar.js';
 import { records, recordsMeta, isRecordSlug, historyMeta, liveSeasonHistory, liveRecordsVersion, registerBattingFeats, registerPitcherEra, registerNoHitterPitchers, registerTriplePlayFielders } from './lib/records.js';
 import { coaches, coachesMeta } from './lib/coaches.js';
@@ -55,6 +56,7 @@ const VS_VERSIONED = loadShell('vs.html', ['vs.js', 'styles.css']);
 const GAME_VERSIONED = loadShell('game.html', ['game.js', 'styles.css']);
 const HISTORY_VERSIONED = loadShell('history.html', ['history.js', 'styles.css']);
 const MANAGERS_VERSIONED = loadShell('managers.html', ['managers.js', 'styles.css']);
+const BALLPARKS_VERSIONED = loadShell('ballparks.html', ['ballparks.js', 'styles.css']);
 const STATS_VERSIONED = loadShell('stats.html', ['stats.js', 'styles.css']);
 const PLAYER_VERSIONED = loadShell('player.html', ['player.js', 'styles.css']);
 
@@ -494,6 +496,21 @@ async function serveBoxscoreApi(req, res, gid) {
 // Game rows by gid, for each box score's own share card.
 const gameByGid = new Map(allGames.map((r) => [r.gid, r]));
 
+// --- Ballparks (ballparks.html) ---
+
+// Built once, on first request, from the files already on disk: about 100ms.
+// Retrosheet's seasons only — the season being played has no game-day data
+// (attendance, time, temperature) until Retrosheet publishes it.
+let ballparksData = null;
+function ballparks() {
+  if (!ballparksData) {
+    const gameinfo = readFileSync(join(ROOT, 'data', 'gameinfo.csv'), 'utf8');
+    const parks = new Map(parseBallparksCsv(readFileSync(join(ROOT, 'data', 'ballparks.csv'), 'utf8')).map((p) => [p.id, p]));
+    ballparksData = ballparkStats(allGames, parseGameDay(gameinfo), parseTeamstatsLineScores(teamstatsRaw), parks);
+  }
+  return ballparksData;
+}
+
 // --- Calendar feed ---
 
 // The season's schedule for the calendar, fetched at most every ten minutes:
@@ -833,6 +850,24 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' });
       return res.end(historyCard.png);
     }
+
+    if (pathname === '/api/ballparks') {
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=86400' });
+      return res.end(JSON.stringify(ballparks()));
+    }
+    if (pathname === '/ballparks' || pathname === '/ballparks/' || pathname === '/ballparks.html') {
+      const origin = originOf(req);
+      const { parks, biggestCrowds, longestTime } = ballparks();
+      const names = parks.map((p) => p.name).join(', ');
+      return sendPage(res, BALLPARKS_VERSIONED, {
+        title: 'Milwaukee Brewers Ballparks & Game-Day Records',
+        desc: `Every Brewers home park — ${names} — with its record and crowds, and the biggest crowds (${biggestCrowds[0]?.attendance.toLocaleString('en-US')}), longest games (${longestTime[0]?.innings} innings) and hottest and coldest days.`,
+        img: `${origin}/og/ballparks.png`,
+        canonical: `${origin}/ballparks`,
+      });
+    }
+    if (pathname === '/og/ballparks.png')
+      return serveCachedPng(res, 'ballparks', () => renderBallparksPng(ballparks()));
 
     if (pathname === '/managers' || pathname === '/managers/' || pathname === '/managers.html') {
       const origin = originOf(req);
