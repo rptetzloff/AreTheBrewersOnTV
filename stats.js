@@ -6,6 +6,9 @@ import { esc, formatEra } from './records-core.js';
 import { labeledShareButtonsHtml, wireShareRow, wireShareDropdown } from './share-core.js';
 import { sortableHeadHtml, sortRows, wireSortable } from './sortable.js';
 import { rate, BATTING_COLUMNS, PITCHING_COLUMNS, FIELDING_COLUMNS, PLAYER_COLUMN, cellHtml } from './stats-columns.js';
+import { mountPlayerSearch } from './player-search.js';
+
+mountPlayerSearch(document.getElementById('player-search'));
 
 const wrap = document.getElementById('stats-table-wrap');
 
