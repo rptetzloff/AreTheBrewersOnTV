@@ -12,7 +12,7 @@ import { renderPng, renderRecordsPng, renderH2hPng, renderHistoryPng, renderCoac
 import { indexLoadOutcome, isLfsPointer } from './lib/indices-health.js';
 import { originOf } from './lib/origin.js';
 import { getSeasonState, defaultSeason, allGames } from './lib/seasons.js';
-import { records, recordsMeta, isRecordSlug, historyMeta, liveSeasonHistory, registerBattingFeats, registerNoHitterPitchers, registerTriplePlayFielders } from './lib/records.js';
+import { records, recordsMeta, isRecordSlug, historyMeta, liveSeasonHistory, liveRecordsVersion, registerBattingFeats, registerNoHitterPitchers, registerTriplePlayFielders } from './lib/records.js';
 import { coaches, coachesMeta } from './lib/coaches.js';
 import { h2h, h2hMeta, isOpponentSlug } from './lib/h2h.js';
 import { getCurrentSeasonCsvs } from './lib/espn-current.js';
@@ -132,8 +132,9 @@ async function serveHtml(req, res, season) {
   sendPage(res, INDEX_VERSIONED, { title, desc, img: `${origin}/og/${state.season}.png`, canonical });
 }
 
-function serveRecordsHtml(req, res, slug) {
+async function serveRecordsHtml(req, res, slug) {
   const origin = originOf(req);
+  await liveRecordsVersion();
   const { title, desc } = recordsMeta(slug);
   const canonical = slug ? `${origin}/records/${slug}` : `${origin}/records`;
   const img = `${origin}/og/records/${slug || 'overview'}.png`;
@@ -503,6 +504,7 @@ async function serveGameHtml(req, res, gid) {
 
 const staticImgCache = new Map();
 let historyCard = { key: null, png: null };
+let recordsCardsVersion = null;
 function serveCachedPng(res, key, render) {
   let buf = staticImgCache.get(key);
   if (!buf) {
@@ -570,6 +572,14 @@ const server = http.createServer(async (req, res) => {
       // cycles and multi-HR games arrive with it, and a card first drawn
       // during a cold start was otherwise kept without them until restart.
       const warm = _boxIndicesReady ? 'warm' : 'cold';
+      // And on the season being played: when its games change, every records
+      // card is stale, so they are dropped rather than left to pile up one
+      // set per day.
+      const version = await liveRecordsVersion();
+      if (version !== recordsCardsVersion) {
+        for (const k of staticImgCache.keys()) if (k.startsWith('records:')) staticImgCache.delete(k);
+        recordsCardsVersion = version;
+      }
       return serveCachedPng(res, `records:${ogRec[1]}:${warm}`, () => renderRecordsPng(ogRec[1], records));
     }
 
@@ -608,11 +618,11 @@ const server = http.createServer(async (req, res) => {
     if (yr) return await serveHtml(req, res, parseInt(yr[1], 10));
 
     if (pathname === '/records' || pathname === '/records/' || pathname === '/records.html')
-      return serveRecordsHtml(req, res, undefined);
+      return await serveRecordsHtml(req, res, undefined);
     if (pathname.startsWith('/records/')) {
       const slug = pathname.slice('/records/'.length).replace(/\/$/, '');
       if (!isRecordSlug(slug)) return notFound(res);
-      return serveRecordsHtml(req, res, slug);
+      return await serveRecordsHtml(req, res, slug);
     }
 
     if (pathname === '/history' || pathname === '/history/' || pathname === '/history.html') {
