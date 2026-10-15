@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brewers Stats</title>
+    <meta name="description" content="Batting, pitching and fielding for every Milwaukee Brewer, season by season.">
+    <meta property="og:title" content="Brewers Stats">
+    <meta property="og:description" content="Batting, pitching and fielding for every Milwaukee Brewer, season by season.">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+    <!-- Absolute asset paths: this shell is also reachable at /stats/1982, where relative paths would break. -->
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <div class="container records-container stats-container">
+        <a href="/" class="records-back"><i class="mdi mdi-arrow-left"></i> Are the Brewers On TV?</a>
+        <h1 class="records-title">Stats</h1>
+        <p id="stats-subtitle" class="records-subtitle"></p>
+        <nav class="stats-views" aria-label="Stats views">
+            <a id="view-season" class="stats-view-link">By Season</a>
+            <a id="view-career" class="stats-view-link" href="/stats/career">Career Leaders</a>
+            <a id="view-single" class="stats-view-link" href="/stats/single-season">Single-Season Leaders</a>
+        </nav>
+
+        <div id="season-view" hidden>
+            <div class="stats-season-nav">
+                <a id="stats-prev" class="season-nav" aria-label="Previous season"><i class="mdi mdi-chevron-left"></i></a>
+                <select id="stats-season" class="stats-season-select" aria-label="Season"></select>
+                <a id="stats-next" class="season-nav" aria-label="Next season"><i class="mdi mdi-chevron-right"></i></a>
+            </div>
+            <div class="standings-tabs stats-tabs" role="tablist">
+                <button class="standings-tab" data-tab="batting" role="tab">Batting</button>
+                <button class="standings-tab" data-tab="pitching" role="tab">Pitching</button>
+                <button class="standings-tab" data-tab="fielding" role="tab">Fielding</button>
+            </div>
+            <div id="stats-table-wrap" class="h2h-table-wrap stats-table-wrap">
+                <div class="loading">Loading stats...</div>
+            </div>
+        </div>
+
+        <div id="leaders-view" hidden>
+            <div class="standings-tabs stats-tabs" role="tablist">
+                <button class="standings-tab" data-tab="batting" role="tab">Batting</button>
+                <button class="standings-tab" data-tab="pitching" role="tab">Pitching</button>
+            </div>
+            <div id="leaders-grid" class="records-grid">
+                <div class="loading">Loading leaders...</div>
+            </div>
+        </div>
+
+        <p id="stats-legend" class="history-legend"></p>
+    </div>
+
+    <footer class="site-footer">
+        <nav class="footer-nav">
+            <a href="/" class="footer-nav-link"><i class="mdi mdi-home-outline"></i><span class="footer-nav-label">Home</span></a>
+            <a href="/records.html" class="footer-nav-link"><i class="mdi mdi-trophy-outline"></i><span class="footer-nav-label">Records</span></a>
+            <a href="/stats" class="footer-nav-link" aria-current="page"><i class="mdi mdi-table-large"></i><span class="footer-nav-label">Stats</span></a>
+            <a href="/vs.html" class="footer-nav-link"><i class="mdi mdi-sword-cross"></i><span class="footer-nav-label footer-label-full">Head-to-Head</span><span class="footer-nav-label footer-label-short">H2H</span></a>
+            <a href="/history.html" class="footer-nav-link"><i class="mdi mdi-chart-line"></i><span class="footer-nav-label">History</span></a>
+            <a href="/managers.html" class="footer-nav-link"><i class="mdi mdi-whistle-outline"></i><span class="footer-nav-label">Managers</span></a>
+            <div class="footer-share-wrap">
+                <button id="footer-share-trigger" class="footer-nav-link footer-share-trigger" type="button" aria-haspopup="true" aria-expanded="false">
+                    <i class="mdi mdi-share-variant"></i><span class="footer-nav-label">Share</span> <i class="mdi mdi-chevron-down footer-share-caret"></i>
+                </button>
+                <div class="footer-share record-share" id="stats-share" role="menu" hidden></div>
+            </div>
+            <a href="https://github.com/rptetzloff/AreTheBrewersOnTV" target="_blank" rel="noopener noreferrer" class="footer-nav-link footer-github"><i class="mdi mdi-github"></i><span class="footer-nav-label">GitHub</span></a>
+        </nav>
+    </footer>
+
+    <script src="/stats.js" type="module"></script>
+    <script src="/license-modal.js" defer></script>
+</body>
+</html>

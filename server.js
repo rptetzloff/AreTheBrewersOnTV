@@ -16,6 +16,7 @@ import { records, recordsMeta, isRecordSlug, historyMeta, liveSeasonHistory, liv
 import { coaches, coachesMeta } from './lib/coaches.js';
 import { h2h, h2hMeta, isOpponentSlug } from './lib/h2h.js';
 import { getCurrentSeasonCsvs } from './lib/espn-current.js';
+import { seasonBatting, seasonPitching, seasonFielding, regularGidsBySeason, buildLeaders, playerSeasons, parseBios, PLAYER_ID } from './stats-core.js';
 import { espnTarget } from './lib/espn-target.js';
 import { esc, parseCurrentNamesCsv, parseBallparksCsv, parseTeamstatsLineScores, BREWERS_IDS } from './records-core.js';
 import { buildGameIndex, buildPitchingIndex, buildBattingIndex, buildFieldingIndex, buildPlayerNameMap, buildBoxscore, createScoringPlaysCollector, computeBattingFeats, computeFieldingFeats, POS_NAMES } from './boxscore-core.js';
@@ -53,6 +54,8 @@ const VS_VERSIONED = loadShell('vs.html', ['vs.js', 'styles.css']);
 const GAME_VERSIONED = loadShell('game.html', ['game.js', 'styles.css']);
 const HISTORY_VERSIONED = loadShell('history.html', ['history.js', 'styles.css']);
 const MANAGERS_VERSIONED = loadShell('managers.html', ['managers.js', 'styles.css']);
+const STATS_VERSIONED = loadShell('stats.html', ['stats.js', 'styles.css']);
+const PLAYER_VERSIONED = loadShell('player.html', ['player.js', 'styles.css']);
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
@@ -490,6 +493,136 @@ async function serveBoxscoreApi(req, res, gid) {
 // Game rows by gid, for each box score's own share card.
 const gameByGid = new Map(allGames.map((r) => [r.gid, r]));
 
+// --- Player stats (stats.html) ---
+
+// Each season's regular-season games, and the player tables built from them.
+// A season's tables never change once Retrosheet has it, so each is built
+// once, on first request, from the box score indices already in memory.
+const statsGidsBySeason = regularGidsBySeason(allGames);
+const STATS_SEASONS = [...statsGidsBySeason.keys()].sort((a, b) => a - b);
+const statsCache = new Map();
+async function seasonStats(season) {
+  if (!statsCache.has(season)) {
+    const idx = await getBoxIndices();
+    const gids = statsGidsBySeason.get(season);
+    statsCache.set(season, {
+      season, seasons: STATS_SEASONS,
+      batting: seasonBatting(idx.batting, gids, idx.playerNames, BREWERS_IDS),
+      pitching: seasonPitching(idx.pitching, gids, idx.playerNames, BREWERS_IDS),
+      fielding: seasonFielding(idx.fielding, gids, idx.playerNames, BREWERS_IDS),
+    });
+  }
+  return statsCache.get(season);
+}
+
+// Career and single-season leaderboards: every season's tables, built once.
+// About 100ms over all the seasons once the indices are warm.
+let statsLeaders = null;
+async function allSeasonStats() {
+  const seasons = [];
+  for (const yr of STATS_SEASONS) seasons.push(await seasonStats(yr));
+  return seasons;
+}
+async function leaders() {
+  if (!statsLeaders) {
+    const seasons = await allSeasonStats();
+    const teamGames = new Map(STATS_SEASONS.map((yr) => [yr, statsGidsBySeason.get(yr).length]));
+    statsLeaders = { ...buildLeaders(seasons, teamGames), range: { first: STATS_SEASONS[0], last: STATS_SEASONS[STATS_SEASONS.length - 1] } };
+  }
+  return statsLeaders;
+}
+
+// Player pages: a player's seasons are picked out of the season tables on
+// request (milliseconds), and the biographical line comes from biofile0.csv,
+// read once and kept only for players who appear in the tables.
+let statsBios = null;
+async function bios() {
+  if (!statsBios) {
+    const seasons = await allSeasonStats();
+    const ids = new Set(seasons.flatMap((s) => [...s.batting, ...s.pitching, ...s.fielding].map((l) => l.id)));
+    statsBios = parseBios(readFileSync(join(ROOT, 'data', 'biofile0.csv'), 'utf8'), ids);
+  }
+  return statsBios;
+}
+
+async function playerData(id) {
+  if (!PLAYER_ID.test(id)) return null;
+  const p = playerSeasons(await allSeasonStats(), id);
+  if (!p) return null;
+  return { ...p, bio: (await bios()).get(id) || null };
+}
+
+async function servePlayerApi(res, id) {
+  const p = await playerData(id);
+  if (!p) {
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ error: 'No Brewers stats for that player' }));
+  }
+  res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=86400' });
+  return res.end(JSON.stringify(p));
+}
+
+// The title and description name the player and his Brewers line, so a
+// shared link reads as him. They need the indices, so a cold start serves
+// the generic ones rather than make the page wait, as box scores do.
+async function servePlayerHtml(req, res, id) {
+  const origin = originOf(req);
+  const p = _boxIndicesReady ? await playerData(id) : null;
+  if (_boxIndicesReady && !p) return notFound(res);
+  const span = p ? (p.first === p.last ? `${p.first}` : `${p.first}–${p.last}`) : '';
+  const b = p?.career.batting, pi = p?.career.pitching;
+  const c = (v) => v.toLocaleString('en-US');
+  const line = pi && (!b || pi.ipouts / 3 > b.pa / 4)
+    ? `${pi.w}-${pi.l}, ${pi.era === null ? '—' : pi.era.toFixed(2)} ERA, ${c(pi.k)} strikeouts in ${pi.ip} innings`
+    : b ? `${b.avg === null ? '—' : b.avg.toFixed(3).replace(/^0/, '')}, ${c(b.hr)} home runs, ${c(b.h)} hits, ${c(b.rbi)} RBI` : '';
+  sendPage(res, PLAYER_VERSIONED, {
+    title: p ? `${p.name} — Milwaukee Brewers Stats` : 'Milwaukee Brewers Player Stats',
+    desc: p ? `${p.name} with the Brewers, ${span}: ${line}. Season by season, regular season.` : 'Season-by-season Milwaukee Brewers stats.',
+    img: `${origin}/og/records/overview.png`,
+    canonical: `${origin}/player/${id}`,
+  });
+}
+
+async function serveLeadersApi(res) {
+  const body = JSON.stringify(await leaders());
+  res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=86400' });
+  return res.end(body);
+}
+
+async function serveStatsApi(res, season) {
+  if (!statsGidsBySeason.has(season)) {
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ error: 'No stats for that season' }));
+  }
+  const body = JSON.stringify(await seasonStats(season));
+  res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=86400' });
+  return res.end(body);
+}
+
+const LEADER_VIEWS = {
+  career: { title: 'Milwaukee Brewers Career Leaders', desc: 'Franchise career leaders in hits, home runs, RBI, wins, saves, strikeouts, ERA and more.' },
+  'single-season': { title: 'Milwaukee Brewers Single-Season Leaders', desc: 'The best single seasons in franchise history: home runs, batting average, wins, strikeouts, ERA and more.' },
+};
+
+function serveLeadersHtml(req, res, view) {
+  const origin = originOf(req);
+  sendPage(res, STATS_VERSIONED, {
+    ...LEADER_VIEWS[view],
+    img: `${origin}/og/records/overview.png`,
+    canonical: `${origin}/stats/${view}`,
+  });
+}
+
+function serveStatsHtml(req, res, yr) {
+  const origin = originOf(req);
+  sendPage(res, STATS_VERSIONED, {
+    title: `${yr} Milwaukee Brewers Stats`,
+    desc: `Batting, pitching and fielding for every ${yr} Milwaukee Brewer: regular season, sortable.`,
+    img: `${origin}/og/${yr}.png`,
+    canonical: `${origin}/stats/${yr}`,
+  });
+}
+
 async function serveGameHtml(req, res, gid) {
   const origin = originOf(req);
   const canonical = `${origin}/game/${gid}`;
@@ -698,6 +831,31 @@ const server = http.createServer(async (req, res) => {
 
     const boxApi = pathname.match(/^\/api\/boxscore\/(.+)$/);
     if (boxApi) return await serveBoxscoreApi(req, res, boxApi[1]);
+
+    if (pathname === '/api/stats/leaders') return await serveLeadersApi(res);
+    const playerApi = pathname.match(/^\/api\/player\/([^/]+)$/);
+    if (playerApi) return await servePlayerApi(res, playerApi[1]);
+    const playerPage = pathname.match(/^\/player\/([^/]+)\/?$/);
+    if (playerPage) {
+      if (!PLAYER_ID.test(playerPage[1])) return notFound(res);
+      return await servePlayerHtml(req, res, playerPage[1]);
+    }
+    const leaderView = pathname.match(/^\/stats\/(career|single-season)\/?$/);
+    if (leaderView) return serveLeadersHtml(req, res, leaderView[1]);
+    const statsApi = pathname.match(/^\/api\/stats\/(\d{4})$/);
+    if (statsApi) return await serveStatsApi(res, parseInt(statsApi[1], 10));
+    // No season in the path: send the newest, so every stats URL names one and
+    // the page never has to guess.
+    if (pathname === '/stats' || pathname === '/stats/' || pathname === '/stats.html') {
+      res.writeHead(302, { Location: `/stats/${STATS_SEASONS[STATS_SEASONS.length - 1]}` });
+      return res.end();
+    }
+    const statsPage = pathname.match(/^\/stats\/(\d{4})\/?$/);
+    if (statsPage) {
+      const yr = parseInt(statsPage[1], 10);
+      if (!statsGidsBySeason.has(yr)) return notFound(res);
+      return serveStatsHtml(req, res, yr);
+    }
 
     const gameRoute = pathname.match(/^\/game\/(.+)$/);
     if (gameRoute) return await serveGameHtml(req, res, gameRoute[1]);

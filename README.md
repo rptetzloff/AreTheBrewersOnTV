@@ -76,6 +76,16 @@ The chart is built by `history-chart.js`, a pure SVG-string module shared by the
 
 `/managers` lists every Brewers manager in tenure order with regular-season record, win %, and playoff record. Tenures live in `data/managers.csv` as from/to **dates**, not seasons, so mid-season changes split correctly — every game is assigned to a manager by date. Computation lives in `coaches-core.js`, shared by the browser page (`managers.html` + `managers.js`) and the web service (`lib/coaches.js`); the social card is at `/og/managers.png`.
 
+## Stats
+
+`/stats/<season>` lists batting, pitching and fielding for every Brewer in a season, in sortable tables (`/stats` redirects to the newest season Retrosheet covers). The tab is the URL hash: `/stats/1982#pitching`. Totals are summed from the same per-game box score indices that the box score pages use, by `stats-core.js`; the server builds each season's tables once, on first request, and serves them as JSON at `/api/stats/<season>` (`stats.html` + `stats.js` render them).
+
+`/stats/career` and `/stats/single-season` are franchise leaderboards, top ten in each of 22 categories (`/api/stats/leaders`). Careers count only Brewers seasons and recompute rates from summed totals. Single-season rate boards qualify by MLB's title rules — 3.1 plate appearances or one inning per team game, which scales for short seasons like 1981 and 2020; career rate boards need 2,000 plate appearances or 500 innings, a threshold chosen here (`CAREER_MIN_PA` / `CAREER_MIN_IPOUTS` in `stats-core.js`), since MLB has none.
+
+`/player/<id>` is one Brewer's seasons — batting, pitching and fielding, each with a career line — where `<id>` is the Retrosheet player id (`/player/younr001`). Every name on the stats tables and leaderboards links there. The biographical line comes from `biofile0.csv`. Brewers seasons only: a player's years elsewhere are not in this data. JSON at `/api/player/<id>`.
+
+Regular season only, with one exception MLB makes too: a tiebreaker game ("Game 163") counts toward the season, so Christian Yelich's 2018 reads .326 with 187 hits, as it does officially. Fielding is one line per player per position. Rate stats with no denominator (an AVG with no at-bats, an ERA with no innings) show a dash rather than zero.
+
 ## Box Scores
 
 Every historical game has a full box score page at `/game/<gid>`, where `<gid>` is the Retrosheet game id (e.g. `/game/LAN202510170`). The page shows the line score, winning/losing/save pitchers, and batting, pitching, and fielding tables for both teams. Game rows in the season schedule link to their box score; current-season games (not yet in the Retrosheet data) link to ESPN's box score instead.
