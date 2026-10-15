@@ -197,6 +197,31 @@ export function seasonFielding(fielding, gids, playerNames, teamIds) {
 	}));
 }
 
+/** Each player's fielding across all his positions in a season. Games and
+ *  starts are distinct games, not the per-position counts added up: Yount
+ *  playing left and center in one game is one game. DH lines are left out —
+ *  a designated hitter does not field, so his games would only pad G. */
+export function seasonFieldingTotals(fielding, gids, playerNames, teamIds) {
+	const by = new Map();
+	for (const gid of gids) {
+		for (const f of fielding.get(gid) || []) {
+			if (!teamIds.has(f.team) || f.pos < 1 || f.pos > 9) continue;
+			let p = by.get(f.id);
+			if (!p) { p = { id: f.id, games: new Set(), starts: new Set(), positions: new Set(), po: 0, a: 0, e: 0, dp: 0 }; by.set(f.id, p); }
+			p.games.add(gid);
+			if (f.gs) p.starts.add(gid);
+			p.positions.add(f.pos);
+			p.po += f.po; p.a += f.a; p.e += f.e; p.dp += f.dp;
+		}
+	}
+	return [...by.values()].map((p) => ({
+		id: p.id, name: playerNames.get(p.id) || p.id, pos: 'All', positions: p.positions.size,
+		posList: [...p.positions].sort((a, b) => a - b).map((n) => POS_NAMES[n] || String(n)).join(', '),
+		g: p.games.size, gs: p.starts.size, po: p.po, a: p.a, e: p.e, dp: p.dp,
+		fpct: ratio(p.po + p.a, p.po + p.a + p.e),
+	}));
+}
+
 /** Retrosheet player ids: five letters (or hyphens, for short surnames) and
  *  three digits — younr001, a-rod001. Checked rather than trusted, since it
  *  arrives in a URL. */
@@ -241,10 +266,21 @@ export function playerSeasons(seasons, id) {
 	const career = careerLines(mine);
 	const name = (batting[0] || pitching[0] || fielding[0]).name;
 	const years = [...new Set([...batting, ...pitching, ...fielding].map((l) => l.season))].sort((a, b) => a - b);
+	// All positions, by season and for the career. A season's games are
+	// already distinct; seasons never share a game, so a career is their sum.
+	const fieldingTotals = pick('fieldingTotals');
+	let fieldingCareer = null;
+	if (fieldingTotals.length) {
+		const c = { pos: 'All', g: 0, gs: 0, po: 0, a: 0, e: 0, dp: 0 };
+		for (const t of fieldingTotals) for (const k of ['g', 'gs', 'po', 'a', 'e', 'dp']) c[k] += t[k];
+		c.positions = new Set(fielding.filter((l) => l.pos !== 'DH').map((l) => l.pos)).size;
+		c.fpct = ratio(c.po + c.a, c.po + c.a + c.e);
+		fieldingCareer = c;
+	}
 	return {
 		id, name, first: years[0], last: years[years.length - 1], seasons: years.length,
-		batting, pitching, fielding,
-		career: { batting: career.batting[0] || null, pitching: career.pitching[0] || null },
+		batting, pitching, fielding, fieldingTotals,
+		career: { batting: career.batting[0] || null, pitching: career.pitching[0] || null, fielding: fieldingCareer },
 	};
 }
 
