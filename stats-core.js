@@ -332,13 +332,15 @@ export function parseBios(csv, ids) {
  *  lists the functions above take.
  *
  *  Tiebreakers count. MLB folds a tiebreaker game into regular-season stats
- *  (it was "Game 163"), and the parsed rows mark it T, not regular, so it was
- *  left out: Christian Yelich's 2018 came out .323 with 184 hits against his
- *  official .326 with 187, the three hits he had in Game 163 at Wrigley. */
+ *  (it was "Game 163"). This function used to add T games itself, because
+ *  the parsed rows marked them postseason and Christian Yelich's 2018 came
+ *  out .323 with 184 hits, not his official .326 with 187; the parser now
+ *  marks a tiebreaker regular season for the whole site, so it needs no
+ *  special case here. */
 export function regularGidsBySeason(rows) {
 	const out = new Map();
 	for (const r of rows) {
-		if ((r.regular_season !== '1' && r.gametype !== 'T') || !r.gid) continue;
+		if (r.regular_season !== '1' || !r.gid) continue;
 		const yr = parseInt(r.season, 10);
 		if (!out.has(yr)) out.set(yr, []);
 		out.get(yr).push(r.gid);

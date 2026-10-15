@@ -31,8 +31,9 @@ export function game({
 		// Almost every test wants the season to match the date, and saying so
 		// twice is how they drift apart.
 		season: String(season ?? date.slice(0, 4)),
-		regular_season: gt === 'R' ? '1' : '0',
-		playoff: gt === 'R' ? '0' : '1',
+		// As parseGameinfoCsv has it: a tiebreaker (T) is regular season.
+		regular_season: gt === 'R' || gt === 'T' ? '1' : '0',
+		playoff: gt === 'R' || gt === 'T' ? '0' : '1',
 		championship,
 		gametype: gt,
 		Opponent: opponent,

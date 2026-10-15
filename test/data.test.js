@@ -79,31 +79,34 @@ test('every gametype is one the code has a rule for', () => {
 	assert.deepEqual(strange, [], 'an unknown round would be treated as postseason')
 })
 
-// Two tests that describe what happens rather than assert what should. The
-// tiebreaker is a genuine judgement call and this file is not the place to
-// settle it; what it can do is make sure nobody changes the answer by accident.
-test('the 2018 tiebreaker is currently classified as a postseason game', () => {
+// The tiebreaker was a judgement call, and this file used to pin the answer
+// without settling it: "the 2018 tiebreaker is currently classified as a
+// postseason game", 2018 at 95–67, with a note that agreeing with MLB was "a
+// decision, not a bug to fix silently."
+//
+// Reversed 2026-10-15, by decision: Ray asked for 2018 to read 96–67, as MLB
+// counts it. Game 163 is a regular-season game everywhere on the site now —
+// record, standings, streaks, history, records, stats — and keeps its T so it
+// can still be told apart. The stats page had already counted it that way
+// for Yelich's line, so the site disagreed with itself until this.
+test('the 2018 tiebreaker counts as a regular-season game, as MLB counts it', () => {
 	const tiebreakers = rows.filter((r) => r.gametype === 'T')
 	assert.equal(tiebreakers.length, 1)
 	const [g] = tiebreakers
 	assert.equal(g.date, '2018-10-01')
-	assert.equal(g.regular_season, '0')
+	assert.equal(g.regular_season, '1')
+	assert.equal(g.playoff, '0')
 
-	// The consequence: 2018 shows 95–67 here. MLB counted Game 163 as a
-	// regular-season game, so reference sources say 96–67. Whether this site
-	// should agree with them is a decision, not a bug to fix silently.
 	const s = history.find((x) => x.season === 2018)
-	assert.equal(s.record, '95–67')
-	assert.equal(rows.filter((r) => r.season === '2018' && r.regular_season === '1').length, 162)
+	assert.equal(s.record, '96–67')
+	assert.equal(rows.filter((r) => r.season === '2018' && r.regular_season === '1').length, 163)
 })
 
-test('a T does not outrank a real round when finding the furthest one reached', () => {
-	// ROUND_ORDER has no entry for T, so it compares as undefined and loses to
-	// every named round. That gives the right answer for 2018 — the NLCS is
-	// further than a tiebreaker — but by omission rather than by decision.
-	//
-	// The untested case is a season whose only postseason game is a tiebreaker
-	// they lost. No such season exists in this data, so nothing here pins it.
+test('a tiebreaker is never a postseason round', () => {
+	// When T was postseason, ROUND_ORDER's missing entry for it was what kept
+	// the NLCS ahead of a tiebreaker as 2018's furthest round — by omission.
+	// T now never reaches the postseason code, so the furthest round is found
+	// among real rounds only.
 	assert.equal(ROUND_ORDER.T, undefined)
 	assert.equal(history.find((x) => x.season === 2018).postseason, 'L')
 })
@@ -111,7 +114,9 @@ test('a T does not outrank a real round when finding the furthest one reached', 
 test('regular_season and gametype agree with each other', () => {
 	// They are derived from the same value but stored separately, so they can
 	// drift — and the record line reads one while the round badge reads the other.
-	const wrong = rows.filter((r) => (r.gametype === 'R') !== (r.regular_season === '1'))
+	// R and T (a tiebreaker) are the regular season; every other round is not.
+	const regular = (gt) => gt === 'R' || gt === 'T'
+	const wrong = rows.filter((r) => regular(r.gametype) !== (r.regular_season === '1'))
 	assert.deepEqual(wrong.map((r) => `${r.date} ${r.gametype}/${r.regular_season}`), [])
 })
 
