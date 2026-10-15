@@ -115,6 +115,10 @@ export function ballparkStats(rows, gameDay, lineScores, parks, { top = 10, name
 			const history = names?.[p.site];
 			const name = history ? history[history.length - 1].name : (parks.get(p.site)?.park || p.site);
 			const formerly = history ? history.slice(0, -1).map((h) => ({ name: h.name, from: h.from, to: h.to })) : [];
+			// The same seven boards as the page's, over this park's home games,
+			// keeping the top of each: the park's own records.
+			const own = gameDayBoards(games.filter((g) => g.home && g.site === p.site), 1);
+			const one = (list) => list[0] || null;
 			return {
 				site: p.site, name, formerly, city: parks.get(p.site)?.city || '',
 				first: p.first.season, last: p.last.season, firstGame: p.first, lastGame: p.last, games: p.games,
@@ -123,29 +127,51 @@ export function ballparkStats(rows, gameDay, lineScores, parks, { top = 10, name
 				attendance: p.crowd, averageAttendance: p.counted ? Math.round(p.crowd / p.counted) : null,
 				attendanceCoverage: p.games ? p.counted / p.games : 0,
 				biggestCrowd: p.biggest,
+				smallestCrowd: one(own.smallestCrowds),
+				longestTime: one(own.longestTime),
+				shortestTime: one(own.shortestTime),
+				mostInnings: one(own.mostInnings),
+				hottest: one(own.hottest),
+				coldest: one(own.coldest),
 			};
 		});
 
-	// --- game-day boards ---
-	const board = (pool, key, dir) => pool
-		.filter((g) => g[key] !== null && g[key] !== undefined)
-		.sort((a, b) => dir * (a[key] - b[key]) || (a.date < b.date ? -1 : 1))
-		.slice(0, top);
 	const homeGames = games.filter((g) => g.home);
+	const boards = gameDayBoards(games, top);
 	return {
 		parks: parkList,
-		biggestCrowds: board(homeGames, 'attendance', -1),
-		smallestCrowds: board(homeGames, 'attendance', 1),
-		longestTime: board(games, 'minutes', -1),
-		// Nine innings or more: a rain-shortened game is short for a reason
-		// that is not baseball.
-		shortestTime: board(games.filter((g) => g.innings >= 9), 'minutes', 1),
-		mostInnings: games
+		// Crowds are home games: a road crowd is the other team's.
+		biggestCrowds: gameDayBoards(homeGames, top).biggestCrowds,
+		smallestCrowds: gameDayBoards(homeGames, top).smallestCrowds,
+		longestTime: boards.longestTime,
+		shortestTime: boards.shortestTime,
+		mostInnings: boards.mostInnings,
+		hottest: boards.hottest,
+		coldest: boards.coldest,
+		range: games.length ? { first: Math.min(...games.map((g) => g.season)), last: Math.max(...games.map((g) => g.season)) } : null,
+	};
+}
+
+/** The seven game-day boards over a pool of games, top `n` of each. Used for
+ *  the whole franchise and for each park, so the two can never disagree on
+ *  the rules: nine innings or more for the shortest (a rain-shortened game is
+ *  short for a reason that is not baseball), extra innings only for the most
+ *  innings, and ties to the earlier date. */
+export function gameDayBoards(pool, n) {
+	const board = (list, key, dir) => list
+		.filter((g) => g[key] !== null && g[key] !== undefined)
+		.sort((a, b) => dir * (a[key] - b[key]) || (a.date < b.date ? -1 : 1))
+		.slice(0, n);
+	return {
+		biggestCrowds: board(pool, 'attendance', -1),
+		smallestCrowds: board(pool, 'attendance', 1),
+		longestTime: board(pool, 'minutes', -1),
+		shortestTime: board(pool.filter((g) => g.innings >= 9), 'minutes', 1),
+		mostInnings: pool
 			.filter((g) => g.innings > 9)
 			.sort((a, b) => b.innings - a.innings || (b.minutes || 0) - (a.minutes || 0) || (a.date < b.date ? -1 : 1))
-			.slice(0, top),
-		hottest: board(games, 'temp', -1),
-		coldest: board(games, 'temp', 1),
-		range: games.length ? { first: Math.min(...games.map((g) => g.season)), last: Math.max(...games.map((g) => g.season)) } : null,
+			.slice(0, n),
+		hottest: board(pool, 'temp', -1),
+		coldest: board(pool, 'temp', 1),
 	};
 }

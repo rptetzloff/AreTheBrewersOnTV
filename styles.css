@@ -2399,6 +2399,11 @@ details:not([open]) > .collapsible-summary::before {
     color: inherit;
 }
 
+/* "L 1–3" wraps as one piece, never as "L 1–" over "3". */
+.ballparks-score {
+    white-space: nowrap;
+}
+
 .records-see-also {
     text-align: center;
     margin: -0.5rem 0 1rem;
