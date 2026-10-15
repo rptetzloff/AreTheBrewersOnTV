@@ -747,8 +747,9 @@ export function computeTeamstatsRecords(rows, teamstatsRaw, { top = 5, now = new
 /** Innings pitched as baseball writes it: 212 outs and a third is "212.1". */
 export const inningsPitched = (outs) => `${Math.floor(outs / 3)}.${outs % 3}`;
 
-/** ERA to two places, as it is printed everywhere. */
-export const formatEra = (era) => era.toFixed(2);
+/** ERA to three places on the records: two is the box score convention, but
+ *  it ties seasons that are not tied (1988 and 1972 both read 3.45). */
+export const formatEra = (era) => era.toFixed(3);
 
 /** Best and worst single-season ERAs by a Brewers pitcher.
  *
