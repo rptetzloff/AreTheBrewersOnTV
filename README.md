@@ -96,7 +96,7 @@ The chart is built by `history-chart.js`, a pure SVG-string module shared by the
 
 The stats cover the seasons Retrosheet has published; the season being played is added when Retrosheet publishes it, usually over the winter, and the page says so in its legend until then.
 
-Regular season only, with one exception MLB makes too: a tiebreaker game ("Game 163") counts toward the season, so Christian Yelich's 2018 reads .326 with 187 hits, as it does officially. Fielding is one line per player per position, with an "All positions" view (`#fieldingTotals`) giving each player one line across them; the player page adds a Total row to each multi-position season and an All positions career line. Those totals count a game once however many positions he played in it, and leave DH out. Rate stats with no denominator (an AVG with no at-bats, an ERA with no innings) show a dash rather than zero.
+Regular season only. A tiebreaker game ("Game 163") is regular season everywhere on the site, as MLB counts it: 2018 is 96–67 with a 6–4 postseason, and Christian Yelich's 2018 reads .326 with 187 hits, as it does officially. (Until October 2026 the rest of the site filed it under the postseason and showed 2018 at 95–67; Retrosheet tags it `playoff`.) Fielding is one line per player per position, with an "All positions" view (`#fieldingTotals`) giving each player one line across them; the player page adds a Total row to each multi-position season and an All positions career line. Those totals count a game once however many positions he played in it, and leave DH out. Rate stats with no denominator (an AVG with no at-bats, an ERA with no innings) show a dash rather than zero.
 
 ## Box Scores
 
