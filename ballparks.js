@@ -46,7 +46,11 @@ function parkCard(p) {
 	// temperature) is left off rather than shown empty.
 	const extreme = (g, value, label) => (g ? [fact(value(g), label, game(g))] : []);
 	const facts = [
-		fact(span(p.first, p.last), `${commas(p.games)} home games`),
+		// The current park is still open: "2001–", with the games counted
+		// through the last season Retrosheet has published.
+		p.current
+			? fact(`${p.first}–`, `${commas(p.games)} home games`, `through ${p.last}`)
+			: fact(span(p.first, p.last), `${commas(p.games)} home games`),
 		fact(p.record, `regular season · ${pct(p.winPct)}`, p.postseason ? `postseason ${esc(p.postseason)}` : ''),
 		...(p.averageAttendance ? [fact(commas(p.averageAttendance), 'average crowd', p.attendanceCoverage < 0.98 ? `of the ${Math.round(p.attendanceCoverage * 100)}% of games with attendance recorded` : '')] : []),
 		...extreme(p.biggestCrowd, (g) => commas(g.attendance), 'biggest crowd'),
@@ -57,7 +61,7 @@ function parkCard(p) {
 		...extreme(p.shortestTime, (g) => clock(g.minutes), 'shortest game'),
 		...extreme(p.mostInnings, (g) => `${g.innings} inn`, 'most innings'),
 		fact('First', game(p.firstGame)),
-		fact('Last', game(p.lastGame)),
+		fact(p.current ? 'Latest' : 'Last', game(p.lastGame)),
 	];
 	return cardHtml(p.name, 'mdi-stadium', `${formerly}${esc(p.city)}`, facts, true);
 }

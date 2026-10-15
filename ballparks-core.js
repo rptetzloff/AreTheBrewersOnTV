@@ -109,9 +109,12 @@ export function ballparkStats(rows, gameDay, lineScores, parks, { top = 10, name
 			if (!p.biggest || g.attendance > p.biggest.attendance) p.biggest = g;
 		}
 	}
+	// The last season in the data: a park still in use when it ends is the
+	// current home, its years open-ended rather than stopping where the data does.
+	const lastSeason = Math.max(...games.map((g) => g.season));
 	const parkList = [...bySite.values()]
 		.sort((a, b) => (a.first.date < b.first.date ? -1 : 1))
-		.map((p) => {
+		.map((p, i, all) => {
 			const history = names?.[p.site];
 			const name = history ? history[history.length - 1].name : (parks.get(p.site)?.park || p.site);
 			const formerly = history ? history.slice(0, -1).map((h) => ({ name: h.name, from: h.from, to: h.to })) : [];
@@ -121,7 +124,9 @@ export function ballparkStats(rows, gameDay, lineScores, parks, { top = 10, name
 			const one = (list) => list[0] || null;
 			return {
 				site: p.site, name, formerly, city: parks.get(p.site)?.city || '',
-				first: p.first.season, last: p.last.season, firstGame: p.first, lastGame: p.last, games: p.games,
+				first: p.first.season, last: p.last.season,
+				current: i === all.length - 1 && p.last.season === lastSeason,
+				firstGame: p.first, lastGame: p.last, games: p.games,
 				record: rec(p.w, p.l, p.t), winPct: p.w + p.l + p.t ? (p.w + p.t / 2) / (p.w + p.l + p.t) : null,
 				postseason: p.pw + p.pl ? rec(p.pw, p.pl, 0) : null,
 				attendance: p.crowd, averageAttendance: p.counted ? Math.round(p.crowd / p.counted) : null,
