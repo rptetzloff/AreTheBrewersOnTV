@@ -816,7 +816,13 @@ createCsvGameItem(g, showH2h = false) {
         		this.updateLastUndefeated(wins, losses);
         		this.setupShareButtons();
 
-        		const espnCompletedGames = completedRegular.map(event => {
+        		// The season being played counts its playoff games too, so the
+        		// current streak, last 10 and October carry on into the postseason
+        		// instead of stopping at game 162. A past season stays regular-
+        		// season only: its sentence is "Finished the regular season
+        		// undefeated", which a playoff loss must not change.
+        		const streakGames = isPastSeason ? completedRegular : [...completedRegular, ...completedPost];
+        		const espnCompletedGames = streakGames.map(event => {
         			const competitors = event.competitions[0].competitors;
         			let brewersScore = 0, opponentScore = 0;
         			competitors.forEach(c => {
