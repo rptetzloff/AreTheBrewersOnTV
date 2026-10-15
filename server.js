@@ -11,7 +11,8 @@ import { dirname, join, normalize, extname } from 'node:path';
 import { renderPng, renderRecordsPng, renderH2hPng, renderHistoryPng, renderCoachesPng, renderGamePng } from './lib/cards.js';
 import { indexLoadOutcome, isLfsPointer } from './lib/indices-health.js';
 import { originOf } from './lib/origin.js';
-import { getSeasonState, defaultSeason, allGames } from './lib/seasons.js';
+import { getSeasonState, defaultSeason, allGames, fetchEspn, tvLookup, simulcasts } from './lib/seasons.js';
+import { buildCalendar } from './lib/calendar.js';
 import { records, recordsMeta, isRecordSlug, historyMeta, liveSeasonHistory, liveRecordsVersion, registerBattingFeats, registerPitcherEra, registerNoHitterPitchers, registerTriplePlayFielders } from './lib/records.js';
 import { coaches, coachesMeta } from './lib/coaches.js';
 import { h2h, h2hMeta, isOpponentSlug } from './lib/h2h.js';
@@ -493,6 +494,43 @@ async function serveBoxscoreApi(req, res, gid) {
 // Game rows by gid, for each box score's own share card.
 const gameByGid = new Map(allGames.map((r) => [r.gid, r]));
 
+// --- Calendar feed ---
+
+// The season's schedule for the calendar, fetched at most every ten minutes:
+// calendar apps poll on their own clocks, and a hundred subscribers should
+// not be a hundred ESPN fetches.
+let calendarSchedule = { at: 0, events: [] };
+async function calendarEvents() {
+  if (Date.now() - calendarSchedule.at > 10 * 60 * 1000) {
+    try {
+      calendarSchedule = { at: Date.now(), events: (await fetchEspn()).events };
+    } catch {
+      // Stale beats empty: an empty calendar would delete every game from
+      // subscribers' calendars until the next good fetch.
+      if (!calendarSchedule.events.length) throw new Error('schedule unavailable');
+    }
+  }
+  return calendarSchedule.events;
+}
+
+async function serveCalendar(req, res, provider, areaParam) {
+  if (provider && !tvLookup.providers[provider]) return notFound(res);
+  const areas = provider ? tvLookup.providers[provider].service_areas.length : 0;
+  const area = /^\d+$/.test(areaParam || '') && Number(areaParam) < areas ? Number(areaParam) : 0;
+  let events;
+  try { events = await calendarEvents(); } catch {
+    res.writeHead(503, { 'Content-Type': 'text/plain; charset=utf-8', 'Retry-After': '600' });
+    return res.end('Schedule unavailable; try again shortly.');
+  }
+  const ics = buildCalendar(events, tvLookup, simulcasts, { provider, area, origin: originOf(req) });
+  res.writeHead(200, {
+    'Content-Type': 'text/calendar; charset=utf-8',
+    'Content-Disposition': `inline; filename="brewers${provider ? `-${provider}` : ''}.ics"`,
+    'Cache-Control': 'public, max-age=600',
+  });
+  return res.end(ics);
+}
+
 // --- Player stats (stats.html) ---
 
 // Each season's regular-season games, and the player tables built from them.
@@ -831,6 +869,10 @@ const server = http.createServer(async (req, res) => {
 
     const boxApi = pathname.match(/^\/api\/boxscore\/(.+)$/);
     if (boxApi) return await serveBoxscoreApi(req, res, boxApi[1]);
+
+    if (pathname === '/calendar.ics') return await serveCalendar(req, res, null, null);
+    const calendarFor = pathname.match(/^\/calendar\/([a-z_]+)\.ics$/);
+    if (calendarFor) return await serveCalendar(req, res, calendarFor[1], url.searchParams.get('area'));
 
     if (pathname === '/api/stats/leaders') return await serveLeadersApi(res);
     const playerApi = pathname.match(/^\/api\/player\/([^/]+)$/);

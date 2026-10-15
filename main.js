@@ -4,6 +4,7 @@
         import { liveSituation, isBetweenInnings, situationHtml } from './situation-core.js';
         import { espnPostseasonGames, postseasonPanelHtml, standingsRows, raceNumbers, racePanelHtml, RACE_WINDOW_GAMES } from './playoff-core.js';
         import { intentUrls, copyText, flashCopied, wireShareDropdown } from './share-core.js';
+        import { parseTvLookup, resolveChannel, tvStatus, primaryBroadcast, providerChannel, formatChannelNum, channelNumberFor, parseSimulcasts, broadcastsWithSimulcasts, dayCT, EMPTY_LOOKUP } from './tv-core.js';
 
         function buildSeasonMap(games) {
         	const map = {};
@@ -30,6 +31,7 @@
         		this.channelMeta = {};
         		this.providerMeta = {};
         		this.providerAliasIndex = new Map();
+        		this.tvLookup = EMPTY_LOOKUP;
         		this.selectedProvider = localStorage.getItem('tvProvider') || null;
         		this.lineScores = null;
         		this.init();
@@ -39,68 +41,26 @@
         	// data/simulcasts.csv.
         	simulcastChannelsFor(game) {
         		if (!this.simulcastsByDate?.size || !game?.date) return [];
-        		const day = new Date(game.date).toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
-        		return this.simulcastsByDate.get(day) || [];
+        		return this.simulcastsByDate.get(dayCT(game.date)) || [];
         	}
 
         	// A game's broadcasts plus synthetic TV entries for any local
         	// simulcast stations that day. Use this instead of reading the ESPN
-        	// broadcasts array directly.
+        	// broadcasts array directly. The TV logic itself is tv-core.js,
+        	// shared with the server's link previews and the calendar feed.
         	broadcastsFor(game) {
-        		const real = game?.competitions?.[0]?.broadcasts || [];
-        		const extra = this.simulcastChannelsFor(game).map(name => ({
-        			media: { shortName: name },
-        			type: { shortName: 'TV' },
-        			market: { type: 'Home' },
-        			_simulcast: true,
-        		}));
-        		return extra.length ? [...real, ...extra] : real;
+        		return broadcastsWithSimulcasts(game, this.simulcastsByDate);
         	}
 
         	getTvStatus(game) {
         		if (!game) return 'no';
-        		const broadcasts = this.broadcastsFor(game);
-        		if (broadcasts.length === 0) return 'no';
-        		// Use our channel_lookup/broadcast_channels metadata to classify each
-        		// broadcast: a channel typed broadcast/cable/regional counts as "on TV"
-        		// even when ESPN labels it "Streaming" (e.g. Brewers.TV is carried on
-        		// DirecTV, Spectrum, Xfinity, etc.). Only fall back to ESPN's type when
-        		// the network isn't in our metadata at all.
-        		const tvTypes = new Set(['broadcast', 'cable', 'regional']);
-        		let hasTV = false;
-        		let hasStreaming = false;
-        		for (const b of broadcasts) {
-        			if (!b.media?.shortName) continue;
-        			const ch = this.resolveChannel(b.media.shortName);
-        			if (ch) {
-        				if (tvTypes.has(ch.type)) { hasTV = true; continue; }
-        				if (ch.type === 'streaming') { hasStreaming = true; continue; }
-        			}
-        			// Unknown to our metadata — trust ESPN's type label.
-        			const t = b.type?.shortName || '';
-        			if (t === 'TV') hasTV = true;
-        			else if (t === 'Streaming') hasStreaming = true;
-        		}
-        		if (hasTV) return 'yes';
-        		if (hasStreaming) return 'streaming';
-        		return 'no';
+        		return tvStatus(this.tvLookup, this.broadcastsFor(game));
         	}
 
-        	// Choose the broadcast to show next to the game date in the schedule
-        	// listing. Prefer TV-type channels (broadcast > cable > regional) over
-        	// streaming/radio, since ESPN often lists MLB.TV first even when a
-        	// linear TV channel is available. Uses the same channel metadata
-        	// classification as getTvStatus.
+        	// The broadcast to show next to the game date: linear TV over
+        	// streaming over radio (tv-core's primaryBroadcast).
         	_primaryOf(broadcasts) {
-        		if (!broadcasts.length) return null;
-        		const rank = (b) => {
-        			const name = b.media?.shortName;
-        			if (!name) return 99;
-        			const ch = this.resolveChannel(name);
-        			const type = ch?.type || (b.type?.shortName === 'Streaming' ? 'streaming' : b.type?.shortName === 'Radio' ? 'radio' : 'cable');
-        			return { broadcast: 0, regional: 1, cable: 2, streaming: 3, radio: 4 }[type] ?? 5;
-        		};
-        		return broadcasts.slice().sort((a, b) => rank(a) - rank(b))[0] || null;
+        		return primaryBroadcast(this.tvLookup, broadcasts);
         	}
 
         	pickPrimaryBroadcast(game) {
@@ -134,11 +94,12 @@
         				});
         			});
 
-        			const [gamesRes, namesRes, photosRes, channelsRes, channelLookupRes, providerLookupRes, teamstatsRes, playersRes, simulcastsRes, curGamesRes] = await Promise.all([
+        			// broadcast_channels.csv was deleted long ago and its fetch 404'd on
+        			// every page load; channel_lookup.csv is the channel table now.
+        			const [gamesRes, namesRes, photosRes, channelLookupRes, providerLookupRes, teamstatsRes, playersRes, simulcastsRes, curGamesRes] = await Promise.all([
         				fetch('./data/gameinfo.csv'),
         				fetch('./data/CurrentNames.csv'),
         				fetch('./data/photos.csv').catch(() => null),
-        				fetch('./data/broadcast_channels.csv'),
         				fetch('./data/channel_lookup.csv'),
         				fetch('./data/provider_lookup.csv'),
         				fetch('./data/teamstats.csv'),
@@ -148,23 +109,7 @@
         			]);
         			// Local over-the-air simulcast games (hand-maintained; these never
         			// appear in the ESPN/MLB broadcast feeds, only in press releases).
-        			this.simulcastsByDate = new Map();
-        			if (simulcastsRes?.ok) {
-        				for (const row of parseGamesCsv(await simulcastsRes.text())) {
-        					const chans = (row.channels || '').split('|').map(s => s.trim()).filter(Boolean);
-        					if (row.date?.trim() && chans.length) this.simulcastsByDate.set(row.date.trim(), chans);
-        				}
-        			}
-        			if (channelsRes.ok) {
-        				const raw = await channelsRes.text();
-        				parseGamesCsv(raw).forEach(ch => {
-        					this.channelMeta[ch.key] = {
-        						...ch,
-        						providers: ch.providers ? ch.providers.split('|') : [],
-        						sort_order: parseInt(ch.sort_order) || 99,
-        					};
-        				});
-        			}
+        			this.simulcastsByDate = simulcastsRes?.ok ? parseSimulcasts(await simulcastsRes.text()) : new Map();
         			if (channelLookupRes.ok && providerLookupRes.ok) {
         				this._loadTvLookup(await channelLookupRes.text(), await providerLookupRes.text());
         			}
@@ -1701,102 +1646,17 @@ if (currentIsUndefeated && this.currentSeason === this.latestSeason) {
 }
 
 resolveChannel(networkName) {
-  if (!networkName) return null;
-  const key = networkName.trim();
-  // exact match first
-  if (this.channelMeta[key]) return this.channelMeta[key];
-  // case-insensitive
-  const lower = key.toLowerCase();
-  for (const [k, ch] of Object.entries(this.channelMeta)) {
-    if (k.toLowerCase() === lower) return ch;
-  }
-  return null;
+  return resolveChannel(this.tvLookup, networkName);
 }
 
+// The channel and provider tables, parsed by tv-core.js. channelMeta and
+// providerMeta stay as views onto them because the provider picker, the
+// watch modal and the schedule read them directly.
 _loadTvLookup(channelLookupRaw, providerLookupRaw) {
-  const channels = parseGamesCsv(channelLookupRaw);
-  const providers = parseGamesCsv(providerLookupRaw);
-
-  // provider key -> metadata + channel map (key -> channel number string)
-  this.providerMeta = {};
-  this.providerAliasIndex = new Map();
-  for (const p of providers) {
-    const key = p.provider;
-    this.providerMeta[key] = {
-      key,
-      display_name: p.display_name,
-      alternate_name: p.alternate_name || '',
-      website_url: p.website_url || '',
-      channel_lineup: p.channel_lineup || '',
-      service_areas: (p.service_areas || '')
-        .split('|').map(s => s.trim()).filter(Boolean),
-      logo_url: (p.logo_url || '').trim(),
-      logo_bg: (p.logo_bg || '').trim(),
-      // ?? p.sponsor: the column's old name — browser-cached CSVs can serve
-      // it for up to an hour after deploy.
-      displayLogo: /^(yes|true|1)$/i.test(((p.display_logo ?? p.sponsor) || '').trim()),
-      channels: {},
-    };
-    // index display name + each comma-separated alternate name
-    const names = [p.display_name, ...(p.alternate_name || '').split(',').map(s => s.trim()).filter(Boolean)];
-    for (const n of names) {
-      this.providerAliasIndex.set(n.toLowerCase(), key);
-    }
-  }
-
-  // channel_lookup carries the canonical website_url + description; override
-  // the broadcast_channels entries, which can drift to dead pages.
-  // When broadcast_channels.csv is unavailable (404), channelMeta is empty —
-  // seed it from channel_lookup so resolveChannel still classifies channels
-  // by type (e.g. Brewers.TV as 'regional', not ESPN's 'Streaming' label).
-  for (const ch of channels) {
-    const key = ch.key;
-    if (!key || this.channelMeta[key]) continue;
-    this.channelMeta[key] = {
-      key,
-      display_name: ch.display_name || key,
-      type: ch.type || 'cable',
-      providers: [],
-      description: (ch.description || '').trim() || null,
-      website_url: (ch.website_url || '').trim() || null,
-      sort_order: 99,
-    };
-    if (ch.alias && !this.channelMeta[ch.alias]) {
-      this.channelMeta[ch.alias] = this.channelMeta[key];
-    }
-  }
-  const urlByKey = {};
-  const urlByDisplay = {};
-  for (const ch of channels) {
-    const url = (ch.website_url || '').trim();
-    const desc = (ch.description || '').trim();
-    if (!url && !desc) continue;
-    const entry = { website_url: url || null, description: desc || null };
-    urlByKey[ch.key] = entry;
-    if (ch.alias) urlByKey[ch.alias] = entry;
-    if (ch.display_name) urlByDisplay[ch.display_name] = entry;
-  }
-  for (const [key, meta] of Object.entries(this.channelMeta)) {
-    const hit = urlByKey[key] || urlByDisplay[meta.display_name];
-    if (!hit) continue;
-    if (hit.website_url) meta.website_url = hit.website_url;
-    if (hit.description) meta.description = hit.description;
-  }
-
-  // channel_lookup columns: key,alias,display_name,type,...<provider keys>
-  const providerKeys = Object.keys(this.providerMeta);
-  for (const ch of channels) {
-    const channelKey = ch.key;
-    const alias = ch.alias || '';
-    for (const pk of providerKeys) {
-      const v = (ch[pk] || '').trim();
-      if (v && v.toLowerCase() !== 'varies by market') {
-        // Map both the primary key and alias so both resolve to the same channel.
-        this.providerMeta[pk].channels[channelKey] = v;
-        if (alias) this.providerMeta[pk].channels[alias] = v;
-      }
-    }
-  }
+  this.tvLookup = parseTvLookup(channelLookupRaw, providerLookupRaw);
+  this.channelMeta = this.tvLookup.channels;
+  this.providerMeta = this.tvLookup.providers;
+  this.providerAliasIndex = this.tvLookup.providerAliasIndex;
 }
 
 resolveProviderByName(query) {
@@ -1816,44 +1676,12 @@ resolveProviderByName(query) {
   return null;
 }
 
-// Channel cells use two notations that need spelling out for display:
-// "A or B" — available listings disagree, the channel is one of these;
-// "A / B" — an SD / HD channel pair. Returns { text, ambiguous }.
 formatChannelNum(raw) {
-  if (!raw) return { text: raw, ambiguous: false };
-  const fmtPart = (part) => {
-    const m = part.trim().match(/^(\d+)\s*\/\s*(\d+)\s*(\(.*\))?$/);
-    if (m) return `${m[1]} (SD) / ${m[2]} (HD)${m[3] ? ` ${m[3]}` : ''}`;
-    return part.trim();
-  };
-  const orParts = raw.split(/\s+or\s+/i);
-  return { text: orParts.map(fmtPart).join(' or '), ambiguous: orParts.length > 1 };
+  return formatChannelNum(raw);
 }
 
 resolveProviderChannel(providerKey, networkName, areaIndex) {
-  if (!providerKey || !networkName) return null;
-  const p = this.providerMeta[providerKey];
-  if (!p) return null;
-  const key = networkName.trim();
-  let raw = p.channels[key];
-  if (!raw) {
-    const lower = key.toLowerCase();
-    for (const [k, v] of Object.entries(p.channels)) {
-      if (k.toLowerCase() === lower) { raw = v; break; }
-    }
-  }
-  if (!raw) return null;
-  // If the provider has service areas and the channel cell has per-area
-  // values separated by " | ", pick the one for the selected area. A cell
-  // with no separator is the general listing and is used as-is.
-  if (Array.isArray(p.service_areas) && p.service_areas.length > 1 && raw.includes('|')) {
-    const parts = raw.split('|').map(s => s.trim()).filter(Boolean);
-    if (parts.length > 1) {
-      const idx = (typeof areaIndex === 'number' && areaIndex >= 0 && areaIndex < parts.length) ? areaIndex : 0;
-      return parts[idx] || parts[0] || raw;
-    }
-  }
-  return raw;
+  return providerChannel(this.tvLookup, providerKey, networkName, areaIndex);
 }
 
 selectedServiceAreaIndex(providerKey) {
@@ -1868,19 +1696,11 @@ setServiceAreaIndex(providerKey, idx) {
 }
 
 // Channel number to show inline in the schedule for a broadcast, based on
-// the viewer's selected provider. Returns null when no provider is set, the
+// the viewer's selected provider. Null when no provider is set, the
 // broadcast isn't on linear TV, or the channel isn't in the provider's lineup.
 scheduleChannelNumber(broadcast) {
-  if (!broadcast?.media?.shortName) return null;
-  if (!this.selectedProvider || !this.providerMeta[this.selectedProvider]) return null;
-  const ch = this.resolveChannel(broadcast.media.shortName);
-  // Only show channel numbers for linear TV (broadcast/cable/regional) —
-  // never streaming or radio.
-  const type = ch?.type;
-  if (type !== 'broadcast' && type !== 'cable' && type !== 'regional') return null;
-  const name = ch?.key || broadcast.media.shortName;
-  const raw = this.resolveProviderChannel(this.selectedProvider, name, this.selectedServiceAreaIndex(this.selectedProvider));
-  return raw ? this.formatChannelNum(raw).text : raw;
+  if (!this.selectedProvider) return null;
+  return channelNumberFor(this.tvLookup, this.selectedProvider, broadcast, this.selectedServiceAreaIndex(this.selectedProvider));
 }
 
 _rerenderSchedule() {
@@ -2286,6 +2106,55 @@ renderScheduleProviderBar() {
   }
 
   bar.appendChild(display);
+  bar.appendChild(this.calendarRowEl());
+}
+
+// The season as a calendar subscription, with this provider's channel
+// numbers in each game's title. webcal:// opens the subscribe dialog in
+// Apple Calendar and Outlook; Google Calendar takes the same feed through
+// its cid parameter; the copy button is for everything else.
+calendarRowEl() {
+  const provider = this.selectedProvider && this.providerMeta[this.selectedProvider] ? this.selectedProvider : null;
+  const area = provider && this.providerMeta[provider].service_areas.length > 1 ? this.selectedServiceAreaIndex(provider) : 0;
+  const path = provider ? `/calendar/${encodeURIComponent(provider)}.ics${area ? `?area=${area}` : ''}` : '/calendar.ics';
+  const https = `${window.location.origin}${path}`;
+  const webcal = https.replace(/^https?:/, 'webcal:');
+
+  const row = document.createElement('div');
+  row.className = 'schedule-calendar';
+  const label = document.createElement('span');
+  label.className = 'schedule-provider-label';
+  label.innerHTML = '<i class="mdi mdi-calendar-sync"></i> Calendar';
+  row.appendChild(label);
+
+  const link = (text, href, title) => {
+    const a = document.createElement('a');
+    a.className = 'schedule-calendar-link';
+    a.href = href;
+    a.textContent = text;
+    a.title = title;
+    if (href.startsWith('https://calendar.google')) { a.target = '_blank'; a.rel = 'noopener noreferrer'; }
+    return a;
+  };
+  row.appendChild(link('Subscribe', webcal, 'Apple Calendar, Outlook and most calendar apps'));
+  row.appendChild(link('Google', `https://calendar.google.com/calendar/render?cid=${encodeURIComponent(webcal)}`, 'Add to Google Calendar'));
+  const copy = document.createElement('button');
+  copy.type = 'button';
+  copy.className = 'schedule-calendar-link';
+  copy.innerHTML = '<i class="mdi mdi-link-variant"></i> Copy link';
+  copy.addEventListener('click', async () => {
+    await copyText(https);
+    flashCopied(copy, '<i class="mdi mdi-check"></i> Copied');
+  });
+  row.appendChild(copy);
+
+  const note = document.createElement('span');
+  note.className = 'schedule-calendar-note';
+  note.textContent = provider
+    ? `Every game, with ${this.providerMeta[provider].display_name} channel numbers. Updates itself.`
+    : 'Every game and its channel. Choose a provider to add channel numbers.';
+  row.appendChild(note);
+  return row;
 }
 
 initProviderModal() {
