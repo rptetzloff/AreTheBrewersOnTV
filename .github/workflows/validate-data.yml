@@ -20,6 +20,11 @@ on:
   # Allow manual runs from the Actions tab at any time
   workflow_dispatch:
 
+# Read-only token for both jobs: they check out (with LFS) and run node,
+# nothing more (CodeQL #2, #3).
+permissions:
+  contents: read
+
 jobs:
   validate:
     runs-on: ubuntu-latest

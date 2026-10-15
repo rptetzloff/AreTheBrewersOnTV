@@ -9,6 +9,10 @@ on:
     branches: ['**']
   pull_request:
 
+# Read-only token: the suite checks out and runs, nothing more (CodeQL #1).
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest

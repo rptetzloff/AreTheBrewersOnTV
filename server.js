@@ -16,6 +16,7 @@ import { records, recordsMeta, isRecordSlug, seasonHistory, historyMeta, registe
 import { coaches, coachesMeta } from './lib/coaches.js';
 import { h2h, h2hMeta, isOpponentSlug } from './lib/h2h.js';
 import { getCurrentSeasonCsvs } from './lib/espn-current.js';
+import { espnTarget } from './lib/espn-target.js';
 import { esc, parseCurrentNamesCsv, parseBallparksCsv, parseTeamstatsLineScores, BREWERS_IDS } from './records-core.js';
 import { buildGameIndex, buildPitchingIndex, buildBattingIndex, buildFieldingIndex, buildPlayerNameMap, buildBoxscore, createScoringPlaysCollector, computeBattingFeats, computeFieldingFeats, POS_NAMES } from './boxscore-core.js';
 
@@ -401,7 +402,7 @@ function finishIndices(indices) {
 }
 
 // Cache in front of ESPN's public API. Serves stale data if ESPN is briefly
-// unreachable; only site.api.espn.com API paths are proxied. TTL is chosen
+// unreachable; only the endpoints listed in lib/espn-target.js are proxied. TTL is chosen
 // per response: data that can no longer change (completed-game summaries,
 // schedules whose games are all final) is held for a day; a mid-season
 // schedule with no game underway refreshes hourly, since season-to-date
@@ -441,8 +442,9 @@ function espnTtlFor(target, status, body) {
 }
 
 async function serveEspnProxy(res, path, search) {
-  if (!path.startsWith('apis/') || !/^[\w/.\-]+$/.test(path)) return notFound(res);
-  const target = `https://site.api.espn.com/${path}${search || ''}`;
+  // Only the endpoints and numeric parameters the site uses; see espn-target.js.
+  const target = espnTarget(path, search);
+  if (!target) return notFound(res);
   const sendJson = (status, body, cacheState, ttl) => {
     const maxAge = cacheState === 'stale' || ttl === ESPN_PROXY_TTL ? 15
       : ttl === ESPN_PROXY_IDLE_TTL ? 300 : 3600;
