@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { seasonBatting, seasonPitching, seasonFielding, seasonFieldingTotals, regularGidsBySeason, careerLines, leaderboard, buildLeaders, BATTING_BOARDS, PITCHING_BOARDS, playerSeasons, parseBios, bornOn, PLAYER_ID } from '../stats-core.js'
+import { seasonBatting, seasonPitching, seasonFielding, seasonFieldingTotals, regularGidsBySeason, careerLines, leaderboard, buildLeaders, BATTING_BOARDS, PITCHING_BOARDS, playerSeasons, playerGameLog, parseBios, bornOn, PLAYER_ID } from '../stats-core.js'
 import { game } from './helpers/rows.js'
 
 const MIL = new Set(['MIL'])
@@ -220,4 +220,47 @@ test('bios come out of biofile for the ids asked for only, with dates as dates',
 	assert.equal(bios.get('higut001').birthplace, 'Los Mochis, Sinaloa, Mexico')
 	// A quoted comma does not shift the columns after it.
 	assert.equal(parseBios(csv, new Set(['ruthb101'])).get('ruthb101').died, '1948-08-16')
+})
+
+// A game log: three games listed out of date order, one of them the first
+// game of a doubleheader at Baltimore.
+const logGames = new Map([
+	['MIL198206010', { ...game({ date: '1982-06-01', result: 'WIN', pf: 5, pa: 3, location: 'home', opponent: 'Boston Red Sox' }), gid: 'MIL198206010', OpponentNick: 'Red Sox' }],
+	['BAL198205301', { ...game({ date: '1982-05-30', result: 'LOSS', pf: 1, pa: 2, location: 'away', opponent: 'Baltimore Orioles' }), gid: 'BAL198205301', OpponentNick: 'Orioles' }],
+	['MIL198206020', { ...game({ date: '1982-06-02', result: 'WIN', pf: 4, pa: 0, location: 'home' }), gid: 'MIL198206020' }],
+])
+const logIdx = {
+	batting: new Map([
+		['BAL198205301', [bat('yount', 'MIL', { pa: 4, ab: 4, h: 2 }), bat('other', 'BAL', { pa: 4, ab: 4, h: 4 })]],
+		['MIL198206010', [bat('yount', 'MIL', { pa: 5, ab: 4, h: 1, hr: 1, bb: 1 })]],
+		['MIL198206020', [bat('yount', 'MIL', { pa: 1, ab: 1, isPh: true }), bat('vuck', 'MIL', { pa: 0 })]],
+	]),
+	pitching: new Map([
+		['MIL198206010', [pit('vuck', 'MIL', { ipouts: 27, er: 3, gs: true, isWp: true })]],
+		['MIL198206020', [pit('vuck', 'MIL', { ipouts: 3, er: 1, isSave: true })]],
+	]),
+	fielding: new Map([
+		['BAL198205301', [{ id: 'yount', team: 'MIL', seq: 1, pos: 6 }]],
+		['MIL198206010', [{ id: 'yount', team: 'MIL', seq: 1, pos: 6 }, { id: 'yount', team: 'MIL', seq: 2, pos: 8 }]],
+	]),
+}
+const logGids = [...logGames.keys()]
+
+test('a game log is in date order, with the season-to-date average after each game', () => {
+	const log = playerGameLog(logIdx, logGids, logGames, 'yount', MIL)
+	assert.deepEqual(log.batting.map((r) => [r.date, r.doubleheader, r.home, r.nick, r.result, r.pos]),
+		[['1982-05-30', 1, false, 'Orioles', 'L', 'SS'], ['1982-06-01', 0, true, 'Red Sox', 'W', 'SS-CF'], ['1982-06-02', 0, true, 'Chicago Cubs', 'W', 'PH']])
+	assert.deepEqual(log.batting.map((r) => r.avg), [2 / 4, 3 / 8, 3 / 9])
+	assert.equal(log.pitching.length, 0)
+})
+
+test("a pitcher's log has his decisions, starts and running ERA; no plate appearance, no batting row", () => {
+	const log = playerGameLog(logIdx, logGids, logGames, 'vuck', MIL)
+	assert.equal(log.batting.length, 0)
+	assert.deepEqual(log.pitching.map((r) => [r.gs, r.dec, r.line.ip]), [[true, 'W', '9.0'], [false, 'S', '1.0']])
+	assert.deepEqual(log.pitching.map((r) => r.era), [3, 27 * 4 / 30])
+})
+
+test('a player with no games that season has no log', () => {
+	assert.equal(playerGameLog(logIdx, logGids, logGames, 'nobody', MIL), null)
 })

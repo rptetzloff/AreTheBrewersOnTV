@@ -284,6 +284,66 @@ export function playerSeasons(seasons, id) {
 	};
 }
 
+/** One player's season, game by game: a batting row for each game he came
+ *  to the plate and a pitching row for each game he pitched, in date order.
+ *  `idx` holds the box score indices (batting, pitching, fielding: gid ->
+ *  lines for both teams), `gids` the season's regular-season games and
+ *  `games` gid -> the parsed game row. Each row carries the season-to-date
+ *  rates after that game (AVG/OBP/SLG, ERA), computed from the running
+ *  totals, as a game log on a baseball card reads. Returns null when he
+ *  did neither that season. */
+export function playerGameLog(idx, gids, games, id, teamIds) {
+	const mine = (index, gid) => (index.get(gid) || []).find((l) => l.id === id && teamIds.has(l.team));
+	const ordered = gids
+		.map((gid) => ({ gid, g: games.get(gid) }))
+		.filter((x) => x.g)
+		.sort((a, b) => (a.g.date < b.g.date ? -1 : a.g.date > b.g.date ? 1 : a.gid < b.gid ? -1 : 1));
+
+	const batting = [];
+	const pitching = [];
+	const bat = {};
+	const pit = {};
+	for (const { gid, g } of ordered) {
+		// gid's last digit: 0 a single game, 1 and 2 the games of a doubleheader.
+		const game = {
+			gid, date: g.date, opponent: g.Opponent, nick: g.OpponentNick || g.Opponent, home: g.location === 'home',
+			result: g.result === 'WIN' ? 'W' : g.result === 'LOSS' ? 'L' : g.result === 'TIE' ? 'T' : '',
+			pf: parseInt(g.scoreFor, 10) || 0, pa: parseInt(g.scoreAgainst, 10) || 0,
+			doubleheader: Number(gid.slice(-1)) || 0,
+		};
+		const b = mine(idx.batting, gid);
+		if (b && b.pa > 0) {
+			for (const k of BAT_COUNTS) if (k !== 'g') bat[k] = (bat[k] || 0) + (b[k] || 0);
+			const toDate = battingLine(id, '', bat);
+			// Positions in the order he played them; a pinch-hitter or runner
+			// with no position is PH or PR, as a box score writes it.
+			const pos = (idx.fielding.get(gid) || [])
+				.filter((l) => l.id === id && teamIds.has(l.team))
+				.sort((x, y) => x.seq - y.seq)
+				.map((l) => POS_NAMES[l.pos] || String(l.pos));
+			if (b.isDh && !pos.includes('DH')) pos.unshift('DH');
+			const position = [...new Set(pos)].join('-') || (b.isPh ? 'PH' : b.isPr ? 'PR' : '');
+			batting.push({
+				...game, pos: position,
+				line: { pa: b.pa, ab: b.ab, r: b.r, h: b.h, d: b.d, t: b.t, hr: b.hr, rbi: b.rbi, bb: b.bb, k: b.k, sb: b.sb, cs: b.cs, hbp: b.hbp, sf: b.sf },
+				avg: toDate.avg, obp: toDate.obp, slg: toDate.slg,
+			});
+		}
+		const p = mine(idx.pitching, gid);
+		if (p) {
+			for (const k of ['ipouts', 'bf', 'h', 'r', 'er', 'hr', 'bb', 'k']) pit[k] = (pit[k] || 0) + (p[k] || 0);
+			const toDate = pitchingLine(id, '', pit);
+			pitching.push({
+				...game, gs: p.gs,
+				dec: p.isWp ? 'W' : p.isLp ? 'L' : p.isSave ? 'S' : '',
+				line: { ipouts: p.ipouts, ip: `${Math.floor(p.ipouts / 3)}.${p.ipouts % 3}`, h: p.h, r: p.r, er: p.er, bb: p.bb, k: p.k, hr: p.hr, bf: p.bf },
+				era: toDate.era,
+			});
+		}
+	}
+	return batting.length || pitching.length ? { batting, pitching } : null;
+}
+
 const ymd = (s) => (s && /^\d{8}$/.test(s) ? `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}` : null);
 
 /** Brewers born on a month and day ("09-16"), for the On This Day panel:

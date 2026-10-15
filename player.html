@@ -23,8 +23,19 @@
         <div id="player-tables">
             <div class="loading">Loading player...</div>
         </div>
+        <section id="player-log" class="player-section" hidden>
+            <h2 class="player-section-title">Game Log</h2>
+            <div class="stats-season-nav">
+                <select id="log-season" class="stats-season-select" aria-label="Game log season"></select>
+            </div>
+            <div id="log-tabs" class="standings-tabs stats-tabs" role="tablist" hidden>
+                <button class="standings-tab" data-side="batting" role="tab">Batting</button>
+                <button class="standings-tab" data-side="pitching" role="tab">Pitching</button>
+            </div>
+            <div id="log-table" class="h2h-table-wrap stats-table-wrap"></div>
+        </section>
         <p class="history-legend">
-            <span class="history-legend-item">Brewers seasons only · regular season, including tiebreaker games · seasons link to that year's team stats</span>
+            <span class="history-legend-item">Brewers seasons only · regular season, including tiebreaker games · seasons link to that year's team stats, games to the game log · the game log's AVG/OBP/SLG and ERA are season to date</span>
         </p>
     </div>
 

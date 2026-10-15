@@ -2411,11 +2411,46 @@ details:not([open]) > .collapsible-summary::before {
     white-space: normal;
 }
 
+/* Player game log: the result in the schedule's win and loss colors. */
+.log-result-W { color: #4caf50; }
+.log-result-L { color: #f44336; }
+
+.log-table td {
+    white-space: nowrap;
+}
+
+/* Wide screens get Opp and Result (App and Dec) as columns; a phone gets
+   each pair stacked in one cell. */
+.log-table .log-narrow {
+    display: none;
+}
+
+@media (max-width: 600px) {
+    .log-table .log-wide {
+        display: none;
+    }
+
+    .log-table .log-narrow {
+        display: table-cell;
+        line-height: 1.25;
+    }
+
+    .log-table .log-narrow .log-result {
+        font-size: 0.8rem;
+    }
+}
+
+#player-log .stats-season-nav {
+    justify-content: flex-start;
+}
+
 /* Two classes: the shared phone rule for .h2h-table cells comes later in
    the file and would win a tie. */
 @media (max-width: 600px) {
     .stats-table.splits-table th,
-    .stats-table.splits-table td {
+    .stats-table.splits-table td,
+    .stats-table.log-table th,
+    .stats-table.log-table td {
         padding-left: 0.3rem;
         padding-right: 0.3rem;
     }
