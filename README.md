@@ -12,7 +12,15 @@ Built with [Claude Code](https://claude.ai/code). Served by a small Node web ser
 
 For the current season, the app pulls the schedule and today's game from the public ESPN MLB API. Each listed broadcast is classified using the channel metadata in `data/channel_lookup.csv` and `data/provider_lookup.csv`: a channel of type broadcast, cable, or regional counts as "on TV" even when ESPN labels it "Streaming" (e.g. Brewers.TV, which is carried on DirecTV, Spectrum, Xfinity, and others). Only when a channel has no metadata does the app fall back to ESPN's own type. When a game is in progress, the app polls ESPN every 30 seconds and shows the live score.
 
+That classification, the provider channel numbers and the local simulcasts (`data/simulcasts.csv`) live in `tv-core.js`, one module used by the page, the server's link previews and the calendar feed below.
+
 Channel information is based on publicly available channel listings — the site reminds visitors to check their local channel guide for the most accurate broadcast information.
+
+## Calendar Feed
+
+The season is a subscribable calendar: one event per game, titled with the channel — `Brewers @ Dodgers · FS1`. With a provider it adds that provider's channel number, picking the right one for a provider with several service areas: `/calendar/<provider>.ics`, with `?area=<n>` for the service area (`/calendar/amherst.ics?area=1`). Without one, `/calendar.ics`. Finished games turn into results (`W 7–4 @ Dodgers`), postponements are marked cancelled, and a game with no announced start is an all-day event. Spring training is left out.
+
+The schedule bar under the season shows the links for the chosen provider: Subscribe (`webcal://`, for Apple Calendar and Outlook), Google, and Copy link. Calendar apps poll the feed — it asks for every three hours — so channels ESPN adds late, final scores and postponements arrive on their own. The server fetches the schedule at most every ten minutes, and keeps serving the last good copy if ESPN is down rather than an empty calendar. Built by `lib/calendar.js`.
 
 ## Linking to a Specific Season
 
