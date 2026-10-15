@@ -2386,6 +2386,41 @@ details:not([open]) > .collapsible-summary::before {
     margin-bottom: 0.75rem;
 }
 
+/* Team splits: a heading row per group (Where, When, Month...), and the
+   season's overall line in bold above them. */
+/* Seven columns: at the stats page's 1200px they spread too thin to read
+   across, so the table keeps to a readable width. */
+.splits-table {
+    max-width: 720px;
+    margin: 0 auto;
+}
+
+.splits-table .splits-group th {
+    padding-top: 0.8rem;
+    font-size: 0.75rem;
+    background: #12284B;
+}
+
+.splits-table .splits-overall td {
+    font-weight: 700;
+}
+
+/* Seven columns fit a phone if a label may wrap ("Blowouts / (5+ runs)");
+   the shared stats column never wraps, for player names. */
+.splits-table td:first-child {
+    white-space: normal;
+}
+
+/* Two classes: the shared phone rule for .h2h-table cells comes later in
+   the file and would win a tie. */
+@media (max-width: 600px) {
+    .stats-table.splits-table th,
+    .stats-table.splits-table td {
+        padding-left: 0.3rem;
+        padding-right: 0.3rem;
+    }
+}
+
 /* Ballparks page: section headings between the park cards and the boards. */
 .ballparks-heading {
     color: #FFC52F;

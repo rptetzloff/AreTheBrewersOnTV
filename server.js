@@ -13,6 +13,7 @@ import { indexLoadOutcome, isLfsPointer } from './lib/indices-health.js';
 import { originOf } from './lib/origin.js';
 import { getSeasonState, defaultSeason, allGames, teamstatsRaw, fetchEspn, tvLookup, simulcasts } from './lib/seasons.js';
 import { parseGameDay, ballparkStats } from './ballparks-core.js';
+import { teamSplits, opposingStarterHands, opposingStarterIds } from './splits-core.js';
 import { buildCalendar } from './lib/calendar.js';
 import { records, recordsMeta, isRecordSlug, historyMeta, liveSeasonHistory, liveRecordsVersion, registerBattingFeats, registerPitcherEra, registerNoHitterPitchers, registerTriplePlayFielders } from './lib/records.js';
 import { coaches, coachesMeta } from './lib/coaches.js';
@@ -504,11 +505,24 @@ const gameByGid = new Map(allGames.map((r) => [r.gid, r]));
 let ballparksData = null;
 function ballparks() {
   if (!ballparksData) {
-    const gameinfo = readFileSync(join(ROOT, 'data', 'gameinfo.csv'), 'utf8');
     const parks = new Map(parseBallparksCsv(readFileSync(join(ROOT, 'data', 'ballparks.csv'), 'utf8')).map((p) => [p.id, p]));
-    ballparksData = ballparkStats(allGames, parseGameDay(gameinfo), parseTeamstatsLineScores(teamstatsRaw), parks);
+    const { gameDay, lineScores } = gameDayData();
+    ballparksData = ballparkStats(allGames, gameDay, lineScores, parks);
   }
   return ballparksData;
+}
+
+// gameinfo.csv's game-day columns and the line scores, parsed once for the
+// Ballparks page and the stats page's team splits.
+let gameDayCache = null;
+function gameDayData() {
+  if (!gameDayCache) {
+    gameDayCache = {
+      gameDay: parseGameDay(readFileSync(join(ROOT, 'data', 'gameinfo.csv'), 'utf8')),
+      lineScores: parseTeamstatsLineScores(teamstatsRaw),
+    };
+  }
+  return gameDayCache;
 }
 
 // --- Calendar feed ---
@@ -566,9 +580,23 @@ async function seasonStats(season) {
       pitching: seasonPitching(idx.pitching, gids, idx.playerNames, BREWERS_IDS),
       fielding: seasonFielding(idx.fielding, gids, idx.playerNames, BREWERS_IDS),
       fieldingTotals: seasonFieldingTotals(idx.fielding, gids, idx.playerNames, BREWERS_IDS),
+      splits: teamSplits(gids.map((gid) => gameByGid.get(gid)), { ...gameDayData(), starterHand: starterHands(idx) }),
     });
   }
   return statsCache.get(season);
+}
+
+// gid -> the opposing starter's throwing hand, for every stats season at once:
+// one pass over biofile0.csv for the few thousand starters the Brewers faced.
+let starterHandCache = null;
+function starterHands(idx) {
+  if (!starterHandCache) {
+    const gids = [...statsGidsBySeason.values()].flat();
+    const ids = opposingStarterIds(gids, idx.pitching, BREWERS_IDS);
+    const throws = parseBios(readFileSync(join(ROOT, 'data', 'biofile0.csv'), 'utf8'), ids);
+    starterHandCache = opposingStarterHands(gids, idx.pitching, BREWERS_IDS, throws);
+  }
+  return starterHandCache;
 }
 
 // Career and single-season leaderboards: every season's tables, built once.
@@ -691,7 +719,7 @@ function serveStatsHtml(req, res, yr) {
   const origin = originOf(req);
   sendPage(res, STATS_VERSIONED, {
     title: `${yr} Milwaukee Brewers Stats`,
-    desc: `Batting, pitching and fielding for every ${yr} Milwaukee Brewer: regular season, sortable.`,
+    desc: `Batting, pitching and fielding for every ${yr} Milwaukee Brewer, and the team's splits: home and away, day and night, by month, one-run games and more.`,
     img: `${origin}/og/${yr}.png`,
     canonical: `${origin}/stats/${yr}`,
   });
