@@ -29,27 +29,46 @@ function sumByPlayer(index, gids, teamIds, add) {
 
 const inc = (p, key, n) => { p[key] = (p[key] || 0) + n; };
 
-/** Batting lines for a season, one per player.
- *  OBP is (H+BB+HBP)/(AB+BB+HBP+SF) and SLG total bases over AB, as MLB
- *  defines them. */
+// The counting stats each line carries. Everything else on a line is derived
+// from these, so a career is these summed and the rates computed again —
+// never an average of season rates.
+const BAT_COUNTS = ['g', 'pa', 'ab', 'r', 'h', 'd', 't', 'hr', 'rbi', 'bb', 'k', 'sb', 'cs', 'hbp', 'sf', 'sh', 'gdp'];
+const PIT_COUNTS = ['g', 'gs', 'gf', 'w', 'l', 'sv', 'ipouts', 'bf', 'h', 'r', 'er', 'hr', 'bb', 'k', 'hbp', 'wp', 'bk'];
+
+/** A batting line from counting totals: OBP is (H+BB+HBP)/(AB+BB+HBP+SF)
+ *  and SLG total bases over AB, as MLB defines them. */
+function battingLine(id, name, c) {
+	const tb = c.h + c.d + 2 * c.t + 3 * c.hr;
+	const obp = ratio(c.h + c.bb + c.hbp, c.ab + c.bb + c.hbp + c.sf);
+	const slg = ratio(tb, c.ab);
+	const line = { id, name };
+	for (const k of BAT_COUNTS) line[k] = c[k] || 0;
+	return { ...line, tb, avg: ratio(c.h, c.ab), obp, slg, ops: obp === null || slg === null ? null : obp + slg };
+}
+
+/** A pitching line from counting totals. */
+function pitchingLine(id, name, c) {
+	const line = { id, name };
+	for (const k of PIT_COUNTS) line[k] = c[k] || 0;
+	return {
+		...line,
+		ip: `${Math.floor(line.ipouts / 3)}.${line.ipouts % 3}`,
+		era: ratio(27 * line.er, line.ipouts),
+		whip: ratio(3 * (line.bb + line.h), line.ipouts),
+		k9: ratio(27 * line.k, line.ipouts),
+	};
+}
+
+/** Batting lines for a season, one per player. */
 export function seasonBatting(batting, gids, playerNames, teamIds) {
 	const players = sumByPlayer(batting, gids, teamIds, (p, b) => {
-		for (const k of ['pa', 'ab', 'r', 'h', 'd', 't', 'hr', 'rbi', 'bb', 'k', 'sb', 'cs', 'hbp', 'sf', 'sh', 'gdp']) inc(p, k, b[k]);
+		for (const k of BAT_COUNTS) if (k !== 'g') inc(p, k, b[k]);
 	});
 	// Only players who came to the plate. Retrosheet gives every pitcher a
 	// batting line, so a DH-era season listed its whole staff at 0 PA beneath
 	// the hitters.
-	return [...players.values()].filter((p) => p.pa > 0).map((p) => {
-		const tb = p.h + p.d + 2 * p.t + 3 * p.hr;
-		const obp = ratio(p.h + p.bb + p.hbp, p.ab + p.bb + p.hbp + p.sf);
-		const slg = ratio(tb, p.ab);
-		return {
-			id: p.id, name: playerNames.get(p.id) || p.id, g: p.games.size,
-			pa: p.pa, ab: p.ab, r: p.r, h: p.h, d: p.d, t: p.t, hr: p.hr, rbi: p.rbi,
-			bb: p.bb, k: p.k, sb: p.sb, cs: p.cs, hbp: p.hbp, sf: p.sf, sh: p.sh, gdp: p.gdp, tb,
-			avg: ratio(p.h, p.ab), obp, slg, ops: obp === null || slg === null ? null : obp + slg,
-		};
-	});
+	return [...players.values()].filter((p) => p.pa > 0)
+		.map((p) => battingLine(p.id, playerNames.get(p.id) || p.id, { ...p, g: p.games.size }));
 }
 
 /** Pitching lines for a season, one per pitcher. Wins, losses and saves come
@@ -63,15 +82,94 @@ export function seasonPitching(pitching, gids, playerNames, teamIds) {
 		inc(p, 'l', x.isLp ? 1 : 0);
 		inc(p, 'sv', x.isSave ? 1 : 0);
 	});
-	return [...players.values()].map((p) => ({
-		id: p.id, name: playerNames.get(p.id) || p.id, g: p.games.size,
-		gs: p.gs, gf: p.gf, w: p.w, l: p.l, sv: p.sv,
-		ipouts: p.ipouts, ip: `${Math.floor(p.ipouts / 3)}.${p.ipouts % 3}`,
-		bf: p.bf, h: p.h, r: p.r, er: p.er, hr: p.hr, bb: p.bb, k: p.k, hbp: p.hbp, wp: p.wp, bk: p.bk,
-		era: ratio(27 * p.er, p.ipouts),
-		whip: ratio(3 * (p.bb + p.h), p.ipouts),
-		k9: ratio(27 * p.k, p.ipouts),
-	}));
+	return [...players.values()]
+		.map((p) => pitchingLine(p.id, playerNames.get(p.id) || p.id, { ...p, g: p.games.size }));
+}
+
+/** Brewers careers: each player's season lines summed, rates recomputed.
+ *  `seasons` is [{ season, batting, pitching }]. Each career carries its
+ *  first and last Brewers season. */
+export function careerLines(seasons) {
+	const sum = (kind, counts, makeLine) => {
+		const by = new Map();
+		for (const s of seasons) {
+			for (const line of s[kind]) {
+				let c = by.get(line.id);
+				if (!c) { c = { id: line.id, name: line.name, first: s.season, last: s.season, seasons: 0 }; by.set(line.id, c); }
+				for (const k of counts) inc(c, k, line[k]);
+				c.first = Math.min(c.first, s.season);
+				c.last = Math.max(c.last, s.season);
+				c.seasons += 1;
+			}
+		}
+		return [...by.values()].map((c) => ({ ...makeLine(c.id, c.name, c), first: c.first, last: c.last, seasons: c.seasons }));
+	};
+	return {
+		batting: sum('batting', BAT_COUNTS, battingLine),
+		pitching: sum('pitching', PIT_COUNTS, pitchingLine),
+	};
+}
+
+// What each leaderboard ranks. `rate` boards need a qualifier; `asc` boards
+// rank low to high (ERA, WHIP).
+export const BATTING_BOARDS = [
+	{ key: 'h', label: 'Hits' }, { key: 'hr', label: 'Home Runs' }, { key: 'rbi', label: 'RBI' },
+	{ key: 'r', label: 'Runs' }, { key: 'd', label: 'Doubles' }, { key: 't', label: 'Triples' },
+	{ key: 'sb', label: 'Stolen Bases' }, { key: 'bb', label: 'Walks' }, { key: 'g', label: 'Games' },
+	{ key: 'avg', label: 'Batting Average', rate: true }, { key: 'obp', label: 'On-Base Percentage', rate: true },
+	{ key: 'slg', label: 'Slugging Percentage', rate: true }, { key: 'ops', label: 'OPS', rate: true },
+];
+export const PITCHING_BOARDS = [
+	{ key: 'w', label: 'Wins' }, { key: 'sv', label: 'Saves' }, { key: 'k', label: 'Strikeouts' },
+	{ key: 'ipouts', label: 'Innings Pitched' }, { key: 'g', label: 'Games Pitched' }, { key: 'gs', label: 'Games Started' },
+	{ key: 'era', label: 'ERA', rate: true, asc: true }, { key: 'whip', label: 'WHIP', rate: true, asc: true },
+	{ key: 'k9', label: 'Strikeouts per 9', rate: true },
+];
+
+// Qualifiers for rate boards. A single season uses MLB's title rules, which
+// scale with the schedule (1981 and 2020 were short): 3.1 plate appearances
+// or one inning per team game. Careers have no MLB rule; these are chosen,
+// and named on the page.
+export const CAREER_MIN_PA = 2000;
+export const CAREER_MIN_IPOUTS = 3 * 500;
+
+/** The top `n` lines on one board. Ties keep the earlier season (or the
+ *  longer career) first, so the order never depends on input order. */
+export function leaderboard(lines, board, { qualifies = () => true, n = 10 } = {}) {
+	const pool = lines.filter((l) => l[board.key] !== null && l[board.key] !== undefined && (!board.rate || qualifies(l)));
+	const dir = board.asc ? 1 : -1;
+	return pool
+		.sort((a, b) => dir * (a[board.key] - b[board.key]) || (a.season ?? a.first) - (b.season ?? b.first) || a.name.localeCompare(b.name))
+		.slice(0, n);
+}
+
+/** Every career and single-season board, from all season tables.
+ *  `teamGames` maps season -> regular-season games (for the title rules). */
+export function buildLeaders(seasons, teamGames, { n = 10 } = {}) {
+	const careers = careerLines(seasons);
+	const singles = {
+		batting: seasons.flatMap((s) => s.batting.map((l) => ({ ...l, season: s.season }))),
+		pitching: seasons.flatMap((s) => s.pitching.map((l) => ({ ...l, season: s.season }))),
+	};
+	// Each entry carries what a board shows — the value, who, when, and the
+	// playing time behind a rate — not the whole line: 44 boards of full
+	// lines was a quarter of a megabyte.
+	const entry = (b) => (l) => ({
+		id: l.id, name: l.name, value: l[b.key],
+		season: l.season, first: l.first, last: l.last, pa: l.pa, ip: l.ip,
+	});
+	const boards = (lines, specs, qualifies) => specs.map((b) => ({ ...b, leaders: leaderboard(lines, b, { qualifies, n }).map(entry(b)) }));
+	return {
+		career: {
+			batting: boards(careers.batting, BATTING_BOARDS, (l) => l.pa >= CAREER_MIN_PA),
+			pitching: boards(careers.pitching, PITCHING_BOARDS, (l) => l.ipouts >= CAREER_MIN_IPOUTS),
+		},
+		single: {
+			batting: boards(singles.batting, BATTING_BOARDS, (l) => l.pa >= 3.1 * (teamGames.get(l.season) || Infinity)),
+			pitching: boards(singles.pitching, PITCHING_BOARDS, (l) => l.ipouts >= 3 * (teamGames.get(l.season) || Infinity)),
+		},
+		qualifiers: { careerPa: CAREER_MIN_PA, careerIp: CAREER_MIN_IPOUTS / 3 },
+	};
 }
 
 /** Fielding lines for a season: one per player per position, because a

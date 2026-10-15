@@ -2318,6 +2318,36 @@ details:not([open]) > .collapsible-summary::before {
     margin-bottom: 0.75rem;
 }
 
+/* By Season / Career / Single-Season: links, since each is its own URL. */
+.stats-views {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.5rem;
+    margin: 0.25rem 0 1rem;
+}
+
+.stats-view-link {
+    color: rgba(255, 255, 255, 0.7);
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 0.35rem 0.8rem;
+    border: 1px solid rgba(255, 197, 47, 0.3);
+    border-radius: 999px;
+}
+
+.stats-view-link:hover {
+    color: #fff;
+    border-color: #FFC52F;
+}
+
+.stats-view-link[aria-current="page"] {
+    color: #12284B;
+    background: #FFC52F;
+    border-color: #FFC52F;
+}
+
 .records-subtitle a {
     color: #FFC52F;
     text-decoration: none;

@@ -16,7 +16,7 @@ import { records, recordsMeta, isRecordSlug, historyMeta, liveSeasonHistory, liv
 import { coaches, coachesMeta } from './lib/coaches.js';
 import { h2h, h2hMeta, isOpponentSlug } from './lib/h2h.js';
 import { getCurrentSeasonCsvs } from './lib/espn-current.js';
-import { seasonBatting, seasonPitching, seasonFielding, regularGidsBySeason } from './stats-core.js';
+import { seasonBatting, seasonPitching, seasonFielding, regularGidsBySeason, buildLeaders } from './stats-core.js';
 import { espnTarget } from './lib/espn-target.js';
 import { esc, parseCurrentNamesCsv, parseBallparksCsv, parseTeamstatsLineScores, BREWERS_IDS } from './records-core.js';
 import { buildGameIndex, buildPitchingIndex, buildBattingIndex, buildFieldingIndex, buildPlayerNameMap, buildBoxscore, createScoringPlaysCollector, computeBattingFeats, computeFieldingFeats, POS_NAMES } from './boxscore-core.js';
@@ -514,6 +514,25 @@ async function seasonStats(season) {
   return statsCache.get(season);
 }
 
+// Career and single-season leaderboards: every season's tables, built once.
+// About 100ms over all the seasons once the indices are warm.
+let statsLeaders = null;
+async function leaders() {
+  if (!statsLeaders) {
+    const seasons = [];
+    for (const yr of STATS_SEASONS) seasons.push(await seasonStats(yr));
+    const teamGames = new Map(STATS_SEASONS.map((yr) => [yr, statsGidsBySeason.get(yr).length]));
+    statsLeaders = { ...buildLeaders(seasons, teamGames), range: { first: STATS_SEASONS[0], last: STATS_SEASONS[STATS_SEASONS.length - 1] } };
+  }
+  return statsLeaders;
+}
+
+async function serveLeadersApi(res) {
+  const body = JSON.stringify(await leaders());
+  res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=86400' });
+  return res.end(body);
+}
+
 async function serveStatsApi(res, season) {
   if (!statsGidsBySeason.has(season)) {
     res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -522,6 +541,20 @@ async function serveStatsApi(res, season) {
   const body = JSON.stringify(await seasonStats(season));
   res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=86400' });
   return res.end(body);
+}
+
+const LEADER_VIEWS = {
+  career: { title: 'Milwaukee Brewers Career Leaders', desc: 'Franchise career leaders in hits, home runs, RBI, wins, saves, strikeouts, ERA and more.' },
+  'single-season': { title: 'Milwaukee Brewers Single-Season Leaders', desc: 'The best single seasons in franchise history: home runs, batting average, wins, strikeouts, ERA and more.' },
+};
+
+function serveLeadersHtml(req, res, view) {
+  const origin = originOf(req);
+  sendPage(res, STATS_VERSIONED, {
+    ...LEADER_VIEWS[view],
+    img: `${origin}/og/records/overview.png`,
+    canonical: `${origin}/stats/${view}`,
+  });
 }
 
 function serveStatsHtml(req, res, yr) {
@@ -743,6 +776,9 @@ const server = http.createServer(async (req, res) => {
     const boxApi = pathname.match(/^\/api\/boxscore\/(.+)$/);
     if (boxApi) return await serveBoxscoreApi(req, res, boxApi[1]);
 
+    if (pathname === '/api/stats/leaders') return await serveLeadersApi(res);
+    const leaderView = pathname.match(/^\/stats\/(career|single-season)\/?$/);
+    if (leaderView) return serveLeadersHtml(req, res, leaderView[1]);
     const statsApi = pathname.match(/^\/api\/stats\/(\d{4})$/);
     if (statsApi) return await serveStatsApi(res, parseInt(statsApi[1], 10));
     // No season in the path: send the newest, so every stats URL names one and
