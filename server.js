@@ -8,11 +8,11 @@ import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, normalize, extname } from 'node:path';
-import { renderPng, renderRecordsPng, renderH2hPng, renderHistoryPng, renderCoachesPng } from './lib/cards.js';
+import { renderPng, renderRecordsPng, renderH2hPng, renderHistoryPng, renderCoachesPng, renderGamePng } from './lib/cards.js';
 import { indexLoadOutcome, isLfsPointer } from './lib/indices-health.js';
 import { originOf } from './lib/origin.js';
-import { getSeasonState, defaultSeason } from './lib/seasons.js';
-import { records, recordsMeta, isRecordSlug, seasonHistory, historyMeta, registerBattingFeats, registerNoHitterPitchers, registerTriplePlayFielders } from './lib/records.js';
+import { getSeasonState, defaultSeason, allGames } from './lib/seasons.js';
+import { records, recordsMeta, isRecordSlug, historyMeta, liveSeasonHistory, registerBattingFeats, registerNoHitterPitchers, registerTriplePlayFielders } from './lib/records.js';
 import { coaches, coachesMeta } from './lib/coaches.js';
 import { h2h, h2hMeta, isOpponentSlug } from './lib/h2h.js';
 import { getCurrentSeasonCsvs } from './lib/espn-current.js';
@@ -485,6 +485,9 @@ async function serveBoxscoreApi(req, res, gid) {
   res.end(JSON.stringify(box));
 }
 
+// Game rows by gid, for each box score's own share card.
+const gameByGid = new Map(allGames.map((r) => [r.gid, r]));
+
 async function serveGameHtml(req, res, gid) {
   const origin = originOf(req);
   const canonical = `${origin}/game/${gid}`;
@@ -494,10 +497,12 @@ async function serveGameHtml(req, res, gid) {
   const box = _boxIndicesReady ? buildBoxscore(gid, _boxIndicesReady) : null;
   const title = box ? `${box.game.visName} @ ${box.game.homeName} — ${box.game.date}` : 'Box Score';
   const desc = box ? `Full box score: ${box.game.visName} ${box.game.visScore}, ${box.game.homeName} ${box.game.homeScore} (${box.game.date}). Milwaukee Brewers historical game.` : 'Milwaukee Brewers historical game box score.';
-  sendPage(res, GAME_VERSIONED, { title, desc, img: `${origin}/og/default.png`, canonical });
+  const img = gameByGid.has(gid) ? `${origin}/og/game/${gid}.png` : `${origin}/og/default.png`;
+  sendPage(res, GAME_VERSIONED, { title, desc, img, canonical });
 }
 
 const staticImgCache = new Map();
+let historyCard = { key: null, png: null };
 function serveCachedPng(res, key, render) {
   let buf = staticImgCache.get(key);
   if (!buf) {
@@ -561,13 +566,28 @@ const server = http.createServer(async (req, res) => {
     const ogRec = pathname.match(/^\/og\/records\/([a-z-]+)\.png$/);
     if (ogRec) {
       if (ogRec[1] !== 'overview' && !isRecordSlug(ogRec[1])) return notFound(res);
-      return serveCachedPng(res, `records:${ogRec[1]}`, () => renderRecordsPng(ogRec[1], records));
+      // Keyed on whether the box score index is warm: no-hitter pitchers,
+      // cycles and multi-HR games arrive with it, and a card first drawn
+      // during a cold start was otherwise kept without them until restart.
+      const warm = _boxIndicesReady ? 'warm' : 'cold';
+      return serveCachedPng(res, `records:${ogRec[1]}:${warm}`, () => renderRecordsPng(ogRec[1], records));
     }
 
     const ogVs = pathname.match(/^\/og\/vs\/([a-z0-9-]+)\.png$/);
     if (ogVs) {
       if (ogVs[1] !== 'overview' && !isOpponentSlug(ogVs[1])) return notFound(res);
       return serveCachedPng(res, `vs:${ogVs[1]}`, () => renderH2hPng(ogVs[1], h2h));
+    }
+
+    // A box score's card. Not kept in staticImgCache: there are 9,000 games,
+    // and a crawler walking them would hold every PNG in memory. A past game
+    // never changes, so the CDN can keep it instead.
+    const ogGame = pathname.match(/^\/og\/game\/([A-Z0-9]{3}\d{9})\.png$/);
+    if (ogGame) {
+      const row = gameByGid.get(ogGame[1]);
+      if (!row) return notFound(res);
+      res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' });
+      return res.end(renderGamePng(row));
     }
 
     const img = pathname.match(/^\/og\/(\d{4})\.png$/);
@@ -597,13 +617,21 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === '/history' || pathname === '/history/' || pathname === '/history.html') {
       const origin = originOf(req);
-      const { title, desc } = historyMeta();
+      const { title, desc } = historyMeta(await liveSeasonHistory());
       return sendPage(res, HISTORY_VERSIONED, {
         title, desc, img: `${origin}/og/history.png`, canonical: `${origin}/history`,
       });
     }
-    if (pathname === '/og/history.png')
-      return serveCachedPng(res, 'history', () => renderHistoryPng(seasonHistory));
+    // Rendered again when the season being played changes, not cached for
+    // the life of the process: one card, replaced, rather than one per day.
+    if (pathname === '/og/history.png') {
+      const history = await liveSeasonHistory();
+      const last = history[history.length - 1];
+      const key = `${last.season}:${last.record}:${last.postseason}`;
+      if (historyCard.key !== key) historyCard = { key, png: renderHistoryPng(history) };
+      res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' });
+      return res.end(historyCard.png);
+    }
 
     if (pathname === '/managers' || pathname === '/managers/' || pathname === '/managers.html') {
       const origin = originOf(req);
