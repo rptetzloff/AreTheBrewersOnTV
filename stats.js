@@ -52,11 +52,19 @@ function renderSeasonNav() {
 	const { season, seasons } = data;
 	const select = document.getElementById('stats-season');
 	select.innerHTML = [...seasons].reverse().map((y) => `<option value="${y}"${y === season ? ' selected' : ''}>${y}</option>`).join('');
-	select.onchange = () => { window.location.href = `/stats/${select.value}${window.location.hash}`; };
+	// Navigate from known values only: a season from the server's list and
+	// the tab, which hashTab() has already checked against TABS. These read
+	// select.value and location.hash directly, which CodeQL flagged as page
+	// text reused in a URL — harmless behind the /stats/ prefix, but there
+	// is no reason to pass either through unchecked.
+	select.onchange = () => {
+		const to = seasons.find((y) => String(y) === select.value);
+		if (to) window.location.href = `/stats/${to}#${tab}`;
+	};
 	const i = seasons.indexOf(season);
 	for (const [id, to] of [['stats-prev', seasons[i - 1]], ['stats-next', seasons[i + 1]]]) {
 		const a = document.getElementById(id);
-		if (to) { a.href = `/stats/${to}${window.location.hash}`; a.removeAttribute('aria-disabled'); }
+		if (to) { a.href = `/stats/${to}#${tab}`; a.removeAttribute('aria-disabled'); }
 		else { a.removeAttribute('href'); a.setAttribute('aria-disabled', 'true'); }
 	}
 }
