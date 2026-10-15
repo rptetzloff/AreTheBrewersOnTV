@@ -286,6 +286,18 @@ export function playerSeasons(seasons, id) {
 
 const ymd = (s) => (s && /^\d{8}$/.test(s) ? `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}` : null);
 
+/** Brewers born on a month and day ("09-16"), for the On This Day panel:
+ *  longest Brewers career first, then the earliest born. `directory` is
+ *  playerDirectory's list, `bios` parseBios's map. A February 29th birthday
+ *  appears on February 29th only. */
+export function bornOn(directory, bios, monthDay) {
+	return directory
+		.map((p) => ({ p, born: bios.get(p.id)?.born }))
+		.filter(({ born }) => born && born.slice(5) === monthDay)
+		.map(({ p, born }) => ({ id: p.id, name: p.name, year: Number(born.slice(0, 4)), first: p.first, last: p.last }))
+		.sort((a, b) => (b.last - b.first) - (a.last - a.first) || a.year - b.year);
+}
+
 /** Biographical lines from biofile0.csv, for the ids asked for only — the
  *  file covers every major leaguer (about 27,000), and the site needs the
  *  1,074 who played for the Brewers through 2025. */

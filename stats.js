@@ -90,6 +90,18 @@ function setView(id, legend) {
 	document.getElementById('stats-legend').innerHTML = `<span class="history-legend-item">${legend}</span>`;
 }
 
+// The stats stop at the last season Retrosheet has published, and the page
+// used to just stop there, with no word on why this year was missing. Player
+// stats wait for Retrosheet by decision, not for lack of a source.
+function noteWaitingSeason(lastSeason) {
+	const year = new Date().getFullYear();
+	if (year <= lastSeason) return;
+	const note = document.createElement('span');
+	note.className = 'history-legend-item stats-waiting';
+	note.textContent = `${year} stats arrive when Retrosheet publishes the season, usually over the winter`;
+	document.getElementById('stats-legend').appendChild(note);
+}
+
 async function initSeason(season) {
 	setView('season-view', 'Regular season, including tiebreaker games, which MLB counts as regular season · click a column to sort');
 	document.getElementById('view-season').setAttribute('aria-current', 'page');
@@ -100,6 +112,7 @@ async function initSeason(season) {
 	document.getElementById('stats-subtitle').innerHTML =
 		`<a href="/${season}">${season} Milwaukee Brewers</a> · ${data.batting.length} batters · ${data.pitching.length} pitchers`;
 	document.getElementById('view-season').href = `/stats/${season}`;
+	noteWaitingSeason(data.seasons[data.seasons.length - 1]);
 	renderSeasonNav();
 	const pick = (next) => {
 		tab = next;
@@ -155,6 +168,7 @@ async function initLeaders(view) {
 	setView('leaders-view', single
 		? 'Rate stats qualify by MLB’s title rules: 3.1 plate appearances or one inning per team game'
 		: `Rate stats need ${commas(L.qualifiers.careerPa)} plate appearances or ${commas(L.qualifiers.careerIp)} innings as a Brewer · totals count only Brewers seasons`);
+	noteWaitingSeason(last);
 	const boards = L[single ? 'single' : 'career'];
 	const render = (side) => {
 		markTabs('#leaders-view', side);
