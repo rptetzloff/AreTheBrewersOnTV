@@ -2127,17 +2127,20 @@ calendarRowEl() {
   label.innerHTML = '<i class="mdi mdi-calendar-sync"></i> Calendar';
   row.appendChild(label);
 
-  const link = (text, href, title) => {
+  // `external` says which link opens a new tab. It was decided by checking
+  // the href for a Google prefix, which CodeQL read as URL sanitization;
+  // the caller knows which link is Google's, so it says so.
+  const link = (text, href, title, external = false) => {
     const a = document.createElement('a');
     a.className = 'schedule-calendar-link';
     a.href = href;
     a.textContent = text;
     a.title = title;
-    if (href.startsWith('https://calendar.google')) { a.target = '_blank'; a.rel = 'noopener noreferrer'; }
+    if (external) { a.target = '_blank'; a.rel = 'noopener noreferrer'; }
     return a;
   };
   row.appendChild(link('Subscribe', webcal, 'Apple Calendar, Outlook and most calendar apps'));
-  row.appendChild(link('Google', `https://calendar.google.com/calendar/render?cid=${encodeURIComponent(webcal)}`, 'Add to Google Calendar'));
+  row.appendChild(link('Google', `https://calendar.google.com/calendar/render?cid=${encodeURIComponent(webcal)}`, 'Add to Google Calendar', true));
   const copy = document.createElement('button');
   copy.type = 'button';
   copy.className = 'schedule-calendar-link';
