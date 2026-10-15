@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { seasonBatting, seasonPitching, seasonFielding, regularGidsBySeason, careerLines, leaderboard, buildLeaders, BATTING_BOARDS, PITCHING_BOARDS } from '../stats-core.js'
+import { seasonBatting, seasonPitching, seasonFielding, regularGidsBySeason, careerLines, leaderboard, buildLeaders, BATTING_BOARDS, PITCHING_BOARDS, playerSeasons, parseBios, PLAYER_ID } from '../stats-core.js'
 import { game } from './helpers/rows.js'
 
 const MIL = new Set(['MIL'])
@@ -132,4 +132,44 @@ test('single-season rate boards use 3.1 plate appearances per team game, so a sh
 	const L = buildLeaders(seasons, new Map([[1981, 109], [1982, 162]]))
 	const avg = L.single.batting.find((b) => b.key === 'avg')
 	assert.deepEqual(avg.leaders.map((l) => [l.name, l.season]), [[names.get('cooper') || 'cooper', 1981]])
+})
+
+// --- player pages ---
+
+test('a player page gathers his seasons, skips the ones he missed, and totals a career', () => {
+	const seasons = [
+		{ ...seasonOf(1974, [bat('yount', 'MIL', { pa: 364, ab: 344, h: 86 })]), fielding: [{ id: 'yount', name: 'Robin Yount', pos: 'SS', g: 107 }] },
+		{ ...seasonOf(1975, [bat('other', 'MIL', { pa: 10, ab: 10, h: 2 })]), fielding: [] },
+		{ ...seasonOf(1976, [bat('yount', 'MIL', { pa: 690, ab: 638, h: 161 })]), fielding: [] },
+	]
+	const p = playerSeasons(seasons, 'yount')
+	assert.equal(p.name, 'Robin Yount')
+	assert.deepEqual([p.first, p.last, p.seasons], [1974, 1976, 2])
+	assert.deepEqual(p.batting.map((l) => l.season), [1974, 1976])
+	assert.equal(p.career.batting.h, 247)
+	assert.equal(p.career.pitching, null)
+	assert.deepEqual(p.fielding.map((l) => [l.season, l.pos]), [[1974, 'SS']])
+	assert.equal(playerSeasons(seasons, 'nobody'), null)
+})
+
+test('player ids are checked before they reach anything', () => {
+	for (const ok of ['younr001', 'burnc002', 'a-rod001']) assert.ok(PLAYER_ID.test(ok), ok)
+	for (const bad of ['', '../etc/pa', 'younr00', 'YOUNR001', 'younr001x', 'you<r001']) assert.ok(!PLAYER_ID.test(bad), bad)
+})
+
+test('bios come out of biofile for the ids asked for only, with dates as dates', () => {
+	const csv = [
+		'id,lastname,usename,fullname,birthdate,birthcity,birthstate,birthcountry,deathdate,debut_p,bats,throws,height,weight,HOF',
+		'younr001,Yount,Robin,Robin R. Yount,19550916,Danville,Illinois,USA,,19740405,R,R,72,165,HOF',
+		'higut001,Higuera,Teddy,Teodoro Valenzuela Higuera,19581109,Los Mochis,Sinaloa,Mexico,,19850410,B,L,70,178,',
+		'ruthb101,Ruth,Babe,"George Herman Ruth, Jr.",18950206,Baltimore,Maryland,USA,19480816,19140711,L,L,74,215,HOF',
+	].join('\n')
+	const bios = parseBios(csv, new Set(['younr001', 'higut001']))
+	assert.deepEqual([...bios.keys()], ['younr001', 'higut001'])
+	const y = bios.get('younr001')
+	assert.deepEqual([y.born, y.birthplace, y.debut, y.height, y.hof], ['1955-09-16', 'Danville, Illinois', '1974-04-05', 72, true])
+	// Outside the US the country is part of the birthplace.
+	assert.equal(bios.get('higut001').birthplace, 'Los Mochis, Sinaloa, Mexico')
+	// A quoted comma does not shift the columns after it.
+	assert.equal(parseBios(csv, new Set(['ruthb101'])).get('ruthb101').died, '1948-08-16')
 })

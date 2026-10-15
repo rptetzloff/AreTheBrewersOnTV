@@ -5,65 +5,14 @@
 import { esc, formatEra } from './records-core.js';
 import { labeledShareButtonsHtml, wireShareRow, wireShareDropdown } from './share-core.js';
 import { sortableHeadHtml, sortRows, wireSortable } from './sortable.js';
+import { rate, BATTING_COLUMNS, PITCHING_COLUMNS, FIELDING_COLUMNS, PLAYER_COLUMN, cellHtml } from './stats-columns.js';
 
 const wrap = document.getElementById('stats-table-wrap');
 
-// .331, 1.031 — rate stats are written without the leading zero, as a box
-// score writes them. Null means no denominator (no at-bats, no innings), and
-// shows as a dash rather than .000.
-const rate = (v) => (v === null || v === undefined ? '—' : v.toFixed(3).replace(/^0/, ''));
-const era = (v) => (v === null || v === undefined ? '—' : formatEra(v));
-const two = (v) => (v === null || v === undefined ? '—' : v.toFixed(2));
-// Where a null lands when sorting: at the bottom in the column's first-click
-// direction (best first). `low` is for stats where higher is better (AVG),
-// `high` for lower-is-better (ERA). Reversing the sort brings them to the top.
-const low = (k) => (r) => r[k] ?? -1;
-const high = (k) => (r) => r[k] ?? Infinity;
-
-const n = (key, label, title, extra = {}) => ({ key, label, title, num: true, defaultDir: -1, ...extra });
-const PLAYER = { key: 'name', label: 'Player', title: 'Player', defaultDir: 1 };
-
 const TABS = {
-	batting: {
-		sort: { key: 'pa', dir: -1 },
-		columns: [
-			PLAYER,
-			n('g', 'G', 'Games'), n('pa', 'PA', 'Plate appearances'), n('ab', 'AB', 'At-bats'),
-			n('r', 'R', 'Runs'), n('h', 'H', 'Hits'), n('d', '2B', 'Doubles'), n('t', '3B', 'Triples'),
-			n('hr', 'HR', 'Home runs'), n('rbi', 'RBI', 'Runs batted in'), n('bb', 'BB', 'Walks'),
-			n('k', 'SO', 'Strikeouts'), n('sb', 'SB', 'Stolen bases'), n('cs', 'CS', 'Caught stealing'),
-			n('avg', 'AVG', 'Batting average', { sortKey: low('avg'), fmt: rate }),
-			n('obp', 'OBP', 'On-base percentage', { sortKey: low('obp'), fmt: rate }),
-			n('slg', 'SLG', 'Slugging percentage', { sortKey: low('slg'), fmt: rate }),
-			n('ops', 'OPS', 'On-base plus slugging', { sortKey: low('ops'), fmt: rate }),
-		],
-	},
-	pitching: {
-		sort: { key: 'ip', dir: -1 },
-		columns: [
-			PLAYER,
-			n('w', 'W', 'Wins'), n('l', 'L', 'Losses'),
-			n('era', 'ERA', 'Earned run average', { sortKey: high('era'), defaultDir: 1, fmt: era }),
-			n('g', 'G', 'Games'), n('gs', 'GS', 'Games started'), n('sv', 'SV', 'Saves'),
-			n('ip', 'IP', 'Innings pitched', { sortKey: 'ipouts' }),
-			n('h', 'H', 'Hits allowed'), n('r', 'R', 'Runs allowed'), n('er', 'ER', 'Earned runs'),
-			n('hr', 'HR', 'Home runs allowed'), n('bb', 'BB', 'Walks'), n('k', 'SO', 'Strikeouts'),
-			n('whip', 'WHIP', 'Walks plus hits per inning', { sortKey: high('whip'), defaultDir: 1, fmt: two }),
-			n('k9', 'K/9', 'Strikeouts per nine innings', { sortKey: low('k9'), fmt: two }),
-		],
-	},
-	fielding: {
-		sort: { key: 'g', dir: -1 },
-		columns: [
-			PLAYER,
-			{ key: 'pos', label: 'Pos', title: 'Position', defaultDir: 1,
-				sortKey: (r) => ['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'DH'].indexOf(r.pos) },
-			n('g', 'G', 'Games at this position'), n('gs', 'GS', 'Games started'),
-			n('po', 'PO', 'Putouts'), n('a', 'A', 'Assists'), n('e', 'E', 'Errors'),
-			n('dp', 'DP', 'Double plays'),
-			n('fpct', 'FPCT', 'Fielding percentage', { sortKey: low('fpct'), fmt: rate }),
-		],
-	},
+	batting: { sort: { key: 'pa', dir: -1 }, columns: [PLAYER_COLUMN, ...BATTING_COLUMNS] },
+	pitching: { sort: { key: 'ip', dir: -1 }, columns: [PLAYER_COLUMN, ...PITCHING_COLUMNS] },
+	fielding: { sort: { key: 'g', dir: -1 }, columns: [PLAYER_COLUMN, ...FIELDING_COLUMNS] },
 };
 
 const pathSeason = () => {
@@ -82,10 +31,7 @@ function renderTable() {
 	const spec = TABS[tab];
 	const rows = sortRows(data[tab], spec.columns, spec.sort);
 	const head = sortableHeadHtml(spec.columns, spec.sort);
-	const body = rows.map((r) => `<tr>${spec.columns.map((c) => {
-		const v = c.fmt ? c.fmt(r[c.key]) : r[c.key];
-		return `<td${c.num ? ' class="h2h-num"' : ''}>${esc(v ?? '')}</td>`;
-	}).join('')}</tr>`).join('');
+	const body = rows.map((r) => `<tr>${spec.columns.map((c) => cellHtml(c, r)).join('')}</tr>`).join('');
 	wrap.innerHTML = rows.length
 		? `<table class="h2h-table stats-table sortable-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`
 		: '<p class="record-empty">Nothing recorded.</p>';
@@ -168,7 +114,7 @@ function boardHtml(board, view, side) {
 	const time = (l) => (board.rate ? (side === 'batting' ? ` · ${commas(l.pa)} PA` : ` · ${l.ip} IP`) : '');
 	const items = board.leaders.map((l, i) => `<li class="record-entry${i === 0 ? ' record-entry-top' : ''}">
 		<span class="record-entry-main">${esc(leaderValue(board, l))}</span>
-		<span class="record-entry-sub">${esc(l.name)}</span>
+		<span class="record-entry-sub"><a href="/player/${esc(l.id)}">${esc(l.name)}</a></span>
 		<span class="record-entry-detail">${esc(when(l) + time(l))}</span>
 	</li>`).join('');
 	return `<section class="record-card">

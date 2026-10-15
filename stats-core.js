@@ -8,6 +8,7 @@
 // than 0 — a pitcher with no innings has no ERA, which is not an ERA of 0.
 
 import { POS_NAMES } from './boxscore-core.js';
+import { splitCsvLine } from './records-core.js';
 
 const ratio = (num, den) => (den > 0 ? num / den : null);
 
@@ -194,6 +195,65 @@ export function seasonFielding(fielding, gids, playerNames, teamIds) {
 		g: p.games.size, gs: p.gs, po: p.po, a: p.a, e: p.e, dp: p.dp,
 		fpct: ratio(p.po + p.a, p.po + p.a + p.e),
 	}));
+}
+
+/** Retrosheet player ids: five letters (or hyphens, for short surnames) and
+ *  three digits — younr001, a-rod001. Checked rather than trusted, since it
+ *  arrives in a URL. */
+export const PLAYER_ID = /^[a-z][a-z-]{4}\d{3}$/;
+
+/** One player's Brewers seasons, from the season tables, plus career totals.
+ *  `seasons` is [{ season, batting, pitching, fielding }]. */
+export function playerSeasons(seasons, id) {
+	const pick = (kind) => seasons.flatMap((s) => (s[kind] || []).filter((l) => l.id === id).map((l) => ({ season: s.season, ...l })));
+	const batting = pick('batting');
+	const pitching = pick('pitching');
+	const fielding = pick('fielding');
+	if (!batting.length && !pitching.length && !fielding.length) return null;
+	const mine = seasons.map((s) => ({
+		season: s.season,
+		batting: s.batting.filter((l) => l.id === id),
+		pitching: s.pitching.filter((l) => l.id === id),
+	}));
+	const career = careerLines(mine);
+	const name = (batting[0] || pitching[0] || fielding[0]).name;
+	const years = [...new Set([...batting, ...pitching, ...fielding].map((l) => l.season))].sort((a, b) => a - b);
+	return {
+		id, name, first: years[0], last: years[years.length - 1], seasons: years.length,
+		batting, pitching, fielding,
+		career: { batting: career.batting[0] || null, pitching: career.pitching[0] || null },
+	};
+}
+
+const ymd = (s) => (s && /^\d{8}$/.test(s) ? `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}` : null);
+
+/** Biographical lines from biofile0.csv, for the ids asked for only — the
+ *  file covers every major leaguer, and the site needs about two thousand. */
+export function parseBios(csv, ids) {
+	const lines = csv.split('\n');
+	const h = splitCsvLine(lines[0]);
+	const at = (name) => h.indexOf(name);
+	const I = Object.fromEntries(['id', 'usename', 'lastname', 'fullname', 'birthdate', 'birthcity', 'birthstate', 'birthcountry',
+		'deathdate', 'debut_p', 'bats', 'throws', 'height', 'weight', 'HOF'].map((k) => [k, at(k)]));
+	const out = new Map();
+	for (const line of lines.slice(1)) {
+		const id = line.slice(0, line.indexOf(','));
+		if (!ids.has(id)) continue;
+		const v = splitCsvLine(line);
+		const get = (k) => (v[I[k]] ?? '').trim();
+		out.set(id, {
+			fullName: get('fullname'),
+			born: ymd(get('birthdate')),
+			birthplace: [get('birthcity'), get('birthstate'), get('birthcountry') === 'USA' ? '' : get('birthcountry')].filter(Boolean).join(', '),
+			died: ymd(get('deathdate')),
+			debut: ymd(get('debut_p')),
+			bats: get('bats'), throws: get('throws'),
+			height: parseInt(get('height'), 10) || null,
+			weight: parseInt(get('weight'), 10) || null,
+			hof: get('HOF') === 'HOF',
+		});
+	}
+	return out;
 }
 
 /** Every regular-season game of each season, from parsed game rows: the gid
