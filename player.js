@@ -4,7 +4,7 @@
 // site is about and all the data here covers.
 import { esc } from './records-core.js';
 import { labeledShareButtonsHtml, wireShareRow, wireShareDropdown } from './share-core.js';
-import { BATTING_COLUMNS, PITCHING_COLUMNS, FIELDING_COLUMNS, cellHtml } from './stats-columns.js';
+import { BATTING_COLUMNS, PITCHING_COLUMNS, FIELDING_COLUMNS, cellHtml, rate, era } from './stats-columns.js';
 import { mountPlayerSearch } from './player-search.js';
 
 mountPlayerSearch(document.getElementById('player-search'));
@@ -27,6 +27,124 @@ function tableHtml(title, columns, rows, careerRow) {
 			<table class="h2h-table stats-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody>${foot}</table>
 		</div>
 	</section>`;
+}
+
+// A season row's games link to that season's game log; the career row's
+// do not, having no one season to show.
+const gamesLinked = (columns, side) => columns.map((c) => (c.key === 'g'
+	? { ...c, html: (r) => (typeof r.season === 'number' ? `<a href="#log-${r.season}-${side}" title="${r.season} game log">${r.g}</a>` : String(r.g)) }
+	: c));
+
+// --- Game log ---
+
+const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const num = (key, label, title, fmt = (v) => String(v)) => ({ label, title, num: true, cell: (r) => fmt(r.line ? r.line[key] ?? r[key] : r[key]) });
+const LOG_GAME = [
+	// The date links to the box score; a doubleheader's games are (1) and (2).
+	{ label: 'Date', cell: (r) => {
+		const [, m, d] = r.date.split('-').map(Number);
+		return `<a href="/game/${esc(r.gid)}">${SHORT_MONTHS[m - 1]} ${d}${r.doubleheader ? ` (${r.doubleheader})` : ''}</a>`;
+	}, html: true },
+	{ label: 'Opp', title: 'Opponent', cell: (r) => opp(r), html: true, only: 'wide' },
+	{ label: 'Result', cell: (r) => result(r), html: true, only: 'wide' },
+	// On a phone the two share a cell, one over the other, so the stats
+	// start on screen rather than past three columns of who and how.
+	{ label: 'Game', cell: (r) => `${opp(r)}<br>${result(r)}`, html: true, only: 'narrow' },
+];
+function opp(r) { return `<span title="${esc(r.opponent)}">${r.home ? 'vs' : '@'} ${esc(r.nick)}</span>`; }
+function result(r) { return `<span class="log-result log-result-${r.result}">${r.result} ${r.pf}–${r.pa}</span>`; }
+const LOG_COLUMNS = {
+	batting: [...LOG_GAME,
+		{ label: 'Pos', title: 'Position(s) played', cell: (r) => esc(r.pos) },
+		num('pa', 'PA', 'Plate appearances'), num('ab', 'AB', 'At-bats'), num('r', 'R', 'Runs'), num('h', 'H', 'Hits'),
+		num('d', '2B', 'Doubles'), num('t', '3B', 'Triples'), num('hr', 'HR', 'Home runs'), num('rbi', 'RBI', 'Runs batted in'),
+		num('bb', 'BB', 'Walks'), num('k', 'SO', 'Strikeouts'), num('sb', 'SB', 'Stolen bases'),
+		num('avg', 'AVG', 'Batting average, season to date', rate), num('obp', 'OBP', 'On-base percentage, season to date', rate),
+		num('slg', 'SLG', 'Slugging percentage, season to date', rate),
+	],
+	pitching: [...LOG_GAME,
+		{ label: 'App', title: 'Started (GS) or relieved', cell: (r) => (r.gs ? 'GS' : 'Rel'), only: 'wide' },
+		{ label: 'Dec', title: 'Decision: win, loss or save', cell: (r) => r.dec, only: 'wide' },
+		{ label: 'Dec', title: 'Started (GS) or relieved, and the decision', cell: (r) => `${r.gs ? 'GS' : 'Rel'}<br>${r.dec}`, html: true, only: 'narrow' },
+		num('ip', 'IP', 'Innings pitched'), num('h', 'H', 'Hits'), num('r', 'R', 'Runs'), num('er', 'ER', 'Earned runs'),
+		num('bb', 'BB', 'Walks'), num('k', 'SO', 'Strikeouts'), num('hr', 'HR', 'Home runs allowed'),
+		num('era', 'ERA', 'Earned run average, season to date', era),
+	],
+};
+
+function logTableHtml(side, rows) {
+	const cols = LOG_COLUMNS[side];
+	const cls = (c) => {
+		const names = [c.num ? 'h2h-num' : '', c.only ? `log-${c.only}` : ''].filter(Boolean).join(' ');
+		return names ? ` class="${names}"` : '';
+	};
+	const head = cols.map((c) => `<th${cls(c)}${c.title ? ` title="${esc(c.title)}"` : ''}>${esc(c.label)}</th>`).join('');
+	const body = rows.map((r) => `<tr>${cols.map((c) => `<td${cls(c)}>${c.html ? c.cell(r) : esc(c.cell(r))}</td>`).join('')}</tr>`).join('');
+	return `<table class="h2h-table stats-table log-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+}
+
+const logs = new Map();
+async function fetchLog(season) {
+	if (!logs.has(season)) {
+		logs.set(season, fetch(`/api/player/${encodeURIComponent(id)}/log/${season}`)
+			.then((r) => (r.ok ? r.json() : null))
+			.catch(() => null));
+	}
+	return logs.get(season);
+}
+
+/** "#log-2018-batting" -> { season: 2018, side: 'batting' }. */
+function logHash() {
+	const m = window.location.hash.match(/^#log-(\d{4})(?:-(batting|pitching))?$/);
+	return m ? { season: Number(m[1]), side: m[2] || null } : null;
+}
+
+/** Wire the game log: `seasons` the player's Brewers seasons, `lead` the
+ *  side his page leads with. Opens on the hash's season, else his last. */
+function mountGameLog(seasons, lead) {
+	const section = document.getElementById('player-log');
+	const select = document.getElementById('log-season');
+	const tabs = document.getElementById('log-tabs');
+	const wrap = document.getElementById('log-table');
+	let current = { season: seasons[seasons.length - 1], side: lead };
+
+	select.innerHTML = [...seasons].reverse().map((y) => `<option value="${y}">${y}</option>`).join('');
+
+	async function show({ season, side }, { scroll = false, record = false } = {}) {
+		if (!seasons.includes(season)) return;
+		select.value = String(season);
+		wrap.innerHTML = '<div class="loading">Loading games...</div>';
+		const log = await fetchLog(season);
+		if (!log) {
+			wrap.innerHTML = '<p class="record-empty">Could not load the game log. Try again later.</p>';
+			return;
+		}
+		// A side he did not play that season falls back to the one he did.
+		const has = (s) => log[s]?.length > 0;
+		const pick = has(side) ? side : has(lead) ? lead : has('batting') ? 'batting' : 'pitching';
+		current = { season, side: pick };
+		tabs.hidden = !(has('batting') && has('pitching'));
+		tabs.querySelectorAll('.standings-tab').forEach((b) => {
+			const on = b.dataset.side === pick;
+			b.classList.toggle('standings-tab-active', on);
+			b.setAttribute('aria-selected', String(on));
+		});
+		wrap.innerHTML = logTableHtml(pick, log[pick]);
+		if (record) window.history.replaceState(null, '', `#log-${season}-${pick}`);
+		if (scroll) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+	}
+
+	select.addEventListener('change', () => show({ season: Number(select.value), side: current.side }, { record: true }));
+	tabs.querySelectorAll('.standings-tab').forEach((b) => b.addEventListener('click', () => show({ ...current, side: b.dataset.side }, { record: true })));
+	// The games links in the season tables set the hash.
+	window.addEventListener('hashchange', () => {
+		const h = logHash();
+		if (h) show({ season: h.season, side: h.side || current.side }, { scroll: true });
+	});
+
+	section.hidden = false;
+	const start = logHash();
+	show(start ? { season: start.season, side: start.side || lead } : current, { scroll: Boolean(start) });
 }
 
 const POS_ORDER = ['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'DH'];
@@ -80,8 +198,8 @@ async function init() {
 		const sections = [];
 		const batted = p.batting.length > 0;
 		const pitched = p.pitching.length > 0;
-		const bat = batted ? tableHtml('Batting', [SEASON_COLUMN('batting'), ...BATTING_COLUMNS], p.batting, p.career.batting) : '';
-		const pit = pitched ? tableHtml('Pitching', [SEASON_COLUMN('pitching'), ...PITCHING_COLUMNS], p.pitching, p.career.pitching) : '';
+		const bat = batted ? tableHtml('Batting', [SEASON_COLUMN('batting'), ...gamesLinked(BATTING_COLUMNS, 'batting')], p.batting, p.career.batting) : '';
+		const pit = pitched ? tableHtml('Pitching', [SEASON_COLUMN('pitching'), ...gamesLinked(PITCHING_COLUMNS, 'pitching')], p.pitching, p.career.pitching) : '';
 		// A pitcher's page leads with pitching: more innings than a quarter of
 		// his plate appearances is a pitcher who batted, not the reverse.
 		const pitcherFirst = pitched && (!batted || p.career.pitching.ipouts / 3 > p.career.batting.pa / 4);
@@ -107,6 +225,10 @@ async function init() {
 				.replace('</tbody>', `</tbody><tfoot>${career.map((c) => `<tr class="player-career">${[CAREER_LABEL, ...cols.slice(1)].map((col) => cellHtml(col, c)).join('')}</tr>`).join('')}</tfoot>`));
 		}
 		tables.innerHTML = sections.filter(Boolean).join('');
+		// Seasons he batted or pitched in: a season with fielding lines only
+		// (a pinch-runner who never came to the plate) has no log to show.
+		const logSeasons = [...new Set([...p.batting, ...p.pitching].map((l) => l.season))].sort((a, b) => a - b);
+		if (logSeasons.length) mountGameLog(logSeasons, pitcherFirst ? 'pitching' : 'batting');
 
 		const share = document.getElementById('player-share');
 		share.innerHTML = labeledShareButtonsHtml('footer-share-item');

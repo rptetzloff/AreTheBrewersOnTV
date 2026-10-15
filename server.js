@@ -19,7 +19,7 @@ import { records, recordsMeta, isRecordSlug, historyMeta, liveSeasonHistory, liv
 import { coaches, coachesMeta } from './lib/coaches.js';
 import { h2h, h2hMeta, isOpponentSlug } from './lib/h2h.js';
 import { getCurrentSeasonCsvs } from './lib/espn-current.js';
-import { seasonBatting, seasonPitching, seasonFielding, seasonFieldingTotals, regularGidsBySeason, buildLeaders, playerSeasons, playerDirectory, bornOn, parseBios, PLAYER_ID } from './stats-core.js';
+import { seasonBatting, seasonPitching, seasonFielding, seasonFieldingTotals, regularGidsBySeason, buildLeaders, playerSeasons, playerGameLog, playerDirectory, bornOn, parseBios, PLAYER_ID } from './stats-core.js';
 import { espnTarget } from './lib/espn-target.js';
 import { esc, parseCurrentNamesCsv, parseBallparksCsv, parseTeamstatsLineScores, BREWERS_IDS } from './records-core.js';
 import { buildGameIndex, buildPitchingIndex, buildBattingIndex, buildFieldingIndex, buildPlayerNameMap, buildBoxscore, createScoringPlaysCollector, computeBattingFeats, computeFieldingFeats, POS_NAMES } from './boxscore-core.js';
@@ -681,6 +681,18 @@ async function servePlayerApi(req, res, id) {
   return sendData(req, res, p);
 }
 
+// A player's season game by game, built on request from the box score
+// indices: one season's ~162 games, a few milliseconds.
+async function servePlayerLogApi(req, res, id, season) {
+  const gids = PLAYER_ID.test(id) && statsGidsBySeason.get(season);
+  const log = gids ? playerGameLog(await getBoxIndices(), gids, gameByGid, id, BREWERS_IDS) : null;
+  if (!log) {
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ error: 'No Brewers games for that player and season' }));
+  }
+  return sendData(req, res, { id, season, ...log });
+}
+
 // The title and description name the player and his Brewers line, so a
 // shared link reads as him. They need the indices, so a cold start serves
 // the generic ones rather than make the page wait, as box scores do.
@@ -971,6 +983,8 @@ const server = http.createServer(async (req, res) => {
     if (pathname === '/api/players') return await servePlayersApi(req, res);
     const bornApi = pathname.match(/^\/api\/born\/((?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01]))$/);
     if (bornApi) return await serveBornApi(req, res, bornApi[1]);
+    const playerLogApi = pathname.match(/^\/api\/player\/([^/]+)\/log\/(\d{4})$/);
+    if (playerLogApi) return await servePlayerLogApi(req, res, playerLogApi[1], parseInt(playerLogApi[2], 10));
     const playerApi = pathname.match(/^\/api\/player\/([^/]+)$/);
     if (playerApi) return await servePlayerApi(req, res, playerApi[1]);
     const playerPage = pathname.match(/^\/player\/([^/]+)\/?$/);
