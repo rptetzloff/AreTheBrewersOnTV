@@ -5,7 +5,7 @@
 import { esc, formatEra } from './records-core.js';
 import { labeledShareButtonsHtml, wireShareRow, wireShareDropdown } from './share-core.js';
 import { sortableHeadHtml, sortRows, wireSortable } from './sortable.js';
-import { rate, BATTING_COLUMNS, PITCHING_COLUMNS, FIELDING_COLUMNS, PLAYER_COLUMN, cellHtml } from './stats-columns.js';
+import { rate, BATTING_COLUMNS, PITCHING_COLUMNS, FIELDING_COLUMNS, FIELDING_TOTAL_COLUMNS, PLAYER_COLUMN, cellHtml } from './stats-columns.js';
 import { mountPlayerSearch } from './player-search.js';
 
 mountPlayerSearch(document.getElementById('player-search'));
@@ -16,6 +16,8 @@ const TABS = {
 	batting: { sort: { key: 'pa', dir: -1 }, columns: [PLAYER_COLUMN, ...BATTING_COLUMNS] },
 	pitching: { sort: { key: 'ip', dir: -1 }, columns: [PLAYER_COLUMN, ...PITCHING_COLUMNS] },
 	fielding: { sort: { key: 'g', dir: -1 }, columns: [PLAYER_COLUMN, ...FIELDING_COLUMNS] },
+	// The Fielding tab's other view: one line per player across positions.
+	fieldingTotals: { sort: { key: 'g', dir: -1 }, columns: [PLAYER_COLUMN, ...FIELDING_TOTAL_COLUMNS] },
 };
 
 const pathSeason = () => {
@@ -40,7 +42,11 @@ function renderTable() {
 		: '<p class="record-empty">Nothing recorded.</p>';
 	const table = wrap.querySelector('table');
 	if (table) wireSortable(table, spec.columns, spec.sort, renderTable);
-	markTabs('#season-view', tab);
+	const fielding = tab.startsWith('fielding');
+	markTabs('#season-view', fielding ? 'fielding' : tab);
+	const toggle = document.getElementById('fielding-view');
+	toggle.hidden = !fielding;
+	toggle.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === tab)));
 }
 
 function markTabs(view, active) {
@@ -95,14 +101,14 @@ async function initSeason(season) {
 		`<a href="/${season}">${season} Milwaukee Brewers</a> · ${data.batting.length} batters · ${data.pitching.length} pitchers`;
 	document.getElementById('view-season').href = `/stats/${season}`;
 	renderSeasonNav();
-	document.querySelectorAll('#season-view .standings-tab').forEach((b) => {
-		b.addEventListener('click', () => {
-			tab = b.dataset.tab;
-			window.history.replaceState(null, '', `#${tab}`);
-			renderSeasonNav();
-			renderTable();
-		});
-	});
+	const pick = (next) => {
+		tab = next;
+		window.history.replaceState(null, '', `#${tab}`);
+		renderSeasonNav();
+		renderTable();
+	};
+	document.querySelectorAll('#season-view .standings-tab').forEach((b) => b.addEventListener('click', () => pick(b.dataset.tab)));
+	document.querySelectorAll('#fielding-view button').forEach((b) => b.addEventListener('click', () => pick(b.dataset.view)));
 	renderTable();
 	share(`${season} Milwaukee Brewers stats: batting, pitching and fielding.`, `${window.location.origin}/stats/${season}`);
 }

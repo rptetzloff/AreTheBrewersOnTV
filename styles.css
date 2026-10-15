@@ -2459,6 +2459,38 @@ details:not([open]) > .collapsible-summary::before {
     border-top: 1px solid rgba(255, 197, 47, 0.4);
 }
 
+/* A season's all-positions line, under its position rows. */
+.player-subtotal td {
+    font-style: italic;
+    color: rgba(255, 255, 255, 0.75);
+}
+
+/* Fielding: by position or all positions, under the tabs. */
+.stats-subviews {
+    display: flex;
+    justify-content: center;
+    gap: 0.4rem;
+    margin: -0.25rem 0 0.75rem;
+}
+
+.stats-subviews button {
+    background: none;
+    border: 1px solid rgba(255, 197, 47, 0.3);
+    border-radius: 999px;
+    color: rgba(255, 255, 255, 0.7);
+    font: inherit;
+    font-size: 0.8rem;
+    padding: 0.25rem 0.75rem;
+    cursor: pointer;
+}
+
+.stats-subviews button[aria-pressed="true"] {
+    color: #12284B;
+    background: #FFC52F;
+    border-color: #FFC52F;
+    font-weight: 600;
+}
+
 /* By Season / Career / Single-Season: links, since each is its own URL. */
 .stats-views {
     display: flex;

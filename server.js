@@ -17,7 +17,7 @@ import { records, recordsMeta, isRecordSlug, historyMeta, liveSeasonHistory, liv
 import { coaches, coachesMeta } from './lib/coaches.js';
 import { h2h, h2hMeta, isOpponentSlug } from './lib/h2h.js';
 import { getCurrentSeasonCsvs } from './lib/espn-current.js';
-import { seasonBatting, seasonPitching, seasonFielding, regularGidsBySeason, buildLeaders, playerSeasons, playerDirectory, parseBios, PLAYER_ID } from './stats-core.js';
+import { seasonBatting, seasonPitching, seasonFielding, seasonFieldingTotals, regularGidsBySeason, buildLeaders, playerSeasons, playerDirectory, parseBios, PLAYER_ID } from './stats-core.js';
 import { espnTarget } from './lib/espn-target.js';
 import { esc, parseCurrentNamesCsv, parseBallparksCsv, parseTeamstatsLineScores, BREWERS_IDS } from './records-core.js';
 import { buildGameIndex, buildPitchingIndex, buildBattingIndex, buildFieldingIndex, buildPlayerNameMap, buildBoxscore, createScoringPlaysCollector, computeBattingFeats, computeFieldingFeats, POS_NAMES } from './boxscore-core.js';
@@ -548,6 +548,7 @@ async function seasonStats(season) {
       batting: seasonBatting(idx.batting, gids, idx.playerNames, BREWERS_IDS),
       pitching: seasonPitching(idx.pitching, gids, idx.playerNames, BREWERS_IDS),
       fielding: seasonFielding(idx.fielding, gids, idx.playerNames, BREWERS_IDS),
+      fieldingTotals: seasonFieldingTotals(idx.fielding, gids, idx.playerNames, BREWERS_IDS),
     });
   }
   return statsCache.get(season);

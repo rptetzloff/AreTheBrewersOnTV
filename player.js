@@ -17,7 +17,7 @@ const CAREER_LABEL = { key: 'season', label: 'Year', html: () => 'Career' };
 
 function tableHtml(title, columns, rows, careerRow) {
 	const head = columns.map((c) => `<th${c.num ? ' class="h2h-num"' : ''}${c.title ? ` title="${esc(c.title)}"` : ''}>${esc(c.label)}</th>`).join('');
-	const body = rows.map((r) => `<tr>${columns.map((c) => cellHtml(c, r)).join('')}</tr>`).join('');
+	const body = rows.map((r) => `<tr${r._class ? ` class="${r._class}"` : ''}>${columns.map((c) => cellHtml(c, r)).join('')}</tr>`).join('');
 	const foot = careerRow
 		? `<tfoot><tr class="player-career">${[CAREER_LABEL, ...columns.slice(1)].map((c) => cellHtml(c, careerRow)).join('')}</tr></tfoot>`
 		: '';
@@ -87,8 +87,21 @@ async function init() {
 		const pitcherFirst = pitched && (!batted || p.career.pitching.ipouts / 3 > p.career.batting.pa / 4);
 		sections.push(...(pitcherFirst ? [pit, bat] : [bat, pit]));
 		if (p.fielding.length) {
-			const rows = [...p.fielding].sort((a, b) => a.season - b.season || POS_ORDER.indexOf(a.pos) - POS_ORDER.indexOf(b.pos));
+			// Each season's positions, then — when there was more than one — a
+			// Total row across them; the career foot does the same with an
+			// All positions row. Totals count a game once however many
+			// positions he played in it, and leave DH out (the server's
+			// seasonFieldingTotals).
+			const totals = new Map((p.fieldingTotals || []).map((t) => [t.season, t]));
+			const rows = [];
+			for (const season of [...new Set(p.fielding.map((l) => l.season))].sort((a, b) => a - b)) {
+				rows.push(...p.fielding.filter((l) => l.season === season).sort((a, b) => POS_ORDER.indexOf(a.pos) - POS_ORDER.indexOf(b.pos)));
+				const t = totals.get(season);
+				if (t && t.positions > 1) rows.push({ ...t, pos: 'Total', _class: 'player-subtotal' });
+			}
 			const career = fieldingCareer(p.fielding);
+			const all = p.career.fielding;
+			if (all && all.positions > 1) career.push({ ...all, pos: 'All positions' });
 			const cols = [SEASON_COLUMN('fielding'), ...FIELDING_COLUMNS];
 			sections.push(tableHtml('Fielding', cols, rows, null)
 				.replace('</tbody>', `</tbody><tfoot>${career.map((c) => `<tr class="player-career">${[CAREER_LABEL, ...cols.slice(1)].map((col) => cellHtml(col, c)).join('')}</tr>`).join('')}</tfoot>`));

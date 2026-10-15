@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { seasonBatting, seasonPitching, seasonFielding, regularGidsBySeason, careerLines, leaderboard, buildLeaders, BATTING_BOARDS, PITCHING_BOARDS, playerSeasons, parseBios, PLAYER_ID } from '../stats-core.js'
+import { seasonBatting, seasonPitching, seasonFielding, seasonFieldingTotals, regularGidsBySeason, careerLines, leaderboard, buildLeaders, BATTING_BOARDS, PITCHING_BOARDS, playerSeasons, parseBios, PLAYER_ID } from '../stats-core.js'
 import { game } from './helpers/rows.js'
 
 const MIL = new Set(['MIL'])
@@ -132,6 +132,36 @@ test('single-season rate boards use 3.1 plate appearances per team game, so a sh
 	const L = buildLeaders(seasons, new Map([[1981, 109], [1982, 162]]))
 	const avg = L.single.batting.find((b) => b.key === 'avg')
 	assert.deepEqual(avg.leaders.map((l) => [l.name, l.season]), [[names.get('cooper') || 'cooper', 1981]])
+})
+
+// --- fielding across positions ---
+
+test('a fielding total counts a game once however many positions he played in it, and leaves out DH', () => {
+	const fld = (gid, pos, f = {}) => ({ id: 'yount', team: 'MIL', pos, po: 0, a: 0, e: 0, dp: 0, gs: false, ...f })
+	const index = new Map([
+		// Started in left, moved to center: one game, one start.
+		['g1', [fld('g1', 7, { po: 2, gs: true }), fld('g1', 8, { po: 3 })]],
+		['g2', [fld('g2', 8, { po: 4, e: 1, gs: true })]],
+		// A DH game: no fielding, and not a game in the field.
+		['g3', [fld('g3', 10, { gs: true })]],
+	])
+	const [t] = seasonFieldingTotals(index, ['g1', 'g2', 'g3'], names, MIL)
+	assert.deepEqual([t.g, t.gs, t.po, t.e, t.positions, t.posList], [2, 2, 9, 1, 2, 'LF, CF'])
+	assert.equal(t.fpct, 9 / 10)
+	// The per-position lines add up to three games; the total is two.
+	const byPos = seasonFielding(index, ['g1', 'g2', 'g3'], names, MIL).filter((l) => l.pos !== 'DH')
+	assert.equal(byPos.reduce((s, l) => s + l.g, 0), 3)
+})
+
+test('a player page carries each season\'s fielding total and an all-positions career line', () => {
+	const t = (season, g, po, positions) => ({ id: 'yount', name: 'Robin Yount', pos: 'All', positions, g, gs: g, po, a: 0, e: 0, dp: 0, fpct: 1 })
+	const seasons = [
+		{ season: 1984, batting: [], pitching: [], fielding: [{ id: 'yount', name: 'Robin Yount', pos: 'SS', g: 120 }], fieldingTotals: [t(1984, 120, 197, 1)] },
+		{ season: 1985, batting: [], pitching: [], fielding: [{ id: 'yount', name: 'Robin Yount', pos: '1B', g: 2 }, { id: 'yount', name: 'Robin Yount', pos: 'LF', g: 69 }], fieldingTotals: [t(1985, 70, 152, 2)] },
+	]
+	const p = playerSeasons(seasons, 'yount')
+	assert.deepEqual(p.fieldingTotals.map((x) => [x.season, x.g]), [[1984, 120], [1985, 70]])
+	assert.deepEqual([p.career.fielding.g, p.career.fielding.po, p.career.fielding.positions], [190, 349, 3])
 })
 
 // --- player pages ---
