@@ -2318,6 +2318,34 @@ details:not([open]) > .collapsible-summary::before {
     margin-bottom: 0.75rem;
 }
 
+/* Player page. */
+.player-bio {
+    text-align: center;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.9rem;
+    margin: -0.25rem 0 1.25rem;
+}
+
+.player-hof {
+    color: #FFC52F;
+    font-weight: 700;
+}
+
+.player-section {
+    margin-bottom: 1.5rem;
+}
+
+.player-section-title {
+    color: #FFC52F;
+    font-size: 1.1rem;
+    margin: 0 0 0.5rem;
+}
+
+.player-career td {
+    font-weight: 700;
+    border-top: 1px solid rgba(255, 197, 47, 0.4);
+}
+
 /* By Season / Career / Single-Season: links, since each is its own URL. */
 .stats-views {
     display: flex;
