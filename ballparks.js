@@ -40,12 +40,22 @@ function parkCard(p) {
 		? `Formerly ${p.formerly.map((f) => `${esc(f.name)} (${span(f.from, f.to)})`).join(', ')} · `
 		: '';
 	const fact = (main, subHtml, detailHtml = '') => ({ main, subHtml, detailHtml });
-	const game = (g) => `<a href="/game/${esc(g.gid)}">${esc(formatDate(g.date))}</a> vs ${esc(g.opponent)}, ${g.result} ${g.pf}–${g.pa}`;
+	const game = (g) => `<a href="/game/${esc(g.gid)}">${esc(formatDate(g.date))}</a> vs ${esc(g.opponent)}, <span class="ballparks-score">${g.result} ${g.pf}–${g.pa}</span>`;
+	// The park's own game-day records, each with the game it happened in;
+	// a record the park never produced (no extra-inning game, no recorded
+	// temperature) is left off rather than shown empty.
+	const extreme = (g, value, label) => (g ? [fact(value(g), label, game(g))] : []);
 	const facts = [
 		fact(span(p.first, p.last), `${commas(p.games)} home games`),
 		fact(p.record, `regular season · ${pct(p.winPct)}`, p.postseason ? `postseason ${esc(p.postseason)}` : ''),
 		...(p.averageAttendance ? [fact(commas(p.averageAttendance), 'average crowd', p.attendanceCoverage < 0.98 ? `of the ${Math.round(p.attendanceCoverage * 100)}% of games with attendance recorded` : '')] : []),
-		...(p.biggestCrowd ? [fact(commas(p.biggestCrowd.attendance), 'biggest crowd', game(p.biggestCrowd))] : []),
+		...extreme(p.biggestCrowd, (g) => commas(g.attendance), 'biggest crowd'),
+		...extreme(p.smallestCrowd, (g) => commas(g.attendance), 'smallest crowd'),
+		...extreme(p.hottest, (g) => `${g.temp}°`, 'hottest game'),
+		...extreme(p.coldest, (g) => `${g.temp}°`, 'coldest game'),
+		...extreme(p.longestTime, (g) => clock(g.minutes), 'longest game'),
+		...extreme(p.shortestTime, (g) => clock(g.minutes), 'shortest game'),
+		...extreme(p.mostInnings, (g) => `${g.innings} inn`, 'most innings'),
 		fact('First', game(p.firstGame)),
 		fact('Last', game(p.lastGame)),
 	];

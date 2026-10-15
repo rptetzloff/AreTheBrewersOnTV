@@ -60,6 +60,20 @@ test('each home park has its own record, years and crowds', () => {
 	assert.equal(S.parks[0].averageAttendance, Math.round((56562 + 2137) / 2))
 })
 
+test("each park's own game-day records come from its home games only", () => {
+	const [cs, af] = S.parks
+	assert.equal(cs.smallestCrowd.gid, 'cs2')
+	assert.equal(cs.hottest.gid, 'cs2')
+	assert.equal(cs.coldest.gid, 'cs1')
+	assert.equal(cs.longestTime.gid, 'cs1')
+	assert.equal(cs.shortestTime.gid, 'cs2')
+	// The 25-inning road game is not County Stadium's; no extra innings at home.
+	assert.equal(cs.mostInnings, null)
+	// A closed roof leaves American Family Field with no temperature records.
+	assert.equal(af.hottest, null)
+	assert.equal(af.coldest, null)
+})
+
 test('crowds are home games; time and innings boards take every game', () => {
 	assert.deepEqual(S.biggestCrowds.map((g) => g.gid), ['cs1', 'af1', 'cs2'])
 	assert.equal(S.longestTime[0].gid, 'rd1')
