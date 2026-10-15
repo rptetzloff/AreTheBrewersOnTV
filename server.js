@@ -125,6 +125,28 @@ function notFound(res) {
   res.end('Not found');
 }
 
+// JSON built from the Retrosheet data (stats, players, box scores,
+// ballparks). It changes only on a deploy, but when it does the page's
+// versioned scripts change with it, and a browser that kept yesterday's JSON
+// for a day (max-age=86400, as these were) ran the new page on the old data:
+// the stats page's Team tab read "Nothing recorded" until the copy expired.
+// So the browser keeps it but asks each time; an unchanged body is an empty
+// 304, a deploy's new one arrives at once.
+function sendData(req, res, value) {
+  const body = typeof value === 'string' ? value : JSON.stringify(value);
+  const etag = `"${createHash('sha1').update(body).digest('hex').slice(0, 16)}"`;
+  const headers = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-cache', ETag: etag };
+  // Cloudflare compresses these and weakens the tag on the way out (W/"…"),
+  // so the browser sends back the weak form; it names the same body.
+  const sent = (req.headers['if-none-match'] || '').split(',').map((t) => t.trim().replace(/^W\//, ''));
+  if (sent.includes(etag)) {
+    res.writeHead(304, headers);
+    return res.end();
+  }
+  res.writeHead(200, headers);
+  return res.end(body);
+}
+
 function sendPage(res, shell, meta) {
   const html = shell.replace('</head>', `${metaBlock(meta)}\n</head>`);
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
@@ -490,8 +512,7 @@ async function serveBoxscoreApi(req, res, gid) {
   const idx = await getBoxIndices();
   const box = buildBoxscore(gid, idx);
   if (!box) { res.writeHead(404, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ error: 'Game not found' })); }
-  res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=86400' });
-  res.end(JSON.stringify(box));
+  return sendData(req, res, box);
 }
 
 // Game rows by gid, for each box score's own share card.
@@ -638,30 +659,26 @@ async function playerData(id) {
 
 // The player search's list: every Brewer once — 1,074 through 2025, 85KB.
 let statsDirectory = null;
-async function servePlayersApi(res) {
+async function servePlayersApi(req, res) {
   if (!statsDirectory) statsDirectory = JSON.stringify(playerDirectory(await allSeasonStats()));
-  res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=86400' });
-  return res.end(statsDirectory);
+  return sendData(req, res, statsDirectory);
 }
 
-// Brewers born on a day, for the On This Day panel. Small and fixed for a
-// given day, so the CDN can keep each one.
+// Brewers born on a day, for the On This Day panel.
 let statsDirectoryList = null;
-async function serveBornApi(res, monthDay) {
+async function serveBornApi(req, res, monthDay) {
   statsDirectoryList ||= playerDirectory(await allSeasonStats());
   const born = bornOn(statsDirectoryList, await bios(), monthDay);
-  res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=86400' });
-  return res.end(JSON.stringify(born));
+  return sendData(req, res, born);
 }
 
-async function servePlayerApi(res, id) {
+async function servePlayerApi(req, res, id) {
   const p = await playerData(id);
   if (!p) {
     res.writeHead(404, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({ error: 'No Brewers stats for that player' }));
   }
-  res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=86400' });
-  return res.end(JSON.stringify(p));
+  return sendData(req, res, p);
 }
 
 // The title and description name the player and his Brewers line, so a
@@ -685,20 +702,16 @@ async function servePlayerHtml(req, res, id) {
   });
 }
 
-async function serveLeadersApi(res) {
-  const body = JSON.stringify(await leaders());
-  res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=86400' });
-  return res.end(body);
+async function serveLeadersApi(req, res) {
+  return sendData(req, res, await leaders());
 }
 
-async function serveStatsApi(res, season) {
+async function serveStatsApi(req, res, season) {
   if (!statsGidsBySeason.has(season)) {
     res.writeHead(404, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({ error: 'No stats for that season' }));
   }
-  const body = JSON.stringify(await seasonStats(season));
-  res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=86400' });
-  return res.end(body);
+  return sendData(req, res, await seasonStats(season));
 }
 
 const LEADER_VIEWS = {
@@ -880,8 +893,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathname === '/api/ballparks') {
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=86400' });
-      return res.end(JSON.stringify(ballparks()));
+      return sendData(req, res, ballparks());
     }
     if (pathname === '/ballparks' || pathname === '/ballparks/' || pathname === '/ballparks.html') {
       const origin = originOf(req);
@@ -936,8 +948,7 @@ const server = http.createServer(async (req, res) => {
     // browser).
     if (pathname === '/api/records/batting') {
       await getBoxIndices();
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=3600' });
-      return res.end(JSON.stringify({
+      return sendData(req, res, {
         cycles: records.cycles || [],
         playerHrGames: records.playerHrGames || [],
         playerRbiGames: records.playerRbiGames || [],
@@ -946,7 +957,7 @@ const server = http.createServer(async (req, res) => {
         triplePlayFielders: records.triplePlayFielders || {},
         bestPitcherEra: records.bestPitcherEra || [],
         worstPitcherEra: records.worstPitcherEra || [],
-      }));
+      });
     }
 
     const boxApi = pathname.match(/^\/api\/boxscore\/(.+)$/);
@@ -956,12 +967,12 @@ const server = http.createServer(async (req, res) => {
     const calendarFor = pathname.match(/^\/calendar\/([a-z_]+)\.ics$/);
     if (calendarFor) return await serveCalendar(req, res, calendarFor[1], url.searchParams.get('area'));
 
-    if (pathname === '/api/stats/leaders') return await serveLeadersApi(res);
-    if (pathname === '/api/players') return await servePlayersApi(res);
+    if (pathname === '/api/stats/leaders') return await serveLeadersApi(req, res);
+    if (pathname === '/api/players') return await servePlayersApi(req, res);
     const bornApi = pathname.match(/^\/api\/born\/((?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01]))$/);
-    if (bornApi) return await serveBornApi(res, bornApi[1]);
+    if (bornApi) return await serveBornApi(req, res, bornApi[1]);
     const playerApi = pathname.match(/^\/api\/player\/([^/]+)$/);
-    if (playerApi) return await servePlayerApi(res, playerApi[1]);
+    if (playerApi) return await servePlayerApi(req, res, playerApi[1]);
     const playerPage = pathname.match(/^\/player\/([^/]+)\/?$/);
     if (playerPage) {
       if (!PLAYER_ID.test(playerPage[1])) return notFound(res);
@@ -970,7 +981,7 @@ const server = http.createServer(async (req, res) => {
     const leaderView = pathname.match(/^\/stats\/(career|single-season)\/?$/);
     if (leaderView) return serveLeadersHtml(req, res, leaderView[1]);
     const statsApi = pathname.match(/^\/api\/stats\/(\d{4})$/);
-    if (statsApi) return await serveStatsApi(res, parseInt(statsApi[1], 10));
+    if (statsApi) return await serveStatsApi(req, res, parseInt(statsApi[1], 10));
     // No season in the path: send the newest, so every stats URL names one and
     // the page never has to guess.
     if (pathname === '/stats' || pathname === '/stats/' || pathname === '/stats.html') {
