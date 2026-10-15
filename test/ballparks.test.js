@@ -55,6 +55,8 @@ const S = ballparkStats(rows, gd, lines, parks, { names: NAMES })
 test('each home park has its own record, years and crowds', () => {
 	assert.deepEqual(S.parks.map((p) => [p.name, p.record, p.first, p.last, p.games]),
 		[['County Stadium', '1–1', 1982, 1983, 2], ['American Family Field', '1–0', 2023, 2023, 1]])
+	// The latest park, playing in the data's last season, is the current one.
+	assert.deepEqual(S.parks.map((p) => p.current), [false, true])
 	assert.deepEqual(S.parks[1].formerly, [{ name: 'Miller Park', from: 2001, to: 2020 }])
 	assert.equal(S.parks[0].biggestCrowd.gid, 'cs1')
 	assert.equal(S.parks[0].averageAttendance, Math.round((56562 + 2137) / 2))
