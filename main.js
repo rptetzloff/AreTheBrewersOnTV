@@ -1,4 +1,4 @@
-        import { parseGamesCsv, parseGameinfoCsv, parseCurrentNamesCsv, BREWERS_IDS, computeSeasonHistory, parseTeamstatsLineScores, seasonTally, onThisDayCandidates, otdInterest, otdPick, localDate as parseLocalDate, streakBannerHtml, recentFormParts, ROUND_LABEL, lastMeetings, hyphenRecord } from './records-core.js';
+        import { parseGamesCsv, parseGameinfoCsv, parseCurrentNamesCsv, BREWERS_IDS, computeSeasonHistory, parseTeamstatsLineScores, seasonTally, onThisDayCandidates, otdInterest, otdPick, localDate as parseLocalDate, streakBannerHtml, recentFormParts, ROUND_LABEL, lastMeetings, hyphenRecord, esc } from './records-core.js';
         import { computeHeadToHead } from './h2h-core.js';
         import { buildChartSvg } from './history-chart.js';
         import { liveSituation, isBetweenInnings, situationHtml } from './situation-core.js';
@@ -1501,11 +1501,19 @@ async copyLink() {
 // How noteworthy was this game? Blowouts, slugfests, extra innings, playoff
 // games, homer barrages, and no-hitters float to the top of On This Day.
 // Random pick weighted by interest — ordinary games still show up, just less.
+// The ?otd=MM-DD date override, or null. Only that shape is accepted: the
+// value used to be written into the panel as-is, so /?otd=<img onerror=…>
+// ran script on the site (CodeQL alert #5).
+otdOverride() {
+  const v = new URLSearchParams(window.location.search).get('otd');
+  return v && /^\d{2}-\d{2}$/.test(v) ? v : null;
+}
+
 buildOnThisDay() {
   const el = document.getElementById('on-this-day');
   if (!el) return;
 
-  const dateParam = new URLSearchParams(window.location.search).get('otd');
+  const dateParam = this.otdOverride();
   const today = dateParam ? parseLocalDate(`2000-${dateParam}`) : new Date();
   const todayMonth = isNaN(today) ? new Date().getMonth() : today.getMonth();
   const todayDay = isNaN(today) ? new Date().getDate() : today.getDate();
@@ -1538,9 +1546,9 @@ _renderOnThisDay(el, pick, pool) {
   const photos = this.photosBySeason[season] || [];
   const photo = photos.length ? photos[Math.floor(Math.random() * photos.length)] : null;
 
-  const otdParam = new URLSearchParams(window.location.search).get('otd');
+  const otdParam = this.otdOverride();
   const resetLink = otdParam
-  ? `<a class="otd-reset" href="${window.location.pathname}" aria-label="Reset date override">Using ${otdParam} &times;</a>`
+  ? `<a class="otd-reset" href="${esc(window.location.pathname)}" aria-label="Reset date override">Using ${esc(otdParam)} &times;</a>`
   : '';
 
   el.innerHTML = `
@@ -1552,7 +1560,7 @@ _renderOnThisDay(el, pick, pool) {
         				</span>
         			</div>
         			<div class="otd-body">
-    ${photo ? `<a href="${photo.url}" target="_blank" rel="noopener noreferrer" class="otd-photo-link"><img class="otd-photo" src="${photo.url}" alt="${photo.caption || ''}" loading="lazy"></a>` : ''}
+    ${photo ? `<a href="${esc(photo.url)}" target="_blank" rel="noopener noreferrer" class="otd-photo-link"><img class="otd-photo" src="${esc(photo.url)}" alt="${esc(photo.caption || '')}" loading="lazy"></a>` : ''}
         				<div class="otd-info">
         					<div class="otd-season-link">
         						<a href="/${season}" class="otd-year">${season} Season</a>
@@ -1561,8 +1569,8 @@ _renderOnThisDay(el, pick, pool) {
         					<div class="otd-game-row">
         						<span class="otd-result-badge ${resultClass}">${resultLabel}</span>
     ${game.gid
-        ? `<a class="otd-matchup otd-game-link" href="/game/${game.gid}" title="Full box score">vs. ${opponent}${scoreText ? ` <span class="otd-score">${scoreText}</span>` : ''}</a>`
-        : `<span class="otd-matchup">vs. ${opponent}</span>${scoreText ? `<span class="otd-score">${scoreText}</span>` : ''}`}
+        ? `<a class="otd-matchup otd-game-link" href="/game/${esc(game.gid)}" title="Full box score">vs. ${esc(opponent)}${scoreText ? ` <span class="otd-score">${scoreText}</span>` : ''}</a>`
+        : `<span class="otd-matchup">vs. ${esc(opponent)}</span>${scoreText ? `<span class="otd-score">${scoreText}</span>` : ''}`}
         					</div>
         					<div class="otd-date">${dateStr}, ${season}</div>
         				</div>
