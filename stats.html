@@ -18,22 +18,39 @@
         <a href="/" class="records-back"><i class="mdi mdi-arrow-left"></i> Are the Brewers On TV?</a>
         <h1 class="records-title">Stats</h1>
         <p id="stats-subtitle" class="records-subtitle"></p>
-        <div class="stats-season-nav">
-            <a id="stats-prev" class="season-nav" aria-label="Previous season"><i class="mdi mdi-chevron-left"></i></a>
-            <select id="stats-season" class="stats-season-select" aria-label="Season"></select>
-            <a id="stats-next" class="season-nav" aria-label="Next season"><i class="mdi mdi-chevron-right"></i></a>
+        <nav class="stats-views" aria-label="Stats views">
+            <a id="view-season" class="stats-view-link">By Season</a>
+            <a id="view-career" class="stats-view-link" href="/stats/career">Career Leaders</a>
+            <a id="view-single" class="stats-view-link" href="/stats/single-season">Single-Season Leaders</a>
+        </nav>
+
+        <div id="season-view" hidden>
+            <div class="stats-season-nav">
+                <a id="stats-prev" class="season-nav" aria-label="Previous season"><i class="mdi mdi-chevron-left"></i></a>
+                <select id="stats-season" class="stats-season-select" aria-label="Season"></select>
+                <a id="stats-next" class="season-nav" aria-label="Next season"><i class="mdi mdi-chevron-right"></i></a>
+            </div>
+            <div class="standings-tabs stats-tabs" role="tablist">
+                <button class="standings-tab" data-tab="batting" role="tab">Batting</button>
+                <button class="standings-tab" data-tab="pitching" role="tab">Pitching</button>
+                <button class="standings-tab" data-tab="fielding" role="tab">Fielding</button>
+            </div>
+            <div id="stats-table-wrap" class="h2h-table-wrap stats-table-wrap">
+                <div class="loading">Loading stats...</div>
+            </div>
         </div>
-        <div class="standings-tabs stats-tabs" role="tablist">
-            <button class="standings-tab" data-tab="batting" role="tab">Batting</button>
-            <button class="standings-tab" data-tab="pitching" role="tab">Pitching</button>
-            <button class="standings-tab" data-tab="fielding" role="tab">Fielding</button>
+
+        <div id="leaders-view" hidden>
+            <div class="standings-tabs stats-tabs" role="tablist">
+                <button class="standings-tab" data-tab="batting" role="tab">Batting</button>
+                <button class="standings-tab" data-tab="pitching" role="tab">Pitching</button>
+            </div>
+            <div id="leaders-grid" class="records-grid">
+                <div class="loading">Loading leaders...</div>
+            </div>
         </div>
-        <div id="stats-table-wrap" class="h2h-table-wrap stats-table-wrap">
-            <div class="loading">Loading stats...</div>
-        </div>
-        <p class="history-legend">
-            <span class="history-legend-item">Regular season, including tiebreaker games, which MLB counts as regular season · click a column to sort</span>
-        </p>
+
+        <p id="stats-legend" class="history-legend"></p>
     </div>
 
     <footer class="site-footer">

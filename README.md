@@ -80,6 +80,8 @@ The chart is built by `history-chart.js`, a pure SVG-string module shared by the
 
 `/stats/<season>` lists batting, pitching and fielding for every Brewer in a season, in sortable tables (`/stats` redirects to the newest season Retrosheet covers). The tab is the URL hash: `/stats/1982#pitching`. Totals are summed from the same per-game box score indices that the box score pages use, by `stats-core.js`; the server builds each season's tables once, on first request, and serves them as JSON at `/api/stats/<season>` (`stats.html` + `stats.js` render them).
 
+`/stats/career` and `/stats/single-season` are franchise leaderboards, top ten in each of 22 categories (`/api/stats/leaders`). Careers count only Brewers seasons and recompute rates from summed totals. Single-season rate boards qualify by MLB's title rules — 3.1 plate appearances or one inning per team game, which scales for short seasons like 1981 and 2020; career rate boards need 2,000 plate appearances or 500 innings, a threshold chosen here (`CAREER_MIN_PA` / `CAREER_MIN_IPOUTS` in `stats-core.js`), since MLB has none.
+
 Regular season only, with one exception MLB makes too: a tiebreaker game ("Game 163") counts toward the season, so Christian Yelich's 2018 reads .326 with 187 hits, as it does officially. Fielding is one line per player per position. Rate stats with no denominator (an AVG with no at-bats, an ERA with no innings) show a dash rather than zero.
 
 ## Box Scores

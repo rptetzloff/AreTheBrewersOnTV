@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { seasonBatting, seasonPitching, seasonFielding, regularGidsBySeason } from '../stats-core.js'
+import { seasonBatting, seasonPitching, seasonFielding, regularGidsBySeason, careerLines, leaderboard, buildLeaders, BATTING_BOARDS, PITCHING_BOARDS } from '../stats-core.js'
 import { game } from './helpers/rows.js'
 
 const MIL = new Set(['MIL'])
@@ -79,4 +79,57 @@ test('a tiebreaker game counts toward the season; a playoff game does not', () =
 test('a player who never came to the plate has no batting line', () => {
 	const index = new Map([['g1', [bat('yount', 'MIL', { pa: 4, ab: 4, h: 1 }), bat('vuck', 'MIL')]]])
 	assert.deepEqual(seasonBatting(index, ['g1'], names, MIL).map((p) => p.name), ['Robin Yount'])
+})
+
+// --- careers and leaderboards ---
+
+/** A season table from hand-made batting lines, through the real function. */
+const seasonOf = (season, lines) => ({
+	season,
+	batting: seasonBatting(new Map(lines.map((l, i) => [`${season}-${i}`, [l]])), lines.map((_, i) => `${season}-${i}`), names, MIL),
+	pitching: [],
+})
+
+test('a career average is career hits over career at-bats, not the mean of season averages', () => {
+	// .500 in 2 at-bats and .200 in 100: the mean of the averages is .350,
+	// the career is 21 for 102.
+	const seasons = [
+		seasonOf(1974, [bat('yount', 'MIL', { pa: 2, ab: 2, h: 1 })]),
+		seasonOf(1975, [bat('yount', 'MIL', { pa: 100, ab: 100, h: 20 })]),
+	]
+	const [y] = careerLines(seasons).batting
+	assert.equal(y.h, 21)
+	assert.equal(y.avg, 21 / 102)
+	assert.deepEqual([y.first, y.last, y.seasons], [1974, 1975, 2])
+})
+
+test('a rate board leaves out anyone short of the qualifier, however good their rate', () => {
+	const avg = BATTING_BOARDS.find((b) => b.key === 'avg')
+	const lines = [
+		{ id: 'a', name: 'Cup of Coffee', avg: 1, pa: 3, season: 1980 },
+		{ id: 'b', name: 'Everyday Player', avg: 0.3, pa: 600, season: 1980 },
+	]
+	assert.deepEqual(leaderboard(lines, avg, { qualifies: (l) => l.pa >= 502 }).map((l) => l.name), ['Everyday Player'])
+})
+
+test('ERA ranks low to high, and ties keep the earlier season first', () => {
+	const era = PITCHING_BOARDS.find((b) => b.key === 'era')
+	const lines = [
+		{ id: 'x', name: 'Later', era: 2.5, season: 2004 },
+		{ id: 'y', name: 'Worse', era: 4.0, season: 1990 },
+		{ id: 'z', name: 'Earlier', era: 2.5, season: 1978 },
+	]
+	assert.deepEqual(leaderboard(lines, era).map((l) => l.name), ['Earlier', 'Later', 'Worse'])
+})
+
+test('single-season rate boards use 3.1 plate appearances per team game, so a short season needs fewer', () => {
+	// 1981 was 109 games: 3.1 x 109 = 337.9 PA qualifies. A full season
+	// needs 502.2, so the same 340 PA does not.
+	const seasons = [
+		seasonOf(1981, [bat('cooper', 'MIL', { pa: 340, ab: 300, h: 100 })]),
+		seasonOf(1982, [bat('yount', 'MIL', { pa: 340, ab: 300, h: 110 })]),
+	]
+	const L = buildLeaders(seasons, new Map([[1981, 109], [1982, 162]]))
+	const avg = L.single.batting.find((b) => b.key === 'avg')
+	assert.deepEqual(avg.leaders.map((l) => [l.name, l.season]), [[names.get('cooper') || 'cooper', 1981]])
 })
