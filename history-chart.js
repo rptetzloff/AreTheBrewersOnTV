@@ -53,6 +53,29 @@ export const METRICS = {
 //   highlight     — a season number to mark with a distinct dot, or null
 //   emoji         — trophy glyphs above championship dots (browser only;
 //                   the PNG renderer has no emoji font)
+// The postseason markers as drawn shapes rather than text glyphs, for the
+// share cards. Those render with Liberation Sans and no system fonts, and it
+// has no ★ or ◆: the 1982 World Series marker came out as an empty box on
+// the history card. The browser has the glyphs and keeps using them.
+function markerShape(tier, cx, cy, sz, color) {
+	const r = sz / 2;
+	const pts = (list) => list.map(([px, py]) => `${(cx + px).toFixed(1)},${(cy + py).toFixed(1)}`).join(' ');
+	switch (tier) {
+		case 'wsWin': {
+			const star = [];
+			for (let i = 0; i < 10; i++) {
+				const a = -Math.PI / 2 + (i * Math.PI) / 5, rr = i % 2 ? r * 0.45 : r;
+				star.push([rr * Math.cos(a), rr * Math.sin(a)]);
+			}
+			return `<polygon points="${pts(star)}" fill="${color}" stroke="${DARK}" stroke-width="0.5"/>`;
+		}
+		case 'wsApp': return `<polygon points="${pts([[0, -r], [r * 0.75, 0], [0, r], [-r * 0.75, 0]])}" fill="${color}"/>`;
+		case 'lcs': return `<polygon points="${pts([[0, -r * 0.8], [r * 0.8, r * 0.6], [-r * 0.8, r * 0.6]])}" fill="${color}"/>`;
+		case 'division': return `<rect x="${(cx - r * 0.6).toFixed(1)}" y="${(cy - r * 0.6).toFixed(1)}" width="${(r * 1.2).toFixed(1)}" height="${(r * 1.2).toFixed(1)}" fill="${color}"/>`;
+		default: return `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${(r * 0.6).toFixed(1)}" fill="${color}"/>`;
+	}
+}
+
 export function buildChartSvg(history, {
 	width = 1000, height = 420,
 	metrics = ['winPct'],
@@ -63,6 +86,7 @@ export function buildChartSvg(history, {
 	highlight = null,
 	emoji = false,
 	milestones = null,
+	shapes = false,
 } = {}) {
 	const stripH = eras ? 20 : 0;
 	const msTrackH = milestones ? 34 : 0; // two 17px tracks: team + park
@@ -151,6 +175,10 @@ export function buildChartSvg(history, {
 			const P = POSTSEASON[tier];
 			const cy = my(s[markerMetric]);
 			const sz = tier === 'wsWin' ? 16 : (tier === 'wsApp' ? 14 : 12);
+			if (shapes) {
+				parts.push(markerShape(tier, x(s.season), cy, sz, P.color));
+				continue;
+			}
 			parts.push(`<text x="${x(s.season).toFixed(1)}" y="${(cy + sz / 3).toFixed(1)}" font-size="${sz}" fill="${P.color}" text-anchor="middle"${tier === 'wsWin' ? ` stroke="${DARK}" stroke-width="0.5"` : ''}>${P.glyph}</text>`);
 		}
 	}

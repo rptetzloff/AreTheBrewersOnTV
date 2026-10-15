@@ -124,6 +124,10 @@ export const SITE = {
 	records: [
 		'best-seasons',
 		'worst-seasons',
+		'best-team-era',
+		'worst-team-era',
+		'best-pitcher-era',
+		'worst-pitcher-era',
 		'best-starts',
 		'worst-starts',
 		'win-streaks',
