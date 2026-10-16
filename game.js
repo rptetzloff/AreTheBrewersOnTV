@@ -87,14 +87,18 @@ function notesBlock(pairs) {
 
 function battingTable(bat, teamId, brewIsHome, isVisitor, sideStats) {
   const isBrewers = (isVisitor && !brewIsHome) || (!isVisitor && brewIsHome);
-  const headers = ['Player','Pos','H','AB','R','RBI','BB','SO','HR','SB','AVG'];
+  // A current-season box (from ESPN) has no steals by player — they are in
+  // its notes — so the SB column goes.
+  const espn = Array.isArray(bat.notes);
+  const headers = ['Player','Pos','H','AB','R','RBI','BB','SO','HR', ...(espn ? [] : ['SB']), 'AVG'];
+  // Substitutes sit indented under the starter whose spot they took.
   const rows = bat.players.map(p => `
-    <tr>
+    <tr${p.isStarter === false ? ' class="boxscore-sub"' : ''}>
       <td class="boxscore-player">${p.letter ? `${p.letter} - ` : ''}${esc(p.name)}</td>
       <td>${esc(p.pos)}</td>
       <td>${p.h}</td><td>${p.ab}</td><td>${p.r}</td>
       <td>${p.rbi}</td><td>${p.bb}</td><td>${p.k}</td>
-      <td>${p.hr}</td><td>${p.sb}</td>
+      <td>${p.hr}</td>${espn ? '' : `<td>${p.sb}</td>`}
       <td>${fmtAvg(p.h, p.ab)}</td>
     </tr>`).join('');
   const t = bat.totals;
@@ -102,7 +106,7 @@ function battingTable(bat, teamId, brewIsHome, isVisitor, sideStats) {
   const risp = bat.risp
     ? `${bat.risp.h}-${bat.risp.ab}${bat.risp.batters.length ? ` (${bat.risp.batters.join(', ')})` : ''}`
     : '';
-  const notes = notesBlock([
+  const notes = espn ? notesBlock(bat.notes) : notesBlock([
     ['2B', statList(bat.players, 'd')],
     ['3B', statList(bat.players, 't')],
     ['HR', bat.hrDetails?.length ? bat.hrDetails.join('; ') : statList(bat.players, 'hr')],
@@ -117,7 +121,7 @@ function battingTable(bat, teamId, brewIsHome, isVisitor, sideStats) {
     ['Team RISP', risp],
   ]);
   return `
-    <table class="boxscore-table${isBrewers ? ' boxscore-brewers' : ''}">
+    <div class="boxscore-table-wrap"><table class="boxscore-table${isBrewers ? ' boxscore-brewers' : ''}">
       <thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
       <tbody>
         ${rows}
@@ -125,11 +129,11 @@ function battingTable(bat, teamId, brewIsHome, isVisitor, sideStats) {
           <td>Totals</td><td></td>
           <td>${t.h}</td><td>${t.ab}</td><td>${t.r}</td>
           <td>${t.rbi}</td><td>${t.bb}</td><td>${t.k}</td>
-          <td>${t.hr}</td><td>${t.sb}</td>
+          <td>${t.hr}</td>${espn ? '' : `<td>${t.sb}</td>`}
           <td>${fmtAvg(t.h, t.ab)}</td>
         </tr>
       </tbody>
-    </table>${phNotes ? `<div class="boxscore-notes">${phNotes}</div>` : ''}${notes}`;
+    </table></div>${phNotes ? `<div class="boxscore-notes">${phNotes}</div>` : ''}${notes}`;
 }
 
 // Single-game ERA: earned runs per nine innings (27 outs). A pitcher who
@@ -167,7 +171,8 @@ function pitchingTable(pitch, teamId, brewIsHome, isVisitor, npMode) {
   const withSeq = pitch.pitchers.filter(p => p.fpsPa != null);
   const withBip = pitch.pitchers.filter(p => p.gb + p.fb > 0);
   const starter = pitch.pitchers.find(p => p.gsc != null);
-  const notes = notesBlock([
+  // ESPN's own notes for a current-season box; computed ones otherwise.
+  const notes = Array.isArray(pitch.notes) ? notesBlock(pitch.notes) : notesBlock([
     ['WP', statList(pitch.pitchers, 'wp')],
     ['HBP', statList(pitch.pitchers, 'hbp')],
     ['Balk', statList(pitch.pitchers, 'bk')],
@@ -177,7 +182,7 @@ function pitchingTable(pitch, teamId, brewIsHome, isVisitor, npMode) {
     ['Game Score', starter ? `${short(starter.name)} ${starter.gsc}` : ''],
   ]);
   return `
-    <table class="boxscore-table${isBrewers ? ' boxscore-brewers' : ''}">
+    <div class="boxscore-table-wrap"><table class="boxscore-table${isBrewers ? ' boxscore-brewers' : ''}">
       <thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
       <tbody>
         ${rows}
@@ -188,12 +193,15 @@ function pitchingTable(pitch, teamId, brewIsHome, isVisitor, npMode) {
           <td>${fmtEra(t.er, t.ipouts)}</td>
         </tr>
       </tbody>
-    </table>${notes}`;
+    </table></div>${notes}`;
 }
 
 // A normal box score only calls out notable fielding: errors, double plays,
 // triple plays, passed balls. Everything routine stays implicit.
 function fieldingNotes(field, sideStats) {
+  if (Array.isArray(field.notes)) {
+    return notesBlock(field.notes) || '<div class="boxscore-notes"><div class="boxscore-note">No errors, double plays, or passed balls.</div></div>';
+  }
   const withCount = (teamCount, names) => {
     if (!names) return teamCount > 0 ? String(teamCount) : '';
     return teamCount > 0 ? `${teamCount} (${names})` : names;
@@ -285,6 +293,7 @@ function render(box) {
         ${navBtn('next', box.nav?.next)}
       </div>
       <div class="boxscore-date">${esc(fmtDate(g.date))}</div>
+      ${box.source === 'espn' && !box.final && box.status ? `<div class="boxscore-live"><span class="live-indicator-small"></span>${esc(box.status)}</div>` : ''}
       ${gameMeta(g)}
     </div>
     ${lineScoreTable(box.linescore, g.brewIsHome)}
