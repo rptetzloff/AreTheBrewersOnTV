@@ -2450,7 +2450,9 @@ details:not([open]) > .collapsible-summary::before {
     .stats-table.splits-table th,
     .stats-table.splits-table td,
     .stats-table.log-table th,
-    .stats-table.log-table td {
+    .stats-table.log-table td,
+    .stats-table.compare-table th,
+    .stats-table.compare-table td {
         padding-left: 0.3rem;
         padding-right: 0.3rem;
     }
@@ -2575,6 +2577,84 @@ details:not([open]) > .collapsible-summary::before {
 }
 
 .player-hof {
+    color: #FFC52F;
+    font-weight: 700;
+}
+
+.player-actions {
+    text-align: center;
+    margin: -0.5rem 0 1rem;
+}
+
+/* Compare page: a card per column — name, career or season, remove — then
+   the tables, with the better number in each row in gold. */
+.compare-slots {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.6rem;
+    margin: 1rem 0;
+}
+
+.compare-slot {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.6rem;
+    border: 1px solid rgba(255, 197, 47, 0.3);
+    border-radius: 8px;
+    background: rgba(18, 40, 75, 0.8);
+}
+
+.compare-slot-name {
+    flex: 1;
+    min-width: 0;
+    color: #fff;
+    font-weight: 700;
+    text-decoration: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.compare-slot-name:hover {
+    color: #FFC52F;
+}
+
+.compare-slot-missing {
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 0.85rem;
+}
+
+.compare-slot .stats-season-select {
+    font-size: 0.9rem;
+    padding: 0.15rem 0.3rem;
+}
+
+.compare-remove {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 1.3rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 0.2rem;
+}
+
+.compare-remove:hover {
+    color: #f44336;
+}
+
+.compare-table {
+    max-width: 720px;
+    margin: 0 auto;
+}
+
+.compare-table th .compare-when {
+    color: rgba(255, 255, 255, 0.6);
+    font-weight: 600;
+}
+
+.compare-table td.compare-best {
     color: #FFC52F;
     font-weight: 700;
 }

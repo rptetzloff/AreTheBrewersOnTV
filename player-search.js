@@ -44,20 +44,26 @@ const loadDirectory = () => (directory ||= fetch('/api/players').then((r) => (r.
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const span = (p) => (p.first === p.last ? `${p.first}` : `${p.first}–${p.last}`);
 
-/** Build the search box inside `host`. */
-export function mountPlayerSearch(host) {
+/** Build the search box inside `host`. Picking a player opens his page,
+ *  unless `onPick` is given (the compare page adds him instead). */
+export function mountPlayerSearch(host, { onPick = null, placeholder = 'Find a Brewer…' } = {}) {
 	host.classList.add('player-search');
 	host.innerHTML = `
 		<i class="mdi mdi-magnify player-search-icon" aria-hidden="true"></i>
-		<input type="search" class="player-search-input" placeholder="Find a Brewer…" autocomplete="off" spellcheck="false"
-			role="combobox" aria-label="Find a Brewer" aria-autocomplete="list" aria-expanded="false" aria-controls="player-search-list">
+		<input type="search" class="player-search-input" placeholder="${esc(placeholder)}" autocomplete="off" spellcheck="false"
+			role="combobox" aria-label="${esc(placeholder.replace(/…$/, ''))}" aria-autocomplete="list" aria-expanded="false" aria-controls="player-search-list">
 		<ul id="player-search-list" class="player-search-list" role="listbox" hidden></ul>`;
 	const input = host.querySelector('input');
 	const list = host.querySelector('ul');
 	let results = [];
 	let active = -1;
 
-	const go = (p) => { window.location.href = `/player/${encodeURIComponent(p.id)}`; };
+	const go = (p) => {
+		if (!onPick) { window.location.href = `/player/${encodeURIComponent(p.id)}`; return; }
+		onPick(p);
+		input.value = '';
+		close();
+	};
 	const close = () => { list.hidden = true; input.setAttribute('aria-expanded', 'false'); input.removeAttribute('aria-activedescendant'); active = -1; };
 	const highlight = (i) => {
 		active = i;
