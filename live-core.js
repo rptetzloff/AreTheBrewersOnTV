@@ -101,6 +101,9 @@ export function liveDetail(summary, { recent = 2 } = {}) {
 	// order they came in; batting for the batter's day.
 	const pitchingByTeam = new Map();
 	const batting = new Map();
+	// Each batter's spot in the order and his position, as the box score has
+	// them — a pinch-hitter's position reads PH.
+	const lineup = new Map();
 	for (const t of summary.boxscore?.players || []) {
 		const teamId = String(t.team?.id ?? '');
 		for (const s of t.statistics || []) {
@@ -113,6 +116,7 @@ export function liveDetail(summary, { recent = 2 } = {}) {
 					pitchingByTeam.get(teamId).push({ id, line });
 				} else if (s.type === 'batting') {
 					batting.set(id, line);
+					lineup.set(id, { order: num(a.batOrder), pos: a.position?.abbreviation || '' });
 				}
 			}
 		}
@@ -156,6 +160,7 @@ export function liveDetail(summary, { recent = 2 } = {}) {
 			team: team ? abbrOf.get(String(team.team?.id)) || team.team?.abbreviation || '' : '',
 			today: line ? line['H-AB'] || '' : '', avg: line?.AVG || '',
 			vsPitcher: note, bats: null,
+			pos: lineup.get(atBat)?.pos || '', order: lineup.get(atBat)?.order || null,
 		};
 		// This at-bat: the latest at-bat id with him at the plate.
 		const isHim = (p) => (p.participants || []).some((x) => x.type === 'batter' && String(x.athlete?.id) === atBat);
@@ -352,7 +357,11 @@ export function liveDetailHtml(d) {
 		if (mound) rows.push(`<div class="live-row"><span class="live-role">Pitching</span> <strong>${esc(mound.short || mound.name)}</strong> <span class="live-team">${esc(mound.team)}</span> <span class="live-stats">${esc(pitcherLine(mound))}</span></div>`);
 		if (d.batter) {
 			const day = [d.batter.bats && `bats ${d.batter.bats}`, d.batter.today && `${d.batter.today} today`, d.batter.avg && `${d.batter.avg}`].filter(Boolean).join(' · ');
-			rows.push(`<div class="live-row"><span class="live-role">${d.atBatOver ? 'Last up' : 'At bat'}</span> <strong>${esc(d.batter.short || d.batter.name)}</strong> <span class="live-team">${esc(d.batter.team)}</span> <span class="live-stats">${esc(day)}</span></div>`);
+			// His position and spot in the order: "3B · batting 5th".
+			const where = [d.batter.pos, d.batter.order && `batting ${ordinal(d.batter.order)}`].filter(Boolean).join(' · ');
+			rows.push(`<div class="live-row"><span class="live-role">${d.atBatOver ? 'Last up' : 'At bat'}</span> <strong>${esc(d.batter.short || d.batter.name)}</strong> <span class="live-team">${esc(d.batter.team)}</span>`
+				+ (where ? ` <span class="live-pos">${esc(where)}</span>` : '')
+				+ ` <span class="live-stats">${esc(day)}</span></div>`);
 			if (d.batter.vsPitcher) rows.push(`<div class="live-note">${esc(d.batter.vsPitcher)}</div>`);
 		}
 		parts.push(`<div class="live-matchup">${rows.join('')}</div>`);
