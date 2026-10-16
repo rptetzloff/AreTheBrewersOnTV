@@ -70,6 +70,33 @@ export function teamSplits(rows, { gameDay = new Map(), lineScores = new Map(), 
 	}).filter((s) => s.g > 0);
 }
 
+/** The spans the all-time splits page offers, from the seasons there are:
+ *  every season, then each decade. 1969, the lone season of the 1960s,
+ *  joins the 1970s rather than stand alone. Each is { id, label, first,
+ *  last }; id is what the URL carries ("all", "1980s"). */
+export function splitSpans(seasons) {
+	const years = [...seasons].sort((a, b) => a - b);
+	if (!years.length) return [];
+	const first = years[0];
+	const last = years[years.length - 1];
+	const range = (a, b) => (a === b ? String(a) : `${a}–${b}`);
+	const spans = [{ id: 'all', label: `All seasons, ${range(first, last)}`, first, last }];
+	const decades = [...new Set(years.map((y) => Math.floor(y / 10) * 10))];
+	let carried = null; // a lone season waiting to join the next decade
+	decades.forEach((d, i) => {
+		const inDecade = years.filter((y) => y >= d && y < d + 10);
+		if (inDecade.length === 1 && i < decades.length - 1) {
+			carried = carried ?? inDecade[0];
+			return;
+		}
+		const lo = carried ?? inDecade[0];
+		const hi = inDecade[inDecade.length - 1];
+		spans.push({ id: `${d}s`, label: range(lo, hi), first: lo, last: hi });
+		carried = null;
+	});
+	return spans;
+}
+
 /** gid -> the opposing starter's throwing hand, from the box score pitching
  *  index (gid -> pitching lines for both teams) and a map of pitcher id ->
  *  { throws }. A game whose starter or hand is unknown is left out. */

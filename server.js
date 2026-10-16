@@ -14,7 +14,7 @@ import { indexLoadOutcome, isLfsPointer } from './lib/indices-health.js';
 import { originOf } from './lib/origin.js';
 import { getSeasonState, defaultSeason, allGames, teamstatsRaw, fetchEspn, tvLookup, simulcasts } from './lib/seasons.js';
 import { parseGameDay, ballparkStats } from './ballparks-core.js';
-import { teamSplits, opposingStarterHands, opposingStarterIds } from './splits-core.js';
+import { teamSplits, opposingStarterHands, opposingStarterIds, splitSpans } from './splits-core.js';
 import { parseSlots, slotsParam } from './compare-core.js';
 import { liveDetail } from './live-core.js';
 import { espnBoxscore } from './espn-box-core.js';
@@ -822,7 +822,30 @@ async function serveStatsApi(req, res, season) {
   return sendData(req, res, await seasonStats(season));
 }
 
+// Team splits over a span of seasons — every season, or a decade — for
+// /stats/splits; the same teamSplits as each season's Team tab, over all of
+// the span's regular-season games. Built once per span, on first request.
+const SPLIT_SPANS = splitSpans(STATS_SEASONS);
+const spanSplitsCache = new Map();
+async function serveSplitsApi(req, res, spanId) {
+  const span = SPLIT_SPANS.find((s) => s.id === spanId);
+  if (!span) {
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ error: 'No such span' }));
+  }
+  if (!spanSplitsCache.has(span.id)) {
+    const idx = await getBoxIndices();
+    const gids = STATS_SEASONS.filter((y) => y >= span.first && y <= span.last).flatMap((y) => statsGidsBySeason.get(y));
+    spanSplitsCache.set(span.id, {
+      span, spans: SPLIT_SPANS, seasons: span.last - span.first + 1,
+      splits: teamSplits(gids.map((gid) => gameByGid.get(gid)), { ...gameDayData(), starterHand: starterHands(idx) }),
+    });
+  }
+  return sendData(req, res, spanSplitsCache.get(span.id));
+}
+
 const LEADER_VIEWS = {
+  splits: { title: 'Milwaukee Brewers Team Splits, All Time', desc: 'The Brewers\' record split by home and away, day and night, month, one-run games, extra innings and the opposing starter\'s hand, 1969 to the present and by decade.' },
   career: { title: 'Milwaukee Brewers Career Leaders', desc: 'Franchise career leaders in hits, home runs, RBI, wins, saves, strikeouts, ERA and more.' },
   'single-season': { title: 'Milwaukee Brewers Single-Season Leaders', desc: 'The best single seasons in franchise history: home runs, batting average, wins, strikeouts, ERA and more.' },
 };
@@ -1131,7 +1154,9 @@ const server = http.createServer(async (req, res) => {
       if (!PLAYER_ID.test(playerPage[1])) return notFound(res);
       return await servePlayerHtml(req, res, playerPage[1]);
     }
-    const leaderView = pathname.match(/^\/stats\/(career|single-season)\/?$/);
+    const splitsApi = pathname.match(/^\/api\/stats\/splits\/([a-z0-9]+)$/);
+    if (splitsApi) return await serveSplitsApi(req, res, splitsApi[1]);
+    const leaderView = pathname.match(/^\/stats\/(career|single-season|splits)\/?$/);
     if (leaderView) return serveLeadersHtml(req, res, leaderView[1]);
     const statsApi = pathname.match(/^\/api\/stats\/(\d{4})$/);
     if (statsApi) return await serveStatsApi(req, res, parseInt(statsApi[1], 10));

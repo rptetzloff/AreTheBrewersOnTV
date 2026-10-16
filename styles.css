@@ -2698,6 +2698,15 @@ details:not([open]) > .collapsible-summary::before {
     justify-content: flex-start;
 }
 
+/* Splits over many seasons: five-digit run totals do not fit a phone
+   beside everything else, so RS and RA step aside there and the
+   differential stays. */
+@media (max-width: 480px) {
+    .splits-span-table .splits-runs {
+        display: none;
+    }
+}
+
 /* Two classes: the shared phone rule for .h2h-table cells comes later in
    the file and would win a tie. */
 @media (max-width: 600px) {
