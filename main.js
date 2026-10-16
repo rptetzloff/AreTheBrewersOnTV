@@ -557,9 +557,25 @@ wireSchedule() {
   chips.addEventListener('click', (e) => {
     const chip = e.target.closest('.sched-chip');
     if (!chip) return;
-    const group = grid.querySelector(`.sched-group[data-month="${chip.dataset.month}"]`);
-    if (group) grid.scrollTo({ top: group.offsetTop, behavior: 'smooth' });
+    // A chip names the group it jumps to: a regular-season month, or the
+    // first month of the preseason or a postseason round.
+    const group = [...grid.querySelectorAll('.sched-group')].find((g) => g.dataset.group === chip.dataset.group);
+    // The phase's divider sits just above its first group; land on it, so
+    // "Playoffs" is in view, not scrolled just past.
+    const divider = group?.previousElementSibling?.classList.contains('season-divider') ? group.previousElementSibling : null;
+    // Remembered for markActiveMonth: a group near the end cannot scroll to
+    // the top of the list, so at the bottom the chip clicked is the one lit.
+    this._chipTarget = chip.dataset.group;
+    if (group) grid.scrollTo({ top: (divider || group).offsetTop, behavior: 'smooth' });
+    // Already at the bottom, the list does not move and no scroll event
+    // comes: mark the chip now.
+    this.markActiveMonth();
   });
+  // The reader scrolling the list themselves lets go of a chip's jump (the
+  // smooth scroll a chip starts passes "not at the bottom" on its way, so
+  // the scroll event itself cannot be what clears it).
+  const letGo = () => { this._chipTarget = null; };
+  for (const type of ['wheel', 'touchstart', 'keydown', 'mousedown']) grid.addEventListener(type, letGo, { passive: true });
   let ticking = false;
   grid.addEventListener('scroll', () => {
     if (ticking) return;
@@ -568,22 +584,27 @@ wireSchedule() {
   });
 }
 
-// The chip for the month at the top of the list, kept in view in the chip row.
+// The chip standing for the group at the top of the list — a regular-season
+// month, or the preseason or a postseason round.
 markActiveMonth() {
   const grid = document.getElementById('schedule-grid');
   const chips = document.getElementById('schedule-months');
-  // The first month whose group has not scrolled fully past the top of the
-  // list — so a phase divider at the top marks the month below it, not the
-  // one that just ended. (A group's offsetTop, unlike its sticky heading's,
-  // does not move as the list scrolls.)
+  // The first group that has not scrolled fully past the top of the list —
+  // so a phase divider at the top marks the group below it, not the one that
+  // just ended. (A group's offsetTop, unlike its sticky heading's, does not
+  // move as the list scrolls.)
   let current = null;
-  for (const group of grid.querySelectorAll('.sched-group')) {
-    if (group.offsetTop + group.offsetHeight > grid.scrollTop + 8) { current = group.dataset.month; break; }
+  const groups = [...grid.querySelectorAll('.sched-group')];
+  for (const group of groups) {
+    if (group.offsetTop + group.offsetHeight > grid.scrollTop + 8) { current = group.dataset.group; break; }
   }
+  // Scrolled to the bottom, the last groups — a postseason round or two —
+  // can never reach the top: the chip clicked to get there is the one lit,
+  // or, scrolled there by hand, the season's last group.
+  const atBottom = grid.scrollTop + grid.clientHeight >= grid.scrollHeight - 2;
+  if (atBottom && grid.scrollTop > 0) current = this._chipTarget || groups[groups.length - 1]?.dataset.group || current;
   chips.querySelectorAll('.sched-chip').forEach((c) => {
-    const on = c.dataset.month === current;
-    // Scroll the chip row only (scrollIntoView would move the page too).
-    if (on && !c.classList.contains('active')) chips.scrollLeft = c.offsetLeft - (chips.clientWidth - c.offsetWidth) / 2;
+    const on = Boolean(current) && (c.dataset.covers || '').split(' ').includes(current);
     c.classList.toggle('active', on);
   });
 }
