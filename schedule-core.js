@@ -82,7 +82,9 @@ export function scheduleListHtml(rows, phaseLabels = {}) {
 		if (m !== month) {
 			close();
 			month = m;
-			out.push(`<section class="sched-group" data-month="${m}"><div class="sched-month">${esc(monthName(m))}</div>`);
+			// A group is a month within a phase: March's spring games and its
+			// opening week are two groups, each with its own chip target.
+			out.push(`<section class="sched-group" data-group="${esc(groupKey(r.phase, m))}" data-phase="${esc(r.phase || '')}" data-month="${m}"><div class="sched-month">${esc(monthName(m))}</div>`);
 		}
 		out.push(scheduleRowHtml(r));
 	}
@@ -90,9 +92,51 @@ export function scheduleListHtml(rows, phaseLabels = {}) {
 	return out.join('');
 }
 
-/** A chip a month, in order, the active one marked. */
-export function monthChipsHtml(rows, active = null) {
-	const keys = [...new Set(rows.map((r) => monthKey(r.date)))];
-	if (keys.length < 2) return '';
-	return keys.map((k) => `<button type="button" class="sched-chip${k === active ? ' active' : ''}" data-month="${k}" aria-label="${esc(monthName(k))}">${esc(monthShort(k))}</button>`).join('');
+/** The key of a group in the list: a month within a phase. */
+export const groupKey = (phase, month) => `${phase || ''}|${month}`;
+
+// Each phase's chip label. The regular season gets a chip a month instead.
+const PHASE_CHIP = { pre: 'Spring', other: 'Spring', post: 'Playoffs', wc: 'WC', ds: 'DS', lcs: 'LCS', ws: 'WS' };
+
+/**
+ * The chips over the list, in season order: one for the preseason, one a
+ * month for the regular season, and one for the postseason — or, for a past
+ * season, one a postseason round — each phase's chips in a group. Each
+ * chip names the group it jumps to (`data-group`) and the groups it stands
+ * for (`data-covers`, space-separated), so the one standing for the group at
+ * the top of the list can be marked as the list scrolls. A season of a
+ * single group needs no chips.
+ */
+export function monthChipsHtml(rows) {
+	// The groups in order, as scheduleListHtml lays them out.
+	const groups = [];
+	for (const r of rows) {
+		const key = groupKey(r.phase, monthKey(r.date));
+		if (groups[groups.length - 1]?.key !== key) groups.push({ key, phase: r.phase || '', month: monthKey(r.date) });
+	}
+	if (groups.length < 2) return '';
+	const chips = [];
+	for (const g of groups) {
+		const last = chips[chips.length - 1];
+		if (g.phase !== 'regular' && PHASE_CHIP[g.phase] && last?.phase === g.phase) {
+			last.covers.push(g.key);
+			continue;
+		}
+		const label = g.phase === 'regular' || !PHASE_CHIP[g.phase] ? monthShort(g.month) : PHASE_CHIP[g.phase];
+		const title = g.phase === 'regular' || !PHASE_CHIP[g.phase] ? monthName(g.month) : label;
+		chips.push({ phase: g.phase, target: g.key, covers: [g.key], label, title });
+	}
+	// Each phase's chips sit in a group of their own, so a row too narrow for
+	// them all breaks between phases — never leaving a divider at the end of
+	// a line, which separators between the chips did.
+	const out = [];
+	chips.forEach((c, i) => {
+		if (i === 0 || chips[i - 1].phase !== c.phase) {
+			if (i > 0) out.push('</span>');
+			out.push(`<span class="sched-chip-group" data-phase="${esc(c.phase)}">`);
+		}
+		out.push(`<button type="button" class="sched-chip" data-group="${esc(c.target)}" data-covers="${esc(c.covers.join(' '))}" aria-label="${esc(c.title)}">${esc(c.label)}</button>`);
+	});
+	out.push('</span>');
+	return out.join('');
 }

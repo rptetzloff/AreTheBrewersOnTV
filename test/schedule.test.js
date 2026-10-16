@@ -44,12 +44,37 @@ test('months group the rows under one heading each; a phase change starts its ow
 	assert.equal((oct.slice(0, oct.indexOf('</section>')).match(/class="sched-row/g) || []).length, 2)
 })
 
-test('a chip a month, in order, the active one marked; one month needs none', () => {
-	const rows = [row({ date: new Date(2026, 2, 28) }), row({ date: new Date(2026, 3, 1) }), row({ date: new Date(2026, 3, 2) })]
-	const html = monthChipsHtml(rows, '2026-04')
-	assert.deepEqual([...html.matchAll(/data-month="([^"]+)"/g)].map((m) => m[1]), ['2026-03', '2026-04'])
-	assert.match(html, /sched-chip active" data-month="2026-04"/)
-	assert.equal(monthChipsHtml(rows.slice(1)), '')
+// The chips as "label:group", with "|" where a phase's group begins (after the first).
+const chipsOf = (html) => [...html.matchAll(/<span class="sched-chip-group"|data-group="([^"]+)"[^>]*>([^<]+)</g)]
+	.map((m) => (m[1] ? `${m[2]}:${m[1]}` : '|')).slice(1)
+
+test('chips by phase: Spring, a chip a regular-season month, Playoffs, with dividers', () => {
+	const rows = [
+		row({ phase: 'pre', date: new Date(2026, 1, 21) }), row({ phase: 'pre', date: new Date(2026, 2, 20) }),
+		row({ phase: 'regular', date: new Date(2026, 2, 26) }), row({ phase: 'regular', date: new Date(2026, 3, 1) }),
+		row({ phase: 'regular', date: new Date(2026, 8, 27) }),
+		row({ phase: 'post', date: new Date(2026, 8, 30) }), row({ phase: 'post', date: new Date(2026, 9, 3) }),
+	]
+	const html = monthChipsHtml(rows)
+	// The preseason is one chip though it spans February and March, and
+	// jumps to its first month; the postseason likewise.
+	assert.deepEqual(chipsOf(html), ['Spring:pre|2026-02', '|', 'Mar:regular|2026-03', 'Apr:regular|2026-04', 'Sep:regular|2026-09', '|', 'Playoffs:post|2026-09'])
+	assert.match(html, /data-group="pre\|2026-02" data-covers="pre\|2026-02 pre\|2026-03"/)
+	assert.match(html, /data-covers="post\|2026-09 post\|2026-10"/)
+})
+
+test('a past season: its months, then a chip a postseason round', () => {
+	const rows = [
+		row({ phase: 'regular', date: new Date(2011, 8, 28) }),
+		row({ phase: 'ds', date: new Date(2011, 9, 1) }), row({ phase: 'ds', date: new Date(2011, 9, 7) }),
+		row({ phase: 'lcs', date: new Date(2011, 9, 9) }),
+	]
+	assert.deepEqual(chipsOf(monthChipsHtml(rows)), ['Sep:regular|2011-09', '|', 'DS:ds|2011-10', '|', 'LCS:lcs|2011-10'])
+})
+
+test('a single group needs no chips', () => {
+	const rows = [row({ phase: 'regular', date: new Date(2026, 3, 1) }), row({ phase: 'regular', date: new Date(2026, 3, 2) })]
+	assert.equal(monthChipsHtml(rows), '')
 	assert.equal(monthKey(new Date(2026, 0, 31, 23)), '2026-01')
 	assert.equal(monthName('2026-10'), 'October 2026')
 })
@@ -64,4 +89,11 @@ test("a played game's links: summary, box score, and ESPN when the game came fro
 	assert.match(retro, /href="\/game\/MIL201110070"/)
 	assert.doesNotMatch(retro, /espn\.com/)
 	assert.doesNotMatch(scheduleRowHtml(row()), /sched-links/)
+})
+
+test("each phase's chips sit in a group of their own, so a narrow row breaks between phases", () => {
+	const rows = [row({ phase: 'pre', date: new Date(2026, 1, 21) }), row({ phase: 'regular', date: new Date(2026, 3, 1) }), row({ phase: 'post', date: new Date(2026, 9, 3) })]
+	const html = monthChipsHtml(rows)
+	assert.deepEqual([...html.matchAll(/class="sched-chip-group" data-phase="([^"]+)"/g)].map((m) => m[1]), ['pre', 'regular', 'post'])
+	assert.equal((html.match(/<span /g) || []).length, (html.match(/<\/span>/g) || []).length)
 })
