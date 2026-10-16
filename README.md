@@ -22,6 +22,12 @@ The schedule is one compact row a game — date, opponent, result or start time,
 
 From 1100px the page splits into two columns: the answer and the season's story on the left, the schedule on the right as a panel the height of the screen with its list scrolling inside. Narrower, the blocks stack — answer and pinned game, the season's story, the schedule, the notes — and the TV moves under the opponent on a phone.
 
+## Light, Dark and System
+
+A button in the footer steps through System, Light and Dark (`theme.js`). System follows the device's setting; the other two set `data-theme` on `<html>` and are kept in localStorage. A one-line script in each page's `<head>` applies a saved choice before the stylesheet paints, so a light page never flashes navy.
+
+Every color in `styles.css` is a variable set at the top of the file: the dark theme in `:root`, the light one in `:root[data-theme="light"]` and again for System on a light device. Colors that read on navy but not on white — the lighter golds, the win greens, the loss reds — are written `var(--win-light, #4caf50)`: dark never sets the variable, so it keeps the color as written, and light swaps in a deeper shade. The franchise history chart stays navy in both. `test/theme.test.js` holds the two light blocks equal and checks that every page loads the switcher.
+
 ## Calendar Feed
 
 The season is a subscribable calendar: one event per game, titled with the channel — `Brewers @ Dodgers · FS1`. With a provider it adds that provider's channel number, picking the right one for a provider with several service areas: `/calendar/<provider>.ics`, with `?area=<n>` for the service area (`/calendar/amherst.ics?area=1`). Without one, `/calendar.ics`. Finished games turn into results (`W 7–4 @ Dodgers`), postponements are marked cancelled, and a game with no announced start is an all-day event. Spring training is left out.
