@@ -1189,6 +1189,9 @@ details:not([open]) > .collapsible-summary::before {
     font-size: 0.88rem;
     line-height: 1.4;
     text-align: left;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 /* The schedule list scrolls inside 400px; a live card with its detail is
@@ -1223,10 +1226,12 @@ details:not([open]) > .collapsible-summary::before {
     font-size: 0.82em;
 }
 
-/* A stat line moves to the next row whole rather than breaking mid-line. */
+/* A stat line moves to the next row whole rather than breaking mid-line,
+   and wraps within itself only when it is wider than the card. (nowrap
+   here once made the whole detail box wider than a phone's card.) */
 .live-stats {
     color: rgba(255, 255, 255, 0.8);
-    white-space: nowrap;
+    display: inline-block;
 }
 
 .live-note {
@@ -1307,6 +1312,61 @@ details:not([open]) > .collapsible-summary::before {
 .live-call {
     color: rgba(255, 255, 255, 0.85);
     font-weight: 600;
+}
+
+/* The last ball in play: a field from behind home plate with the ball's
+   path, gold for a hit and red for an out. */
+.live-hit {
+    display: flex;
+    gap: 0.6rem;
+    align-items: center;
+}
+
+.live-field {
+    width: 124px;
+    flex: none;
+}
+
+.live-field .field-grass {
+    fill: rgba(76, 175, 80, 0.18);
+    stroke: rgba(255, 255, 255, 0.35);
+    stroke-width: 1.2;
+}
+
+.live-field .field-infield {
+    fill: rgba(255, 197, 47, 0.12);
+    stroke: rgba(255, 255, 255, 0.45);
+    stroke-width: 1;
+}
+
+.live-field .field-path {
+    fill: none;
+    stroke: #f44336;
+    stroke-width: 2.4;
+    stroke-linecap: round;
+}
+
+.live-field .field-ball {
+    fill: #f44336;
+    stroke: #12284B;
+    stroke-width: 1.2;
+}
+
+.live-field .field-path.field-hit { stroke: #FFC52F; }
+.live-field .field-ball.field-hit { fill: #FFC52F; }
+
+.live-hit-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.live-hit-result {
+    color: #f88;
+    font-weight: 600;
+}
+
+.live-hit-result.live-hit-good {
+    color: #FFC52F;
 }
 
 .live-log {

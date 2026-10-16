@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { liveDetail, liveDetailHtml, pitchCall, pitchResult, probableStarters, probablesHtml, pitchZoneSvg, scoringPlays, scoringPlaysHtml } from '../live-core.js'
+import { liveDetail, liveDetailHtml, pitchCall, pitchResult, probableStarters, probablesHtml, pitchZoneSvg, scoringPlays, scoringPlaysHtml, fieldSvg, HOME_PLATE } from '../live-core.js'
 
 // Two moments of Brewers at Dodgers, NLCS, October 15 2026, trimmed to the
 // fields live-core reads. Bottom 2nd: Dustin May has just relieved Shane
@@ -113,4 +113,39 @@ test('scoring plays: each run-scoring play once, with the batting team and the s
 	assert.deepEqual(scoringPlays(summary).map((p) => [p.team, p.text]), [['MIL', 'Turang scored on wild pitch.'], ['MIL', 'Mitchell homered.']])
 	assert.match(scoringPlaysHtml(scoringPlays(summary), { away: 'MIL', home: 'LAD' }), /MIL 6, LAD 2/)
 	assert.equal(scoringPlaysHtml([]), '')
+})
+
+test('the last ball in play: batter, result, how it was hit, where it went', () => {
+	const h = over.lastHit
+	assert.deepEqual([h.batter, h.team, h.inning, h.result, h.hit, h.trajectory], ['A. Pages', 'LAD', 'Bot 2nd', 'Single', true, 'Ground ball'])
+	// Up the middle, past the infield: a little right of center, about 270 feet out.
+	assert.ok(Math.abs(h.x - HOME_PLATE.x) < 10)
+	assert.ok((HOME_PLATE.y - h.y) * 2.5 > 200)
+	assert.match(h.text, /^Pages singled to center/)
+})
+
+const inPlay = (type, coord, trajectory = 'F', text = 'X flied out.') => ({
+	header: { competitions: [{ status: { type: { state: 'in' } }, competitors: [{ homeAway: 'away', team: { id: '8', abbreviation: 'MIL' } }, { homeAway: 'home', team: { id: '19', abbreviation: 'LAD' } }] }] },
+	plays: [
+		{ id: 'p1', summaryType: 'P', type: { text: type }, text: 'Pitch 1 : Ball In Play', hitCoordinate: coord, trajectory, period: { type: 'Top', number: 8 }, participants: [{ type: 'batter', athlete: { id: '1' } }] },
+		{ id: 'r1', summaryType: 'N', type: { text: 'Play Result' }, alternativePlay: 'p1', text, period: { type: 'Top', number: 8 } },
+	],
+})
+
+test("a fair ball that plots just foul is drawn on the line; a foul out is not moved; ESPN's distance when it gives one", () => {
+	// 47 degrees off center toward right: a fly out caught in the corner.
+	const corner = liveDetail(inPlay('Fly Out', { x: 210, y: 120 })).lastHit
+	const angle = Math.atan2(corner.x - HOME_PLATE.x, HOME_PLATE.y - corner.y) * 180 / Math.PI
+	assert.ok(angle <= 44.01 && angle > 43.9)
+	const foul = liveDetail(inPlay('Foul Out', { x: 210, y: 120 })).lastHit
+	assert.deepEqual([foul.x, foul.y], [210, 120])
+	const hr = liveDetail(inPlay('Home Run', { x: 181, y: 50 }, 'F', 'Chourio homered to right center (391 feet).')).lastHit
+	assert.equal(hr.feet, 391)
+	assert.equal(hr.team, 'MIL')
+})
+
+test('the field drawing: a straight path on the ground, an arc in the air', () => {
+	assert.match(fieldSvg({ x: 149, y: 153, arc: 'G', hit: false }), /class="field-path" d="M125\.4 198\.3 L149\.0 153\.0"/)
+	assert.match(fieldSvg({ x: 181, y: 50, arc: 'F', hit: true }), /class="field-path field-hit" d="M[\d. ]+Q/)
+	assert.doesNotMatch(fieldSvg(null), /field-path/)
 })

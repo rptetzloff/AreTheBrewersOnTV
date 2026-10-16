@@ -179,6 +179,8 @@ export function liveDetail(summary, { recent = 2 } = {}) {
 		}
 	}
 
+	const lastHit = lastBallInPlay(plays, names, teams);
+
 	const log = plays.filter(logged).slice(-recent).reverse().map((p) => ({
 		inning: inningLabel(p.period),
 		text: p.text,
@@ -194,8 +196,96 @@ export function liveDetail(summary, { recent = 2 } = {}) {
 			balls: atBatOver ? null : num(sit.balls), strikes: atBatOver ? null : num(sit.strikes), outs: num(sit.outs),
 			onFirst: Boolean(sit.onFirst), onSecond: Boolean(sit.onSecond), onThird: Boolean(sit.onThird),
 		},
-		pitchers, batter, pitches, atBatOver, log,
+		pitchers, batter, pitches, atBatOver, lastHit, log,
 	};
+}
+
+// Where a batted ball went: ESPN's hitCoordinate is MLB Gameday's grid —
+// home plate at (125.42, 198.27), y up the field toward center, about 2.5
+// feet a unit, left field at low x as seen from behind the plate. Checked
+// against six home runs whose distance ESPN states (2.3-2.8 feet a unit),
+// ground outs at 80-140 feet and sacrifice bunts at 16-42.
+export const HOME_PLATE = { x: 125.42, y: 198.27 };
+const TRAJECTORY = { G: 'Ground ball', L: 'Line drive', F: 'Fly ball', P: 'Pop-up', B: 'Bunt' };
+const HITS = new Set(['Single', 'Double', 'Triple', 'Home Run']);
+
+/** The game's most recent ball in play: who hit it, the result, how it was
+ *  hit, and where it went. Only the pitch ESPN marks "Ball In Play" counts —
+ *  foul balls carry a hit coordinate too, copied from the at-bat's last
+ *  ball. Null before anyone has put one in play. */
+function lastBallInPlay(plays, names, teams) {
+	const pitch = [...plays].reverse().find((p) => p.summaryType === 'P' && p.hitCoordinate
+		&& /ball in play/i.test(p.text || '') && !/hit by pitch/i.test(p.type?.text || ''));
+	if (!pitch) return null;
+	const result = plays.find((p) => p.alternativePlay === pitch.id);
+	const batterId = (pitch.participants || []).find((x) => x.type === 'batter')?.athlete?.id;
+	const type = (pitch.type?.text || '').replace(/\s*-\s*overturned$/i, '');
+	const feet = (result?.text || '').match(/\((\d+) feet\)/);
+	const battingTeam = pitch.period?.type === 'Bottom' ? 'home' : 'away';
+	// A fair ball is drawn fair. A few caught down the line plot a degree or
+	// two outside it (three fly and line outs in right on October 14), which
+	// would put a fair out in foul ground; anything but a foul out is turned
+	// to just inside the line, at the same distance.
+	let x = num(pitch.hitCoordinate.x);
+	let y = num(pitch.hitCoordinate.y);
+	if (x !== null && y !== null && !/foul/i.test(type)) {
+		const dx = x - HOME_PLATE.x;
+		const up = HOME_PLATE.y - y;
+		const angle = Math.atan2(dx, up);
+		const limit = (44 * Math.PI) / 180;
+		if (Math.abs(angle) > limit) {
+			const r = Math.hypot(dx, up);
+			const a = Math.sign(angle) * limit;
+			x = HOME_PLATE.x + r * Math.sin(a);
+			y = HOME_PLATE.y - r * Math.cos(a);
+		}
+	}
+	return {
+		batter: names.get(String(batterId))?.short || '',
+		team: teams.find((t) => t.homeAway === battingTeam)?.abbr || '',
+		inning: inningLabel(pitch.period),
+		result: type,
+		hit: HITS.has(type),
+		trajectory: TRAJECTORY[pitch.trajectory] || '',
+		arc: pitch.trajectory || '',
+		x, y,
+		feet: feet ? Number(feet[1]) : null,
+		text: result?.text || '',
+	};
+}
+
+/** A small field from behind home plate with the ball's path drawn on it:
+ *  straight along the ground for a grounder or bunt, an arc for a line
+ *  drive, a higher one for a fly ball or pop-up. */
+export function fieldSvg(hit) {
+	const H = HOME_PLATE;
+	// Foul poles about 330 feet down the lines (132 units at 45 degrees),
+	// the fence 400 to center; the arc between them is the quadratic curve
+	// whose middle passes through center field.
+	const pole = 132 / Math.SQRT2;
+	const L = { x: H.x - pole, y: H.y - pole };
+	const R = { x: H.x + pole, y: H.y - pole };
+	const cfY = H.y - 160;
+	const ctrlY = 2 * cfY - L.y;
+	const base = 90 / 2.5 / Math.SQRT2;
+	const f = (n) => n.toFixed(1);
+	const field = `<path class="field-grass" d="M${f(H.x)} ${f(H.y)} L${f(L.x)} ${f(L.y)} Q${f(H.x)} ${f(ctrlY)} ${f(R.x)} ${f(R.y)} Z"/>`
+		+ `<path class="field-infield" d="M${f(H.x)} ${f(H.y)} L${f(H.x + base)} ${f(H.y - base)} L${f(H.x)} ${f(H.y - 2 * base)} L${f(H.x - base)} ${f(H.y - base)} Z"/>`;
+	let path = '';
+	if (hit && hit.x !== null && hit.y !== null) {
+		const dx = hit.x - H.x;
+		const dy = hit.y - H.y;
+		// The path bows up the picture by a share of its length, the way a
+		// ball in the air rises: none on the ground, some for a liner, more
+		// for a fly ball, most for a pop-up.
+		const bow = { G: 0, B: 0, L: 0.12, F: 0.3, P: 0.45 }[hit.arc] ?? 0.2;
+		const mx = H.x + dx / 2;
+		const my = H.y + dy / 2 - Math.hypot(dx, dy) * bow;
+		const d = bow ? `M${f(H.x)} ${f(H.y)} Q${f(mx)} ${f(my)} ${f(hit.x)} ${f(hit.y)}` : `M${f(H.x)} ${f(H.y)} L${f(hit.x)} ${f(hit.y)}`;
+		path = `<path class="field-path${hit.hit ? ' field-hit' : ''}" d="${d}"/>`
+			+ `<circle class="field-ball${hit.hit ? ' field-hit' : ''}" cx="${f(hit.x)}" cy="${f(hit.y)}" r="5"/>`;
+	}
+	return `<svg class="live-field" viewBox="20 15 211 192" role="img" aria-label="Where the ball went, from behind home plate">${field}${path}</svg>`;
 }
 
 // --- The live card's HTML ---
@@ -254,6 +344,18 @@ export function liveDetailHtml(d) {
 	if (d.pitches.length) {
 		const list = d.pitches.map((p) => `<li class="zone-${p.call}"><span class="live-pitch-n">${p.n}</span> ${esc(p.type || 'Pitch')}${p.mph ? ` <span class="live-mph">${p.mph}</span>` : ''} <span class="live-call">${esc(p.result || CALL_LABEL[p.call] || '')}</span></li>`).join('');
 		parts.push(`<div class="live-atbat">${pitchZoneSvg(d.pitches)}<ol class="live-pitches" aria-label="${d.atBatOver ? 'Last at-bat' : 'This at-bat'}, pitch by pitch">${list}</ol></div>`);
+	}
+
+	// The game's last ball in play, on a field with its path.
+	if (d.lastHit) {
+		const h = d.lastHit;
+		const how = [h.result, h.trajectory && h.trajectory.toLowerCase(), h.feet && `${h.feet} ft`].filter(Boolean).join(' · ');
+		parts.push(`<div class="live-hit">${fieldSvg(h)}<div class="live-hit-text">`
+			+ `<div><span class="live-role">Last in play</span> <span class="live-inning">${esc(h.inning)}</span></div>`
+			+ `<div><strong>${esc(h.batter)}</strong> <span class="live-team">${esc(h.team)}</span></div>`
+			+ `<div class="live-hit-result${h.hit ? ' live-hit-good' : ''}">${esc(how)}</div>`
+			+ (h.text ? `<div class="live-note">${esc(h.text)}</div>` : '')
+			+ `</div></div>`);
 	}
 
 	for (const p of other) {
