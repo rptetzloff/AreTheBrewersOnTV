@@ -779,7 +779,8 @@ details:not([open]) > .collapsible-summary::before {
 .schedule-section {
     background: rgba(18, 40, 75, 0.8);
     margin: 0.25rem auto;
-    width: 572px;
+    width: 100%;
+    max-width: 572px;
     box-sizing: border-box;
     padding: 1.5rem;
     backdrop-filter: blur(10px);
@@ -799,14 +800,237 @@ details:not([open]) > .collapsible-summary::before {
    a card's longest unbreakable line — a live pitch list's "Knuckle Curve 81
    Ground Rule Double" — set the column's width, and on a 412px phone the
    card ran past the list's edge and scrolled sideways inside it. */
+/* The list of compact rows. position: relative so each row's offsetTop is
+   measured from the list, which the month chips and the opening scroll use. */
 .schedule-grid {
+    position: relative;
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    gap: 0.8rem;
-    max-height: 400px;
+    gap: 0;
+    max-height: 520px;
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: #FFC52F #12284B;
+}
+
+/* --- Compact schedule rows (schedule-core.js) --- */
+
+/* The pinned game under the answer: a section's width, centered. */
+.schedule-featured {
+    max-width: 572px;
+    margin: 0.5rem auto 1rem;
+    text-align: center;
+}
+
+/* The chips wrap rather than scroll sideways: scrolled, the Spring chip sat
+   out of sight past the left edge with nothing to say it was there. */
+.schedule-months {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.3rem;
+    padding: 0 0 0.5rem;
+    margin-bottom: 0.25rem;
+}
+
+.sched-chip {
+    flex: none;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.75);
+    border: 1px solid rgba(255, 197, 47, 0.35);
+    border-radius: 999px;
+    padding: 0.2rem 0.5rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.sched-chip:hover {
+    color: #fff;
+    border-color: #FFC52F;
+}
+
+.sched-chip.active {
+    background: #FFC52F;
+    border-color: #FFC52F;
+    color: #12284B;
+}
+
+/* A phase's chips together — Spring, the regular season's months, Playoffs —
+   in a faint pill of their own, so the phases read apart and a row breaks
+   between them. */
+.sched-chip-group {
+    display: inline-flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.25rem;
+    padding: 0.15rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+/* A month's heading stays at the top of the list while its games scroll. */
+.sched-month {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: #16305a;
+    color: #FFC52F;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-align: left;
+    padding: 0.35rem 0.6rem;
+}
+
+/* One game: date, opponent, result or time, TV. A phone moves the TV under
+   the opponent so the row fits. */
+.sched-row {
+    display: grid;
+    grid-template-columns: 4.6rem minmax(0, 1fr) auto auto;
+    grid-template-areas: "date opp out tv";
+    align-items: center;
+    column-gap: 0.6rem;
+    padding: 0.45rem 0.6rem;
+    border-left: 3px solid transparent;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    font-size: 0.9rem;
+    text-align: left;
+}
+
+.sched-date { grid-area: date; color: rgba(255, 255, 255, 0.75); white-space: nowrap; }
+.sched-dow { color: rgba(255, 255, 255, 0.5); font-size: 0.8em; }
+.sched-opp { grid-area: opp; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sched-out { grid-area: out; font-weight: 700; white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums; }
+.sched-tv { grid-area: tv; color: rgba(255, 255, 255, 0.6); font-size: 0.8rem; white-space: nowrap; text-align: right; }
+.sched-tv:empty { display: none; }
+
+/* A played game's links — summary, box score, ESPN — in the slot the TV
+   takes for a game to come. Icons on a wide row, words on a phone's second
+   line. */
+.sched-links {
+    grid-area: tv;
+    display: inline-flex;
+    gap: 0.25rem;
+    justify-content: flex-end;
+    white-space: nowrap;
+}
+
+.sched-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    background: transparent;
+    border: 1px solid rgba(255, 197, 47, 0.3);
+    border-radius: 6px;
+    color: rgba(255, 255, 255, 0.75);
+    font: inherit;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1;
+    padding: 0.2rem 0.35rem;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.sched-link:hover,
+.sched-link:focus-visible {
+    color: #12284B;
+    background: #FFC52F;
+    border-color: #FFC52F;
+    outline: none;
+}
+
+.sched-link .mdi { font-size: 0.95rem; }
+.sched-link-label { display: none; }
+.sched-link-espn { letter-spacing: 0.03em; }
+
+.sched-win { border-left-color: #4CAF50; }
+.sched-win .sched-out { color: #4CAF50; }
+.sched-loss { border-left-color: #f44336; }
+.sched-loss .sched-out { color: #f66; }
+.sched-tie .sched-out { color: rgba(255, 255, 255, 0.8); }
+.sched-live { border-left-color: #ff0000; background: rgba(255, 0, 0, 0.12); }
+.sched-live .sched-out { color: #ff6b6b; }
+.sched-next { border-left-color: #FFC52F; background: rgba(255, 197, 47, 0.12); }
+.sched-next .sched-out { color: #FFC52F; }
+.sched-upcoming .sched-out { color: rgba(255, 255, 255, 0.85); font-weight: 600; }
+.sched-postponed { opacity: 0.6; }
+
+.sched-click { cursor: pointer; }
+.sched-click:hover,
+.sched-click:focus-visible { background: rgba(255, 197, 47, 0.1); outline: none; }
+
+.sched-row.highlight {
+    outline: 2px solid #FFC52F;
+    outline-offset: -2px;
+    background: rgba(255, 197, 47, 0.18);
+}
+
+@media (max-width: 480px) {
+    .sched-row {
+        grid-template-columns: 4.3rem minmax(0, 1fr) auto;
+        grid-template-areas: "date opp out" "date tv tv";
+        row-gap: 0.1rem;
+        font-size: 0.85rem;
+    }
+    .sched-tv { text-align: left; }
+    .sched-links { justify-content: flex-start; margin-top: 0.15rem; }
+    .sched-link-label { display: inline; }
+}
+
+/* --- Home page layout --- */
+
+/* From 1100px the page splits: the answer and the season's story on the
+   left, the schedule on the right as a panel the height of the screen (less
+   the sticky footer), its list scrolling inside. Narrower, the blocks stack
+   in source order: story, schedule, notes. */
+@media (min-width: 1100px) {
+    .container.home-layout {
+        max-width: 1280px;
+        width: 100%;
+        box-sizing: border-box;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(420px, 520px);
+        /* The title stays over the left column, so the schedule panel starts
+           at the top of the page and its full height fits above the footer
+           without scrolling first. */
+        grid-template-areas: "title sched" "main sched" "notes sched";
+        grid-template-rows: auto auto 1fr;
+        column-gap: 2rem;
+        align-items: start;
+        padding-top: 1rem;
+    }
+    .home-layout > .site-title { margin-top: 0.5rem; }
+    .home-layout > .site-title { grid-area: title; }
+    .home-main { grid-area: main; min-width: 0; }
+    .home-notes { grid-area: notes; }
+    .home-schedule {
+        grid-area: sched;
+        position: sticky;
+        top: 1rem;
+        height: calc(100vh - 1rem - 4.5rem);
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+    }
+    .home-schedule .schedule-section {
+        flex: 1;
+        min-height: 0;
+        max-width: none;
+        display: flex;
+        flex-direction: column;
+        margin: 0.5rem 0 0;
+    }
+    .home-schedule .schedule-section h3 {
+        margin-bottom: 0.75rem;
+    }
+    .home-schedule .schedule-grid {
+        flex: 1;
+        min-height: 0;
+        max-height: none;
+    }
 }
 
 .schedule-grid::-webkit-scrollbar,
@@ -1207,11 +1431,6 @@ details:not([open]) > .collapsible-summary::before {
     box-sizing: border-box;
 }
 
-/* The schedule list scrolls inside 400px; a live card with its detail is
-   taller than that, so while a game is on the list grows to show it whole. */
-.schedule-grid:has(.game-item.live .live-detail) {
-    max-height: 720px;
-}
 
 .live-row + .live-row,
 .live-matchup + *,
@@ -1515,7 +1734,7 @@ details:not([open]) > .collapsible-summary::before {
     }
 
     .schedule-grid {
-        max-height: 400px;
+        max-height: 60vh;
     }
 
     .season-selector {
