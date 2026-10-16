@@ -18,10 +18,19 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="container">
+    <!-- Three blocks: the answer and the season's story, the schedule panel,
+         and the notes. A phone stacks them in that order; from 1100px the
+         schedule panel takes a right-hand column the height of the screen. -->
+    <div class="container home-layout">
         <h1 id="site-title" class="site-title"><a href="/" class="site-title-link">Are the Brewers On TV?</a></h1>
+        <div class="home-main">
         <div id="answer" class="answer loading">Loading...</div>
         <div id="record" class="record"></div>
+        <!-- The live game, else the next one, as its full card: right under
+             the answer, on a phone and in the left column on a desktop. A
+             live card is ~550px tall, which in the schedule panel left its
+             list almost no room. -->
+        <div id="schedule-featured" class="schedule-featured" hidden></div>
         <a id="history-spark" class="history-spark" href="/history.html" aria-label="Franchise history, season by season" title="Franchise history, season by season"></a>
         <details id="playoff-details" class="collapsible-section" open hidden>
             <summary id="playoff-summary" class="collapsible-summary">Postseason</summary>
@@ -38,6 +47,9 @@
             <div id="on-this-day" class="on-this-day" hidden></div>
         </details>
 
+        </div>
+
+        <aside class="home-schedule" aria-label="Schedule">
         <div id="season-selector" class="season-selector">
             <button id="season-first" class="season-nav season-nav-jump" aria-label="Earliest season"><i class="mdi mdi-chevron-triple-left"></i></button>
             <button id="season-prev10" class="season-nav season-nav-jump" aria-label="Back 10 years"><i class="mdi mdi-chevron-double-left"></i></button>
@@ -50,16 +62,21 @@
 
         <div id="schedule" class="schedule-section">
             <h3 id="schedule-title"><i class="mdi mdi-calendar-month"></i> Schedule</h3>
+            <!-- A chip a month, to jump the list. -->
+            <div id="schedule-months" class="schedule-months" hidden></div>
             <div id="schedule-grid" class="schedule-grid">
                 <div class="loading">Loading schedule...</div>
             </div>
             <div id="schedule-provider-bar" class="schedule-provider-bar" hidden></div>
         </div>
+        </aside>
 
+        <div class="home-notes">
         <div id="last-updated" class="last-updated"></div>
         <div id="data-credit" class="data-credit" style="display:none">Historical data obtained free of charge from and copyrighted by <a href="https://www.retrosheet.org/" target="_blank" rel="noopener noreferrer">Retrosheet</a>. Contact: 20 Sunset Rd., Newark, DE 19711.</div>
 
         <div id="last-undefeated" class="last-undefeated"></div>
+        </div>
     </div>
     <!-- .container closes here, as on every other page. It was never closed,
          so the footer and the dialogs below sat inside the 800px column: the
