@@ -795,8 +795,13 @@ details:not([open]) > .collapsible-summary::before {
     margin-bottom: 1.5rem;
 }
 
+/* minmax(0, 1fr): one column that never grows past the list. Left to auto,
+   a card's longest unbreakable line — a live pitch list's "Knuckle Curve 81
+   Ground Rule Double" — set the column's width, and on a 412px phone the
+   card ran past the list's edge and scrolled sideways inside it. */
 .schedule-grid {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: 0.8rem;
     max-height: 400px;
     overflow-y: auto;
@@ -993,15 +998,20 @@ details:not([open]) > .collapsible-summary::before {
     animation: pulse 1.5s 2;
 }
 
+/* min-width: 0 on both: as flex items they would otherwise never be
+   narrower than their longest unbreakable line, and the live card's pitch
+   list pushed a 360px phone's card 11px past the schedule list. */
 .game-info {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
     width: 100%;
+    min-width: 0;
 }
 
 .game-details {
     flex: 1;
+    min-width: 0;
 }
 
 .game-opponent {
@@ -1181,12 +1191,15 @@ details:not([open]) > .collapsible-summary::before {
 
 /* Live card detail (live-core.js): the matchup, this at-bat on a strike
    zone with its pitches listed, the other team's pitcher, the last plays. */
+/* Text and drawings scale with the screen: 0.76rem and 84px on a phone,
+   up to 0.88rem and 124px with room to spare, so a phone sees the card
+   whole without scrolling. */
 .live-detail {
     margin-top: 0.5rem;
-    padding: 0.6rem 0.65rem;
+    padding: 0.5rem 0.55rem;
     background: rgba(0, 0, 0, 0.3);
     border-radius: 6px;
-    font-size: 0.88rem;
+    font-size: clamp(0.76rem, 0.45rem + 1.2vw, 0.88rem);
     line-height: 1.4;
     text-align: left;
     min-width: 0;
@@ -1247,10 +1260,24 @@ details:not([open]) > .collapsible-summary::before {
 }
 
 .live-zone {
-    width: 124px;
+    width: clamp(84px, 22vw, 124px);
     flex: none;
     background: rgba(255, 255, 255, 0.04);
     border-radius: 4px;
+}
+
+/* The batter's box on the side he stands, behind the pitches. */
+.live-zone .zone-batter {
+    fill: rgba(255, 197, 47, 0.16);
+    stroke: rgba(255, 197, 47, 0.45);
+    stroke-width: 0.8;
+}
+
+.live-zone .zone-batter-label {
+    fill: #FFC52F;
+    font-size: 11px;
+    font-weight: 800;
+    text-anchor: middle;
 }
 
 .live-zone .zone-box {
@@ -1323,7 +1350,7 @@ details:not([open]) > .collapsible-summary::before {
 }
 
 .live-field {
-    width: 124px;
+    width: clamp(84px, 22vw, 124px);
     flex: none;
 }
 

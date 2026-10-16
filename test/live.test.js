@@ -149,3 +149,22 @@ test('the field drawing: a straight path on the ground, an arc in the air', () =
 	assert.match(fieldSvg({ x: 181, y: 50, arc: 'F', hit: true }), /class="field-path field-hit" d="M[\d. ]+Q/)
 	assert.doesNotMatch(fieldSvg(null), /field-path/)
 })
+
+test("the batter's side: from his at-bat, drawn on the side he stands in the pitcher's view", () => {
+	assert.equal(mid.batter.bats, 'L')   // Max Muncy
+	assert.equal(over.batter.bats, 'R')  // Andy Pages
+	assert.match(liveDetailHtml(mid), /bats L/)
+	// The pitcher's view puts a lefty, on the first-base side, at the left.
+	const box = (bats) => Number(pitchZoneSvg([], bats).match(/class="zone-batter" x="([\d.]+)"/)[1])
+	assert.ok(box('L') < 50)
+	assert.ok(box('R') > 50)
+	assert.doesNotMatch(pitchZoneSvg([], null), /zone-batter/)
+})
+
+test('a ground-rule double is a hit; a double play is not', () => {
+	const hit = (type) => liveDetail(inPlay(type, { x: 200, y: 90 }, 'L')).lastHit.hit
+	assert.equal(hit('Ground Rule Double'), true)
+	assert.equal(hit('Inside the Park Home Run'), true)
+	assert.equal(hit('Grounded Into Double Play'), false)
+	assert.equal(hit('Fly Out'), false)
+})

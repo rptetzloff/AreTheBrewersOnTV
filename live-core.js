@@ -155,7 +155,7 @@ export function liveDetail(summary, { recent = 2 } = {}) {
 			id: atBat, name: names.get(atBat)?.name || '', short: names.get(atBat)?.short || '',
 			team: team ? abbrOf.get(String(team.team?.id)) || team.team?.abbreviation || '' : '',
 			today: line ? line['H-AB'] || '' : '', avg: line?.AVG || '',
-			vsPitcher: note,
+			vsPitcher: note, bats: null,
 		};
 		// This at-bat: the latest at-bat id with him at the plate.
 		const isHim = (p) => (p.participants || []).some((x) => x.type === 'batter' && String(x.athlete?.id) === atBat);
@@ -166,6 +166,10 @@ export function liveDetail(summary, { recent = 2 } = {}) {
 			// Rojas") is a result row under the same at-bat id, with the
 			// at-bat still going.
 			atBatOver = plays.some((p) => p.atBatId === current && /^end batter/i.test(p.type?.text || ''));
+			// The side he is hitting from this time up — a switch hitter's
+			// changes with the pitcher — from the at-bat's own rows.
+			const side = [...plays].reverse().find((p) => p.atBatId === current && p.bats?.abbreviation)?.bats?.abbreviation;
+			batter.bats = side === 'R' || side === 'L' ? side : null;
 			pitches = plays
 				.filter((p) => p.atBatId === current && p.summaryType === 'P')
 				.map((p, i) => ({
@@ -207,7 +211,9 @@ export function liveDetail(summary, { recent = 2 } = {}) {
 // ground outs at 80-140 feet and sacrifice bunts at 16-42.
 export const HOME_PLATE = { x: 125.42, y: 198.27 };
 const TRAJECTORY = { G: 'Ground ball', L: 'Line drive', F: 'Fly ball', P: 'Pop-up', B: 'Bunt' };
-const HITS = new Set(['Single', 'Double', 'Triple', 'Home Run']);
+// A hit by its words — "Single", "Ground Rule Double", "Inside the Park
+// Home Run" — but not "Grounded Into Double Play" or anything with an out.
+const isHit = (type) => /\b(single|double|triple|home run)\b/i.test(type) && !/\b(play|out)\b/i.test(type);
 
 /** The game's most recent ball in play: who hit it, the result, how it was
  *  hit, and where it went. Only the pitch ESPN marks "Ball In Play" counts —
@@ -245,7 +251,7 @@ function lastBallInPlay(plays, names, teams) {
 		team: teams.find((t) => t.homeAway === battingTeam)?.abbr || '',
 		inning: inningLabel(pitch.period),
 		result: type,
-		hit: HITS.has(type),
+		hit: isHit(type),
 		trajectory: TRAJECTORY[pitch.trajectory] || '',
 		arc: pitch.trajectory || '',
 		x, y,
@@ -293,26 +299,37 @@ export function fieldSvg(hit) {
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 // The zone drawing: ESPN's grid cropped around the zone, x 55-175 and
-// y 115-245 (a pitch further out is drawn at the edge), and stretched
+// y 125-232 (a pitch further out is drawn at the edge), and stretched
 // taller — on that grid the zone is 61 wide by 45 high, where the real one
 // is about square — so it looks the way it does on TV. Circles are placed
 // in the stretched space, so they stay round.
-const CROP = { x0: 55, x1: 175, y0: 115, y1: 245 };
+const CROP = { x0: 55, x1: 175, y0: 125, y1: 232 };
 const SX = 100 / (CROP.x1 - CROP.x0);
 const SY = SX * ((STRIKE_ZONE.right - STRIKE_ZONE.left) / (STRIKE_ZONE.bottom - STRIKE_ZONE.top));
 const px = (x) => (Math.min(Math.max(x, CROP.x0), CROP.x1) - CROP.x0) * SX;
 const py = (y) => (Math.min(Math.max(y, CROP.y0), CROP.y1) - CROP.y0) * SY;
 const CALL_LABEL = { ball: 'Ball', strike: 'Strike', foul: 'Foul', inplay: 'In play', hbp: 'Hit by pitch' };
 
-/** The strike zone with this at-bat's pitches as numbered dots. */
-export function pitchZoneSvg(pitches) {
+/** The strike zone with this at-bat's pitches as numbered dots, and the
+ *  batter's box on the side he stands. The view is the pitcher's, so a
+ *  right-handed hitter, on the third-base side, is on the right — the
+ *  first-base side is low x on ESPN's grid (a lefty was hit at x 7). */
+export function pitchZoneSvg(pitches, bats = null) {
 	const w = 100;
 	const h = Math.round((CROP.y1 - CROP.y0) * SY);
 	const zone = `<rect class="zone-box" x="${px(STRIKE_ZONE.left).toFixed(1)}" y="${py(STRIKE_ZONE.top).toFixed(1)}" width="${(px(STRIKE_ZONE.right) - px(STRIKE_ZONE.left)).toFixed(1)}" height="${(py(STRIKE_ZONE.bottom) - py(STRIKE_ZONE.top)).toFixed(1)}"/>`;
+	let box = '';
+	if (bats === 'R' || bats === 'L') {
+		const bw = 16;
+		const bx = bats === 'R' ? w - bw - 2 : 2;
+		box = `<rect class="zone-batter" x="${bx}" y="4" width="${bw}" height="${h - 8}" rx="3"/>`
+			+ `<text class="zone-batter-label" x="${bx + bw / 2}" y="${h / 2 + 4}">${bats}</text>`;
+	}
 	const dots = pitches.filter((p) => p.x !== null && p.y !== null).map((p) =>
 		`<g class="zone-pitch zone-${p.call}"><circle cx="${px(p.x).toFixed(1)}" cy="${py(p.y).toFixed(1)}" r="8"/>` +
 		`<text x="${px(p.x).toFixed(1)}" y="${(py(p.y) + 3.6).toFixed(1)}">${p.n}</text></g>`).join('');
-	return `<svg class="live-zone" viewBox="0 0 ${w} ${h}" role="img" aria-label="Pitch locations, from the pitcher's side">${zone}${dots}</svg>`;
+	const who = bats === 'R' ? ', right-handed batter' : bats === 'L' ? ', left-handed batter' : '';
+	return `<svg class="live-zone" viewBox="0 0 ${w} ${h}" role="img" aria-label="Pitch locations, from the pitcher's side${who}">${box}${zone}${dots}</svg>`;
 }
 
 // IP, hits, earned runs, strikeouts and pitches; walks only when there are
@@ -334,7 +351,7 @@ export function liveDetailHtml(d) {
 		const rows = [];
 		if (mound) rows.push(`<div class="live-row"><span class="live-role">Pitching</span> <strong>${esc(mound.short || mound.name)}</strong> <span class="live-team">${esc(mound.team)}</span> <span class="live-stats">${esc(pitcherLine(mound))}</span></div>`);
 		if (d.batter) {
-			const day = [d.batter.today && `${d.batter.today} today`, d.batter.avg && `${d.batter.avg}`].filter(Boolean).join(' · ');
+			const day = [d.batter.bats && `bats ${d.batter.bats}`, d.batter.today && `${d.batter.today} today`, d.batter.avg && `${d.batter.avg}`].filter(Boolean).join(' · ');
 			rows.push(`<div class="live-row"><span class="live-role">${d.atBatOver ? 'Last up' : 'At bat'}</span> <strong>${esc(d.batter.short || d.batter.name)}</strong> <span class="live-team">${esc(d.batter.team)}</span> <span class="live-stats">${esc(day)}</span></div>`);
 			if (d.batter.vsPitcher) rows.push(`<div class="live-note">${esc(d.batter.vsPitcher)}</div>`);
 		}
@@ -343,7 +360,7 @@ export function liveDetailHtml(d) {
 
 	if (d.pitches.length) {
 		const list = d.pitches.map((p) => `<li class="zone-${p.call}"><span class="live-pitch-n">${p.n}</span> ${esc(p.type || 'Pitch')}${p.mph ? ` <span class="live-mph">${p.mph}</span>` : ''} <span class="live-call">${esc(p.result || CALL_LABEL[p.call] || '')}</span></li>`).join('');
-		parts.push(`<div class="live-atbat">${pitchZoneSvg(d.pitches)}<ol class="live-pitches" aria-label="${d.atBatOver ? 'Last at-bat' : 'This at-bat'}, pitch by pitch">${list}</ol></div>`);
+		parts.push(`<div class="live-atbat">${pitchZoneSvg(d.pitches, d.batter?.bats)}<ol class="live-pitches" aria-label="${d.atBatOver ? 'Last at-bat' : 'This at-bat'}, pitch by pitch">${list}</ol></div>`);
 	}
 
 	// The game's last ball in play, on a field with its path.
