@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { browserModules } from '../lib/browser-modules.js'
+import { browserModules, releaseId } from '../lib/browser-modules.js'
 
 function site(files) {
 	const root = mkdtempSync(join(tmpdir(), 'modules-'))
@@ -47,4 +47,25 @@ test('a missing import is left as written, and a cycle does not hang', () => {
 	assert.equal(load('page.js').body, "import './gone.js';\n")
 	assert.ok(load('x.js').version)
 	assert.equal(load('missing.js'), null)
+})
+
+test('the release goes into every version: a new release changes every URL, one file changed or not', () => {
+	const files = { 'page.js': "import './leaf.js';\n", 'leaf.js': 'export const v = 1;\n' }
+	const root = site(files)
+	const a = browserModules(root, { release: 'r1' })
+	const b = browserModules(root, { release: 'r2' })
+	assert.notEqual(a('leaf.js').version, b('leaf.js').version)
+	assert.notEqual(a('page.js').version, b('page.js').version)
+	assert.ok(b('page.js').body.includes(`./leaf.js?v=${b('leaf.js').version}'`))
+	assert.equal(browserModules(root, { release: 'r1' })('page.js').version, a('page.js').version)
+})
+
+test('the release id follows the code, not the data', () => {
+	const base = { 'server.js': 'a', 'page.html': '<p>', 'styles.css': 'b{}', 'lib/x.js': 'x', 'package.json': '{}', 'data/games.csv': '1' }
+	const id = releaseId(site(base))
+	assert.match(id, /^[0-9a-f]{8}$/)
+	assert.equal(releaseId(site(base)), id)
+	assert.notEqual(releaseId(site({ ...base, 'lib/x.js': 'y' })), id)
+	assert.notEqual(releaseId(site({ ...base, 'styles.css': 'c{}' })), id)
+	assert.equal(releaseId(site({ ...base, 'data/games.csv': '2' })), id)
 })
