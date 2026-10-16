@@ -173,6 +173,8 @@ The site is served by `server.js`, a small Node web service that:
 3. Renders card images at `/og/…`.
 4. Serves the box score API (`/api/boxscore/<gid>`) and game pages (`/game/<gid>`).
 
+Every script and stylesheet URL carries a content version (`?v=…`) and is cached for good. Page shells version their `<script>` and `<link>` tags when the server starts, and each browser module goes out with its local imports versioned too (`lib/browser-modules.js`). A module's version hashes its rewritten body, so a change anywhere in its import tree changes its URL. This matters because Cloudflare turns the `no-cache` the server sends for an unversioned `.js` into a four-hour browser cache: with unversioned imports, a browser could run a new page against an old shared module for hours after a deploy. The JSON APIs revalidate with an ETag instead.
+
 ### Relevant files
 
 ```

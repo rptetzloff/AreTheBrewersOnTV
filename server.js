@@ -8,6 +8,7 @@ import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, normalize, extname } from 'node:path';
+import { browserModules, hash8 } from './lib/browser-modules.js';
 import { renderPng, renderRecordsPng, renderH2hPng, renderHistoryPng, renderCoachesPng, renderGamePng, renderBallparksPng } from './lib/cards.js';
 import { indexLoadOutcome, isLfsPointer } from './lib/indices-health.js';
 import { originOf } from './lib/origin.js';
@@ -29,39 +30,41 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = __dirname;
 const PORT = process.env.PORT || 3000;
 
+// Every script goes out with its local imports versioned, and its own URL
+// carries the version of the whole tree below it (lib/browser-modules.js).
+const browserModule = browserModules(ROOT);
+
 function assetVersion(file) {
-  try { return createHash('sha1').update(readFileSync(join(ROOT, file))).digest('hex').slice(0, 8); }
+  if (file.endsWith('.js')) return browserModule(file)?.version ?? null;
+  try { return hash8(readFileSync(join(ROOT, file))); }
   catch { return null; }
 }
 
-function loadShell(file, assets) {
+// A page shell: the HTML with its per-page meta stripped (sendPage adds
+// them) and every local script and stylesheet versioned, license-modal.js
+// included.
+function loadShell(file) {
   const raw = readFileSync(join(ROOT, file), 'utf8');
   const stripped = [
     /<title>[\s\S]*?<\/title>\s*/i,
     /<meta[^>]*\b(?:property=["']og:[^"']*["']|name=["']twitter:[^"']*["']|name=["']description["'])[^>]*>\s*/gi,
     /<link[^>]*\brel=["']canonical["'][^>]*>\s*/gi,
   ].reduce((html, re) => html.replace(re, ''), raw);
-  return assets.reduce((html, asset) => {
+  return stripped.replace(/\b(src|href)="(\/?)([\w./-]+\.(?:js|css))"/g, (whole, attr, slash, asset) => {
     const v = assetVersion(asset);
-    if (!v) return html;
-    for (const attr of ['src', 'href']) {
-      html = html
-        .replace(`${attr}="${asset}"`, `${attr}="${asset}?v=${v}"`)
-        .replace(`${attr}="/${asset}"`, `${attr}="/${asset}?v=${v}"`);
-    }
-    return html;
-  }, stripped);
+    return v ? `${attr}="${slash}${asset}?v=${v}"` : whole;
+  });
 }
-const INDEX_VERSIONED = loadShell('index.html', ['main.js', 'styles.css']);
-const RECORDS_VERSIONED = loadShell('records.html', ['records.js', 'styles.css']);
-const VS_VERSIONED = loadShell('vs.html', ['vs.js', 'styles.css']);
-const GAME_VERSIONED = loadShell('game.html', ['game.js', 'styles.css']);
-const HISTORY_VERSIONED = loadShell('history.html', ['history.js', 'styles.css']);
-const MANAGERS_VERSIONED = loadShell('managers.html', ['managers.js', 'styles.css']);
-const BALLPARKS_VERSIONED = loadShell('ballparks.html', ['ballparks.js', 'styles.css']);
-const STATS_VERSIONED = loadShell('stats.html', ['stats.js', 'styles.css']);
-const PLAYER_VERSIONED = loadShell('player.html', ['player.js', 'styles.css']);
-const COMPARE_VERSIONED = loadShell('compare.html', ['compare.js', 'styles.css']);
+const INDEX_VERSIONED = loadShell('index.html');
+const RECORDS_VERSIONED = loadShell('records.html');
+const VS_VERSIONED = loadShell('vs.html');
+const GAME_VERSIONED = loadShell('game.html');
+const HISTORY_VERSIONED = loadShell('history.html');
+const MANAGERS_VERSIONED = loadShell('managers.html');
+const BALLPARKS_VERSIONED = loadShell('ballparks.html');
+const STATS_VERSIONED = loadShell('stats.html');
+const PLAYER_VERSIONED = loadShell('player.html');
+const COMPARE_VERSIONED = loadShell('compare.html');
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
@@ -828,9 +831,10 @@ async function serveStatic(req, res, pathname) {
   try {
     const st = await stat(file);
     if (st.isDirectory()) throw new Error('dir');
-    const body = await readFile(file);
-    const versioned = /[?&]v=/.test(req.url);
     const ext = extname(file).toLowerCase();
+    // A browser module goes out with its imports versioned (browserModule).
+    const body = ext === '.js' ? (browserModule(safe.replace(/\\/g, '/').replace(/^\//, ''))?.body ?? await readFile(file)) : await readFile(file);
+    const versioned = /[?&]v=/.test(req.url);
     const cache = versioned ? 'public, max-age=31536000, immutable'
       : ext === '.js' ? 'no-cache'
       : 'public, max-age=3600';
