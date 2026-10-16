@@ -3039,7 +3039,7 @@ showError(message) {
   const recordEl = document.getElementById('record');
 
   if (answerEl) {
-     answerEl.innerHTML = `<div style="color: #ff6b6b;">${message}</div>`;
+     answerEl.innerHTML = `<div style="color: var(--loss-light, #ff6b6b);">${message}</div>`;
      answerEl.className = 'answer error';
  }
 
