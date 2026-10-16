@@ -2,7 +2,7 @@
         import { computeHeadToHead } from './h2h-core.js';
         import { buildChartSvg } from './history-chart.js';
         import { liveSituation, isBetweenInnings, situationHtml } from './situation-core.js';
-        import { liveDetailHtml, probablesHtml, probableStarters } from './live-core.js';
+        import { liveDetailHtml, probablesHtml, probableStarters, scoringPlays, scoringPlaysHtml } from './live-core.js';
         import { espnPostseasonGames, postseasonPanelHtml, standingsRows, raceNumbers, racePanelHtml, RACE_WINDOW_GAMES } from './playoff-core.js';
         import { intentUrls, copyText, flashCopied, wireShareDropdown } from './share-core.js';
         import { parseTvLookup, resolveChannel, tvStatus, primaryBroadcast, providerChannel, formatChannelNum, channelNumberFor, parseSimulcasts, broadcastsWithSimulcasts, dayCT, EMPTY_LOOKUP } from './tv-core.js';
@@ -2769,7 +2769,9 @@ openLinescoreFromEvent(event) {
         lp: fmtP(findP('losingPitcher')),
         save: fmtP(findP('savingPitcher')),
       };
-      this._renderLinescore(title, visitor, home, visLabel, homLabel, milIsHome, boxScoreUrl, false, pitchers);
+      // Every run-scoring play, live or final, from the same summary.
+      const scoring = scoringPlaysHtml(scoringPlays(data), { away: visS.team.abbreviation, home: homS.team.abbreviation });
+      this._renderLinescore(title, visitor, home, visLabel, homLabel, milIsHome, boxScoreUrl, false, pitchers, scoring);
     })
     .catch(() => {
       this._renderLinescoreFromSchedule(title, visC, homC, visLabel, homLabel, milIsHome, boxScoreUrl);
@@ -2801,7 +2803,7 @@ _renderLinescoreFromSchedule(title, visC, homC, visLabel, homLabel, milIsHome, b
   this._renderLinescore(title, visitor, home, visLabel, homLabel, milIsHome, boxScoreUrl);
 }
 
-_renderLinescore(title, visitor, home, visLabel, homLabel, milIsHome, boxScoreUrl = '', loading = false, pitchers = null) {
+_renderLinescore(title, visitor, home, visLabel, homLabel, milIsHome, boxScoreUrl = '', loading = false, pitchers = null, scoringHtml = '') {
   const modal = document.getElementById('linescore-modal');
   document.getElementById('linescore-title').textContent = title;
   const body = document.getElementById('linescore-body');
@@ -2854,6 +2856,7 @@ _renderLinescore(title, visitor, home, visLabel, homLabel, milIsHome, boxScoreUr
       </table>
     </div>
     ${pitchers ? this._renderPitchers(pitchers) : ''}
+    ${scoringHtml}
     ${boxScoreUrl ? (boxScoreUrl.startsWith('/game/')
       ? `<a class="linescore-box-link" href="${boxScoreUrl}">Full Box Score <i class="mdi mdi-arrow-right"></i></a>`
       : `<a class="linescore-box-link" href="${boxScoreUrl}" target="_blank" rel="noopener noreferrer">Full Box Score on ESPN <i class="mdi mdi-open-in-new"></i></a>`) : ''}

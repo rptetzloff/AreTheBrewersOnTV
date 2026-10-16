@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { liveDetail, liveDetailHtml, pitchCall, pitchResult, probableStarters, probablesHtml, pitchZoneSvg } from '../live-core.js'
+import { liveDetail, liveDetailHtml, pitchCall, pitchResult, probableStarters, probablesHtml, pitchZoneSvg, scoringPlays, scoringPlaysHtml } from '../live-core.js'
 
 // Two moments of Brewers at Dodgers, NLCS, October 15 2026, trimmed to the
 // fields live-core reads. Bottom 2nd: Dustin May has just relieved Shane
@@ -92,4 +92,25 @@ test('probable starters: away first, a record when the scoreboard gives one, non
 	assert.deepEqual(got.map((s) => [s.team, s.short, s.record]), [['MIL', 'S. Drohan', null], ['LAD', 'T. Glasnow', '0-0, 1.93']])
 	assert.deepEqual(probableStarters(event([{ homeAway: 'home', team: { abbreviation: 'MIL' } }])), [])
 	assert.equal(probablesHtml([]), '')
+})
+
+test('scoring plays: each run-scoring play once, with the batting team and the score after', () => {
+	const got = scoringPlays(fixture('live-atbatover.json'))
+	assert.deepEqual(got.map((p) => [p.inning, p.team, p.away, p.home]), [['Bot 2nd', 'LAD', 0, 1]])
+	assert.match(got[0].text, /^Pages singled to center, Tucker scored/)
+	// ESPN flags a wild-pitch run twice (the event and a result row with the
+	// same words), and a home run's pitch row too; each is listed once.
+	const play = (o) => ({ scoringPlay: true, period: { type: 'Top', number: 8 }, awayScore: 5, homeScore: 2, ...o })
+	const summary = {
+		header: { competitions: [{ competitors: [{ homeAway: 'away', team: { abbreviation: 'MIL' } }, { homeAway: 'home', team: { abbreviation: 'LAD' } }] }] },
+		plays: [
+			play({ text: 'Turang scored on wild pitch.' }),
+			play({ summaryType: 'S', text: 'Turang scored on wild pitch.' }),
+			play({ summaryType: 'P', text: 'Pitch 1 : Ball In Play', awayScore: 6 }),
+			play({ summaryType: 'S', text: 'Mitchell homered.', awayScore: 6 }),
+		],
+	}
+	assert.deepEqual(scoringPlays(summary).map((p) => [p.team, p.text]), [['MIL', 'Turang scored on wild pitch.'], ['MIL', 'Mitchell homered.']])
+	assert.match(scoringPlaysHtml(scoringPlays(summary), { away: 'MIL', home: 'LAD' }), /MIL 6, LAD 2/)
+	assert.equal(scoringPlaysHtml([]), '')
 })

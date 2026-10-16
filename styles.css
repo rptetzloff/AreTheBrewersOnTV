@@ -1183,12 +1183,18 @@ details:not([open]) > .collapsible-summary::before {
    zone with its pitches listed, the other team's pitcher, the last plays. */
 .live-detail {
     margin-top: 0.5rem;
-    padding: 0.45rem 0.5rem;
+    padding: 0.6rem 0.65rem;
     background: rgba(0, 0, 0, 0.3);
     border-radius: 6px;
-    font-size: 0.75rem;
-    line-height: 1.35;
+    font-size: 0.88rem;
+    line-height: 1.4;
     text-align: left;
+}
+
+/* The schedule list scrolls inside 400px; a live card with its detail is
+   taller than that, so while a game is on the list grows to show it whole. */
+.schedule-grid:has(.game-item.live .live-detail) {
+    max-height: 720px;
 }
 
 .live-row + .live-row,
@@ -1201,7 +1207,7 @@ details:not([open]) > .collapsible-summary::before {
 .live-role {
     color: rgba(255, 255, 255, 0.6);
     text-transform: uppercase;
-    font-size: 0.65rem;
+    font-size: 0.76em;
     letter-spacing: 0.04em;
     margin-right: 0.15rem;
 }
@@ -1214,7 +1220,7 @@ details:not([open]) > .collapsible-summary::before {
 .live-team {
     color: #FFC52F;
     font-weight: 700;
-    font-size: 0.68rem;
+    font-size: 0.82em;
 }
 
 /* A stat line moves to the next row whole rather than breaking mid-line. */
@@ -1236,7 +1242,7 @@ details:not([open]) > .collapsible-summary::before {
 }
 
 .live-zone {
-    width: 96px;
+    width: 124px;
     flex: none;
     background: rgba(255, 255, 255, 0.04);
     border-radius: 4px;
@@ -1279,13 +1285,13 @@ details:not([open]) > .collapsible-summary::before {
 
 .live-pitch-n {
     display: inline-block;
-    width: 1.1rem;
-    height: 1.1rem;
-    line-height: 1.1rem;
+    width: 1.5em;
+    height: 1.5em;
+    line-height: 1.5em;
     border-radius: 50%;
     text-align: center;
     font-weight: 700;
-    font-size: 0.65rem;
+    font-size: 0.78em;
     color: #12284B;
     background: #f44336;
 }
@@ -1327,7 +1333,7 @@ details:not([open]) > .collapsible-summary::before {
 
 /* The next game's probable starters, under its countdown. */
 .probables {
-    font-size: 0.75rem;
+    font-size: 0.85rem;
     margin-top: 0.25rem;
 }
 
@@ -3667,6 +3673,44 @@ details:not([open]) > .collapsible-summary::before {
 .linescore-box-link:hover {
     color: #FFD45E;
     border-bottom-color: #FFD45E;
+}
+
+/* Every scoring play, under the line score. */
+.scoring-plays {
+    margin-top: 0.75rem;
+    text-align: left;
+}
+
+.scoring-plays-title {
+    color: #FFC52F;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 0 0 0.35rem;
+}
+
+.scoring-plays ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    font-size: 0.85rem;
+    line-height: 1.4;
+}
+
+.scoring-plays li {
+    padding: 0.35rem 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.scoring-inning {
+    color: #FFC52F;
+    font-weight: 700;
+}
+
+.scoring-score {
+    display: block;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.78rem;
 }
 
 .linescore-pitchers {
