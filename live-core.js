@@ -273,6 +273,41 @@ export function probablesHtml(starters) {
 	return `<div class="probables"><span class="live-role">Probables</span> ${starters.map(one).join('<span class="probables-sep"> vs </span>')}</div>`;
 }
 
+/** Every scoring play of a game, in order, from ESPN's summary: inning,
+ *  the batting team, what happened, and the score after it. ESPN flags the
+ *  result row, and a run on a wild pitch twice — the event and a result
+ *  row with the same words (Brewers at Dodgers, October 14 2026) — so pitch
+ *  rows are left out and a repeat of the same text and score is dropped. */
+export function scoringPlays(summary) {
+	const comp = summary?.header?.competitions?.[0];
+	const side = (homeAway) => (comp?.competitors || []).find((c) => c.homeAway === homeAway)?.team?.abbreviation || '';
+	const away = side('away');
+	const home = side('home');
+	const seen = new Set();
+	return (summary?.plays || [])
+		.filter((p) => p.scoringPlay && p.summaryType !== 'P' && p.text)
+		.map((p) => ({
+			inning: inningLabel(p.period),
+			team: p.period?.type === 'Bottom' ? home : away,
+			text: p.text,
+			away: num(p.awayScore), home: num(p.homeScore),
+		}))
+		.filter((p) => {
+			const key = `${p.text}|${p.away}|${p.home}`;
+			if (seen.has(key)) return false;
+			seen.add(key);
+			return true;
+		});
+}
+
+/** The scoring plays as the line score pop-up lists them, or '' for none. */
+export function scoringPlaysHtml(plays, { away = '', home = '' } = {}) {
+	if (!plays.length) return '';
+	const items = plays.map((p) => `<li><span class="scoring-inning">${esc(p.inning)}</span> <span class="live-team">${esc(p.team)}</span> ${esc(p.text)}`
+		+ (p.away !== null && p.home !== null ? ` <span class="scoring-score">${esc(away)} ${p.away}, ${esc(home)} ${p.home}</span>` : '') + '</li>').join('');
+	return `<div class="scoring-plays"><h3 class="scoring-plays-title">Scoring plays</h3><ol>${items}</ol></div>`;
+}
+
 /** The next game's probable starters from a schedule or scoreboard event,
  *  or [] while they are unannounced (ESPN leaves `probables` off until
  *  then). The schedule names them only; the scoreboard, on game day, adds
