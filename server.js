@@ -16,6 +16,7 @@ import { getSeasonState, defaultSeason, allGames, teamstatsRaw, fetchEspn, tvLoo
 import { parseGameDay, ballparkStats } from './ballparks-core.js';
 import { teamSplits, opposingStarterHands, opposingStarterIds } from './splits-core.js';
 import { parseSlots, slotsParam } from './compare-core.js';
+import { liveDetail } from './live-core.js';
 import { buildCalendar } from './lib/calendar.js';
 import { records, recordsMeta, isRecordSlug, historyMeta, liveSeasonHistory, liveRecordsVersion, registerBattingFeats, registerPitcherEra, registerNoHitterPitchers, registerTriplePlayFielders } from './lib/records.js';
 import { coaches, coachesMeta } from './lib/coaches.js';
@@ -443,8 +444,10 @@ function finishIndices(indices) {
 // schedules whose games are all final) is held for a day; a mid-season
 // schedule with no game underway refreshes hourly, since season-to-date
 // results can't change until the next game starts; anything near or during
-// a live game refreshes every 60s.
+// a live game refreshes every 60s, and a game in progress's summary every
+// 15s — the live card shows pitch by pitch from it (/api/live).
 const espnProxyCache = new Map(); // target url -> { at, status, body, ttl }
+const ESPN_PROXY_LIVE_TTL = 15 * 1000;
 const ESPN_PROXY_TTL = 60 * 1000;
 const ESPN_PROXY_IDLE_TTL = 60 * 60 * 1000;
 const ESPN_PROXY_FINAL_TTL = 24 * 60 * 60 * 1000;
@@ -455,8 +458,8 @@ function espnTtlFor(target, status, body) {
   if (status !== 200) return ESPN_PROXY_TTL;
   try {
     if (target.includes('/summary?')) {
-      const done = JSON.parse(body)?.header?.competitions?.[0]?.status?.type?.completed;
-      return done ? ESPN_PROXY_FINAL_TTL : ESPN_PROXY_TTL;
+      const st = JSON.parse(body)?.header?.competitions?.[0]?.status?.type;
+      return st?.completed ? ESPN_PROXY_FINAL_TTL : st?.state === 'in' ? ESPN_PROXY_LIVE_TTL : ESPN_PROXY_TTL;
     }
     if (target.includes('/schedule')) {
       const events = JSON.parse(body)?.events || [];
@@ -481,36 +484,82 @@ async function serveEspnProxy(res, path, search) {
   // Only the endpoints and numeric parameters the site uses; see espn-target.js.
   const target = espnTarget(path, search);
   if (!target) return notFound(res);
-  const sendJson = (status, body, cacheState, ttl) => {
-    const maxAge = cacheState === 'stale' || ttl === ESPN_PROXY_TTL ? 15
-      : ttl === ESPN_PROXY_IDLE_TTL ? 300 : 3600;
-    res.writeHead(status, {
-      'Content-Type': 'application/json; charset=utf-8',
-      'Cache-Control': `public, max-age=${maxAge}`,
-      'X-Proxy-Cache': cacheState,
-    });
-    res.end(body);
-  };
-  const hit = espnProxyCache.get(target);
-  if (hit && Date.now() - hit.at < hit.ttl) return sendJson(hit.status, hit.body, 'hit', hit.ttl);
-  try {
-    const r = await fetch(target);
-    const body = await r.text();
-    if (espnProxyCache.size >= ESPN_PROXY_MAX_ENTRIES) {
-      // Drop expired entries first so long-lived ones survive routine churn.
-      for (const [k, v] of espnProxyCache) {
-        if (Date.now() - v.at >= v.ttl) espnProxyCache.delete(k);
-      }
-      if (espnProxyCache.size >= ESPN_PROXY_MAX_ENTRIES) espnProxyCache.clear();
-    }
-    const ttl = espnTtlFor(target, r.status, body);
-    espnProxyCache.set(target, { at: Date.now(), status: r.status, body, ttl });
-    return sendJson(r.status, body, 'miss', ttl);
-  } catch {
-    if (hit) return sendJson(hit.status, hit.body, 'stale', hit.ttl);
+  const got = await espnFetch(target);
+  if (!got) {
     res.writeHead(502, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({ error: 'ESPN unreachable' }));
   }
+  const { status, body, cacheState, ttl } = got;
+  const maxAge = cacheState === 'stale' || ttl <= ESPN_PROXY_TTL ? 15
+    : ttl === ESPN_PROXY_IDLE_TTL ? 300 : 3600;
+  res.writeHead(status, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': `public, max-age=${maxAge}`,
+    'X-Proxy-Cache': cacheState,
+  });
+  res.end(body);
+}
+
+// One ESPN response through the cache: { status, body, ttl, at, cacheState }
+// ('hit', 'miss' or 'stale'), or null when ESPN is unreachable and nothing
+// is cached. Requests that arrive while the same URL is being fetched share
+// that fetch, so a live game's viewers make one ESPN call per refresh between
+// them, not one each.
+const espnInFlight = new Map();
+async function espnFetch(target) {
+  const hit = espnProxyCache.get(target);
+  if (hit && Date.now() - hit.at < hit.ttl) return { ...hit, cacheState: 'hit' };
+  if (!espnInFlight.has(target)) {
+    espnInFlight.set(target, (async () => {
+      try {
+        const r = await fetch(target);
+        const body = await r.text();
+        if (espnProxyCache.size >= ESPN_PROXY_MAX_ENTRIES) {
+          // Drop expired entries first so long-lived ones survive routine churn.
+          for (const [k, v] of espnProxyCache) {
+            if (Date.now() - v.at >= v.ttl) espnProxyCache.delete(k);
+          }
+          if (espnProxyCache.size >= ESPN_PROXY_MAX_ENTRIES) espnProxyCache.clear();
+        }
+        const entry = { at: Date.now(), status: r.status, body, ttl: espnTtlFor(target, r.status, body) };
+        espnProxyCache.set(target, entry);
+        return { ...entry, cacheState: 'miss' };
+      } catch {
+        return hit ? { ...hit, cacheState: 'stale' } : null;
+      } finally {
+        espnInFlight.delete(target);
+      }
+    })());
+  }
+  return espnInFlight.get(target);
+}
+
+// The live card's detail (live-core.js): a few KB boiled down from the game's
+// ESPN summary, which is half a megabyte to a megabyte. Reduced once per
+// summary fetched, however many viewers ask in between.
+const liveDetailCache = new Map(); // event id -> { at, json }
+async function serveLiveApi(res, eventId) {
+  const target = espnTarget('apis/site/v2/sports/baseball/mlb/summary', `event=${eventId}`);
+  const got = target && await espnFetch(target);
+  if (!got || got.status !== 200) {
+    res.writeHead(got ? got.status : 502, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ error: 'No live data for that game' }));
+  }
+  let cached = liveDetailCache.get(eventId);
+  if (!cached || cached.at !== got.at) {
+    let detail = null;
+    try { detail = liveDetail(JSON.parse(got.body)); } catch { /* unparseable: no detail */ }
+    cached = { at: got.at, json: JSON.stringify(detail) };
+    if (liveDetailCache.size > 50) liveDetailCache.clear();
+    liveDetailCache.set(eventId, cached);
+  }
+  res.writeHead(200, {
+    'Content-Type': 'application/json; charset=utf-8',
+    // The page asks every 15s during a game; a browser copy older than that
+    // would show a pitch the server has already moved past.
+    'Cache-Control': 'public, max-age=5',
+  });
+  return res.end(cached.json);
 }
 
 async function serveBoxscoreApi(req, res, gid) {
@@ -977,6 +1026,8 @@ const server = http.createServer(async (req, res) => {
     if (pathname.startsWith('/api/espn/')) {
       return await serveEspnProxy(res, pathname.slice('/api/espn/'.length), url.search);
     }
+    const liveApi = pathname.match(/^\/api\/live\/(\d{1,12})$/);
+    if (liveApi) return await serveLiveApi(res, liveApi[1]);
 
     // Current-season games as Retrosheet-shaped CSV data lines (no header),
     // for the h2h/history/managers pages to append to the real CSVs. Empty

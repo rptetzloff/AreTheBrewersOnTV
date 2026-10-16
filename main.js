@@ -2,6 +2,7 @@
         import { computeHeadToHead } from './h2h-core.js';
         import { buildChartSvg } from './history-chart.js';
         import { liveSituation, isBetweenInnings, situationHtml } from './situation-core.js';
+        import { liveDetailHtml, probablesHtml, probableStarters } from './live-core.js';
         import { espnPostseasonGames, postseasonPanelHtml, standingsRows, raceNumbers, racePanelHtml, RACE_WINDOW_GAMES } from './playoff-core.js';
         import { intentUrls, copyText, flashCopied, wireShareDropdown } from './share-core.js';
         import { parseTvLookup, resolveChannel, tvStatus, primaryBroadcast, providerChannel, formatChannelNum, channelNumberFor, parseSimulcasts, broadcastsWithSimulcasts, dayCT, EMPTY_LOOKUP } from './tv-core.js';
@@ -364,6 +365,8 @@ async fetchBrewersData(season) {
         return status === 'STATUS_IN_PROGRESS' || status === 'STATUS_HALFTIME' || status === 'STATUS_DELAYED';
     });
 
+    this._lastFullRefresh = Date.now();
+    this._liveContext = liveGame ? { liveGame, mergedData } : null;
     if (liveGame) {
         await this.fetchLiveGameScore(liveGame, mergedData);
     } else {
@@ -572,6 +575,24 @@ createCsvGameItem(g, showH2h = false) {
         	}
 
         	async fetchLiveGameScore(liveGame, scheduleData) {
+        		// The server's reduced live detail first: score, base-out state,
+        		// pitchers, the at-bat pitch by pitch and the last plays, a few KB
+        		// (live-core.js). The scoreboard below is the fallback.
+        		try {
+        			const res = await fetch(`/api/live/${encodeURIComponent(liveGame.id)}`);
+        			const detail = res.ok ? await res.json() : null;
+        			if (detail && detail.state === 'in') {
+        				for (const t of detail.teams) {
+        					const c = liveGame.competitions[0].competitors.find(comp => String(comp.team.id) === t.id);
+        					if (c && t.score !== null) c.score = { ...(typeof c.score === 'object' ? c.score : {}), value: t.score, displayValue: String(t.score) };
+        				}
+        				liveGame.situation = liveSituation(detail.situation);
+        				liveGame.live = detail;
+        				liveGame.lastPlay = null;
+        				this.processScheduleData(scheduleData);
+        				return;
+        			}
+        		} catch { /* fall through to the scoreboard */ }
         		try {
         			const gameId = liveGame.id;
         			const scoreboardUrl = `/api/espn/apis/site/v2/sports/baseball/mlb/scoreboard`;
@@ -1189,7 +1210,10 @@ if (isLive || isInProgress) {
     gameDetails.insertAdjacentHTML('beforeend', situationHtml(event.situation));
  }
 
- if (event.lastPlay) {
+ // Pitchers, the at-bat pitch by pitch and the last plays, from /api/live.
+ if (event.live) {
+    gameDetails.insertAdjacentHTML('beforeend', liveDetailHtml(event.live));
+ } else if (event.lastPlay) {
     const lastPlayDiv = document.createElement('div');
     lastPlayDiv.className = 'last-play';
 
@@ -1242,6 +1266,8 @@ if (isNext) {
 }
 
 gameDetails.appendChild(countdownDiv);
+ // The probable starters, once ESPN has them (usually a day or two out).
+ gameDetails.insertAdjacentHTML('beforeend', probablesHtml(probableStarters(event)));
 }
 
 gameInfo.appendChild(gameDetails);
@@ -1308,13 +1334,23 @@ startLiveUpdates() {
   if (this.liveUpdateInterval) clearInterval(this.liveUpdateInterval);
   if (this.countdownInterval) clearInterval(this.countdownInterval);
 
+  // Every 15s during a game: the live card follows pitch by pitch, and the
+  // server's cache of the game holds 15s too, so this is about one pitch
+  // behind at most and ESPN still sees one request per 15s in all. Only the
+  // live detail (/api/live, a few KB) comes every 15s; the three schedules,
+  // which say when the game has ended, reload once a minute as before.
   this.liveUpdateInterval = setInterval(async () => {
      try {
-        await this.fetchBrewersData();
+        const ctx = this._liveContext;
+        if (ctx && Date.now() - (this._lastFullRefresh || 0) < 60000) {
+           await this.fetchLiveGameScore(ctx.liveGame, ctx.mergedData);
+        } else {
+           await this.fetchBrewersData();
+        }
     } catch (error) {
         console.error('Error updating live game:', error);
     }
-}, 30000);
+}, 15000);
 }
 
 setDataCredit(show) {

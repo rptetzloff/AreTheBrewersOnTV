@@ -1179,6 +1179,162 @@ details:not([open]) > .collapsible-summary::before {
     font-weight: bold;
 }
 
+/* Live card detail (live-core.js): the matchup, this at-bat on a strike
+   zone with its pitches listed, the other team's pitcher, the last plays. */
+.live-detail {
+    margin-top: 0.5rem;
+    padding: 0.45rem 0.5rem;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 6px;
+    font-size: 0.75rem;
+    line-height: 1.35;
+    text-align: left;
+}
+
+.live-row + .live-row,
+.live-matchup + *,
+.live-atbat + *,
+.live-other + .live-log {
+    margin-top: 0.3rem;
+}
+
+.live-role {
+    color: rgba(255, 255, 255, 0.6);
+    text-transform: uppercase;
+    font-size: 0.65rem;
+    letter-spacing: 0.04em;
+    margin-right: 0.15rem;
+}
+
+.live-row strong,
+.probables strong {
+    color: #fff;
+}
+
+.live-team {
+    color: #FFC52F;
+    font-weight: 700;
+    font-size: 0.68rem;
+}
+
+/* A stat line moves to the next row whole rather than breaking mid-line. */
+.live-stats {
+    color: rgba(255, 255, 255, 0.8);
+    white-space: nowrap;
+}
+
+.live-note {
+    color: rgba(255, 255, 255, 0.65);
+    font-style: italic;
+    margin-top: 0.1rem;
+}
+
+.live-atbat {
+    display: flex;
+    gap: 0.6rem;
+    align-items: center;
+}
+
+.live-zone {
+    width: 96px;
+    flex: none;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 4px;
+}
+
+.live-zone .zone-box {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.7);
+    stroke-width: 1.2;
+}
+
+.live-zone text {
+    font-size: 9px;
+    font-weight: 700;
+    fill: #12284B;
+    text-anchor: middle;
+}
+
+/* Gameday's colors: green a ball, red a strike or foul, blue in play. */
+.zone-pitch.zone-ball circle { fill: #4caf50; }
+.zone-pitch.zone-strike circle,
+.zone-pitch.zone-foul circle { fill: #f44336; }
+.zone-pitch.zone-inplay circle { fill: #42a5f5; }
+.zone-pitch.zone-hbp circle { fill: #ff9800; }
+.zone-pitch circle { stroke: #12284B; stroke-width: 0.8; }
+
+.live-pitches {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    flex: 1;
+    min-width: 0;
+}
+
+.live-pitches li {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.live-pitch-n {
+    display: inline-block;
+    width: 1.1rem;
+    height: 1.1rem;
+    line-height: 1.1rem;
+    border-radius: 50%;
+    text-align: center;
+    font-weight: 700;
+    font-size: 0.65rem;
+    color: #12284B;
+    background: #f44336;
+}
+
+.live-pitches .zone-ball .live-pitch-n { background: #4caf50; }
+.live-pitches .zone-inplay .live-pitch-n { background: #42a5f5; }
+.live-pitches .zone-hbp .live-pitch-n { background: #ff9800; }
+
+.live-mph {
+    color: rgba(255, 255, 255, 0.65);
+}
+
+.live-call {
+    color: rgba(255, 255, 255, 0.85);
+    font-weight: 600;
+}
+
+.live-log {
+    list-style: none;
+    margin: 0;
+    padding: 0.3rem 0 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.live-log li + li {
+    margin-top: 0.15rem;
+    opacity: 0.75;
+}
+
+.live-inning {
+    color: #FFC52F;
+    font-weight: 700;
+    margin-right: 0.2rem;
+}
+
+.live-scoring {
+    font-weight: 700;
+}
+
+/* The next game's probable starters, under its countdown. */
+.probables {
+    font-size: 0.75rem;
+    margin-top: 0.25rem;
+}
+
+.probables-sep {
+    color: rgba(255, 255, 255, 0.6);
+}
+
 /* Live base-out state: diamond, out dots, count. Centred like every other line
    of the card — flex does not inherit text-align, and left to itself it sat
    flush left under a centred inning line. */
