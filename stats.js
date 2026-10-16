@@ -41,23 +41,26 @@ const winLoss = (s) => (s.t ? `${s.w}–${s.l}–${s.t}` : `${s.w}–${s.l}`);
 const winPct = (s) => ((s.w + s.t / 2) / s.g).toFixed(3).replace(/^0/, '');
 const diff = (n) => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '0');
 
-function splitsHtml(splits) {
+// `span` is for many seasons at once (/stats/splits): run totals there reach
+// five digits, and on a phone the RS and RA columns step aside so the
+// differential still fits.
+function splitsHtml(splits, { span = false } = {}) {
 	let group = null;
 	const body = splits.map((s) => {
 		// Each group gets a heading row; Overall is its own heading.
 		const head = s.group !== group && s.group !== 'Overall'
 			? `<tr class="splits-group"><th colspan="7" scope="colgroup">${esc(s.group)}</th></tr>` : '';
 		group = s.group;
-		const num = (v) => `<td class="h2h-num">${v}</td>`;
+		const num = (v, cls = '') => `<td class="h2h-num${cls}">${v}</td>`;
 		return `${head}<tr${s.group === 'Overall' ? ' class="splits-overall"' : ''}>
 			<td>${esc(s.label)}</td>
-			${num(s.g)}${num(winLoss(s))}${num(winPct(s))}${num(s.rs)}${num(s.ra)}${num(diff(s.rs - s.ra))}
+			${num(s.g)}${num(winLoss(s))}${num(winPct(s))}${num(s.rs, ' splits-runs')}${num(s.ra, ' splits-runs')}${num(diff(s.rs - s.ra))}
 		</tr>`;
 	}).join('');
-	return `<table class="h2h-table stats-table splits-table"><thead><tr>
+	return `<table class="h2h-table stats-table splits-table${span ? ' splits-span-table' : ''}"><thead><tr>
 		<th scope="col">Split</th><th scope="col" class="h2h-num" title="Games">G</th><th scope="col" class="h2h-num">W–L</th>
-		<th scope="col" class="h2h-num" title="Winning percentage">Pct</th><th scope="col" class="h2h-num" title="Runs scored">RS</th>
-		<th scope="col" class="h2h-num" title="Runs allowed">RA</th><th scope="col" class="h2h-num" title="Run differential">Diff</th>
+		<th scope="col" class="h2h-num" title="Winning percentage">Pct</th><th scope="col" class="h2h-num splits-runs" title="Runs scored">RS</th>
+		<th scope="col" class="h2h-num splits-runs" title="Runs allowed">RA</th><th scope="col" class="h2h-num" title="Run differential">Diff</th>
 	</tr></thead><tbody>${body}</tbody></table>`;
 }
 
@@ -122,7 +125,7 @@ function share(text, url) {
 }
 
 function setView(id, legend) {
-	for (const v of ['season-view', 'leaders-view']) document.getElementById(v).hidden = v !== id;
+	for (const v of ['season-view', 'leaders-view', 'splits-view']) document.getElementById(v).hidden = v !== id;
 	document.getElementById('stats-legend').innerHTML = `<span class="history-legend-item">${legend}</span>`;
 }
 
@@ -222,15 +225,58 @@ async function initLeaders(view) {
 	share(`Milwaukee Brewers ${title.toLowerCase()}, ${first}–${last}.`, `${window.location.origin}/stats/${single ? 'single-season' : 'career'}`);
 }
 
+// --- Team splits across seasons ---
+
+// /stats/splits: the Team tab's splits over every season, or a decade
+// (#1980s). The span list comes with the data, from the server.
+async function initSplits() {
+	document.getElementById('view-splits').setAttribute('aria-current', 'page');
+	document.querySelector('.records-title').textContent = 'Team Splits';
+	setView('splits-view', 'Regular season, including tiebreaker games · extra innings are games past their scheduled length (seven for the 2020–21 doubleheaders) · opposing starter by throwing hand');
+	const wrapEl = document.getElementById('splits-table-wrap');
+	const select = document.getElementById('splits-span');
+	const spanFromHash = () => window.location.hash.slice(1) || 'all';
+	let shown = null;
+
+	async function load(spanId) {
+		wrapEl.innerHTML = '<div class="loading">Loading splits...</div>';
+		const res = await fetch(`/api/stats/splits/${encodeURIComponent(spanId)}`);
+		// An unknown span in the hash falls back to every season.
+		const d = res.ok ? await res.json() : spanId !== 'all' ? await (await fetch('/api/stats/splits/all')).json() : null;
+		if (!d || !d.splits) throw new Error('splits');
+		shown = d.span.id;
+		const all = d.spans[0];
+		select.innerHTML = d.spans.map((s) => `<option value="${esc(s.id)}"${s.id === shown ? ' selected' : ''}>${esc(s.label)}</option>`).join('');
+		document.getElementById('view-season').href = `/stats/${all.last}`;
+		document.title = `Milwaukee Brewers Team Splits, ${d.span.first}–${d.span.last}`;
+		document.getElementById('stats-subtitle').textContent =
+			`Milwaukee Brewers · ${d.span.first}–${d.span.last} · ${d.seasons} season${d.seasons === 1 ? '' : 's'} · regular season`;
+		wrapEl.innerHTML = splitsHtml(d.splits, { span: true });
+		share(`Milwaukee Brewers team splits, ${d.span.first}–${d.span.last}: home and away, day and night, by month, one-run games and more.`,
+			`${window.location.origin}/stats/splits${shown === 'all' ? '' : `#${shown}`}`);
+		noteWaitingSeason(all.last);
+	}
+
+	// Navigate from the server's own span list only.
+	select.addEventListener('change', () => {
+		const to = [...select.options].find((o) => o.value === select.value)?.value;
+		if (!to || to === shown) return;
+		window.history.replaceState(null, '', to === 'all' ? '/stats/splits' : `#${to}`);
+		load(to).catch((e) => { wrapEl.innerHTML = '<p class="record-empty">Could not load the splits. Try again later.</p>'; console.error(e); });
+	});
+	await load(spanFromHash());
+}
+
 async function init() {
 	try {
 		const path = window.location.pathname;
 		if (path.startsWith('/stats/career')) return await initLeaders('career');
 		if (path.startsWith('/stats/single-season')) return await initLeaders('single');
+		if (path.startsWith('/stats/splits')) return await initSplits();
 		// The server redirects /stats to the newest season, so there is always one.
 		return await initSeason(pathSeason());
 	} catch (e) {
-		for (const id of ['stats-table-wrap', 'leaders-grid']) {
+		for (const id of ['stats-table-wrap', 'leaders-grid', 'splits-table-wrap']) {
 			document.getElementById(id).innerHTML = '<p class="record-empty">Could not load the stats. Try again later.</p>';
 		}
 		document.getElementById('season-view').hidden = false;

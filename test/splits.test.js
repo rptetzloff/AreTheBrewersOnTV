@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { teamSplits, opposingStarterHands, opposingStarterIds } from '../splits-core.js'
+import { teamSplits, opposingStarterHands, opposingStarterIds, splitSpans } from '../splits-core.js'
 import { game } from './helpers/rows.js'
 
 const MIL = new Set(['MIL'])
@@ -61,4 +61,18 @@ test("the opposing starter is the other team's pitcher with a start", () => {
 	assert.deepEqual([...opposingStarterIds(['a', 'b'], idx, MIL)], ['lefty', 'nobio'])
 	const bios = new Map([['lefty', { throws: 'L' }]])
 	assert.deepEqual([...opposingStarterHands(['a', 'b'], idx, MIL, bios)], [['a', 'L']])
+})
+
+test('spans for the all-time page: every season, then decades, the lone 1969 joining the 1970s', () => {
+	const years = Array.from({ length: 2025 - 1969 + 1 }, (_, i) => 1969 + i)
+	const spans = splitSpans(years)
+	assert.deepEqual(spans.map((s) => [s.id, s.first, s.last]), [
+		['all', 1969, 2025], ['1970s', 1969, 1979], ['1980s', 1980, 1989], ['1990s', 1990, 1999],
+		['2000s', 2000, 2009], ['2010s', 2010, 2019], ['2020s', 2020, 2025],
+	])
+	assert.equal(spans[0].label, 'All seasons, 1969–2025')
+	assert.deepEqual(splitSpans([]), [])
+	// 2019, alone in its decade, joins the 2020s; the last decade stands
+	// even with a single season.
+	assert.deepEqual(splitSpans([2019, 2020]).map((s) => [s.id, s.first, s.last]), [['all', 2019, 2020], ['2020s', 2019, 2020]])
 })

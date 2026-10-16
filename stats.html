@@ -23,6 +23,7 @@
             <a id="view-season" class="stats-view-link">By Season</a>
             <a id="view-career" class="stats-view-link" href="/stats/career">Career Leaders</a>
             <a id="view-single" class="stats-view-link" href="/stats/single-season">Single-Season Leaders</a>
+            <a id="view-splits" class="stats-view-link" href="/stats/splits">Team Splits</a>
             <a class="stats-view-link" href="/compare">Compare</a>
         </nav>
 
@@ -54,6 +55,15 @@
             </div>
             <div id="leaders-grid" class="records-grid">
                 <div class="loading">Loading leaders...</div>
+            </div>
+        </div>
+
+        <div id="splits-view" hidden>
+            <div class="stats-season-nav">
+                <select id="splits-span" class="stats-season-select" aria-label="Seasons"></select>
+            </div>
+            <div id="splits-table-wrap" class="h2h-table-wrap stats-table-wrap">
+                <div class="loading">Loading splits...</div>
             </div>
         </div>
 
