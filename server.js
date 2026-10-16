@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, normalize, extname } from 'node:path';
-import { browserModules, hash8 } from './lib/browser-modules.js';
+import { browserModules, hash8, releaseId } from './lib/browser-modules.js';
 import { renderPng, renderRecordsPng, renderH2hPng, renderHistoryPng, renderCoachesPng, renderGamePng, renderBallparksPng } from './lib/cards.js';
 import { indexLoadOutcome, isLfsPointer } from './lib/indices-health.js';
 import { originOf } from './lib/origin.js';
@@ -33,8 +33,11 @@ const ROOT = __dirname;
 const PORT = process.env.PORT || 3000;
 
 // Every script goes out with its local imports versioned, and its own URL
-// carries the version of the whole tree below it (lib/browser-modules.js).
-const browserModule = browserModules(ROOT);
+// carries the version of the whole tree below it and of the release, so a
+// new release gives every script and stylesheet a new URL
+// (lib/browser-modules.js).
+const RELEASE = releaseId(ROOT);
+const browserModule = browserModules(ROOT, { release: RELEASE });
 
 // Files do not change while the server runs, so each is hashed once; the
 // static handler asks on every versioned request.
@@ -43,7 +46,7 @@ function assetVersion(file) {
   if (file.endsWith('.js')) return browserModule(file)?.version ?? null;
   if (!assetVersions.has(file)) {
     let v = null;
-    try { v = hash8(readFileSync(join(ROOT, file))); } catch { /* not a file */ }
+    try { v = hash8(Buffer.concat([Buffer.from(RELEASE), readFileSync(join(ROOT, file))])); } catch { /* not a file */ }
     assetVersions.set(file, v);
   }
   return assetVersions.get(file);
@@ -1072,6 +1075,12 @@ const server = http.createServer(async (req, res) => {
     // request per TTL window instead of each polling ESPN.
     if (pathname.startsWith('/api/espn/')) {
       return await serveEspnProxy(res, pathname.slice('/api/espn/'.length), url.search);
+    }
+    // Which release this server is running: during a deploy, old and new
+    // answer side by side, and this says which one a request reached.
+    if (pathname === '/api/release') {
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+      return res.end(JSON.stringify({ release: RELEASE }));
     }
     const liveApi = pathname.match(/^\/api\/live\/(\d{1,12})$/);
     if (liveApi) return await serveLiveApi(res, liveApi[1]);
