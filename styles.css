@@ -4238,6 +4238,18 @@ details:not([open]) > .collapsible-summary::before {
     font-weight: 500;
 }
 
+/* A game in progress on the box score page: the scorebug and the live
+   card's detail, at a card's width in the middle of the page. */
+.boxscore-livepanel {
+    width: 100%;
+    max-width: 560px;
+    margin: 0 auto;
+}
+
+.boxscore-livepanel .situation {
+    margin-bottom: 0.25rem;
+}
+
 /* A current-season game still being played: its inning under the date. */
 .boxscore-live {
     color: #ff4d4d;
