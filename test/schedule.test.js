@@ -53,3 +53,15 @@ test('a chip a month, in order, the active one marked; one month needs none', ()
 	assert.equal(monthKey(new Date(2026, 0, 31, 23)), '2026-01')
 	assert.equal(monthName('2026-10'), 'October 2026')
 })
+
+test("a played game's links: summary, box score, and ESPN when the game came from ESPN", () => {
+	const espn = scheduleRowHtml(row({ links: { summary: true, box: '/game/401908032', espn: 'https://www.espn.com/mlb/game/_/gameId/401908032' } }))
+	assert.match(espn, /data-act="summary"/)
+	assert.match(espn, /href="\/game\/401908032"/)
+	assert.match(espn, /href="https:\/\/www\.espn\.com\/mlb\/game\/_\/gameId\/401908032" target="_blank" rel="noopener noreferrer"/)
+	// A past season's game: its summary and box score, no ESPN.
+	const retro = scheduleRowHtml(row({ links: { summary: true, box: '/game/MIL201110070' } }))
+	assert.match(retro, /href="\/game\/MIL201110070"/)
+	assert.doesNotMatch(retro, /espn\.com/)
+	assert.doesNotMatch(scheduleRowHtml(row()), /sched-links/)
+})

@@ -895,6 +895,46 @@ details:not([open]) > .collapsible-summary::before {
 .sched-tv { grid-area: tv; color: rgba(255, 255, 255, 0.6); font-size: 0.8rem; white-space: nowrap; text-align: right; }
 .sched-tv:empty { display: none; }
 
+/* A played game's links — summary, box score, ESPN — in the slot the TV
+   takes for a game to come. Icons on a wide row, words on a phone's second
+   line. */
+.sched-links {
+    grid-area: tv;
+    display: inline-flex;
+    gap: 0.25rem;
+    justify-content: flex-end;
+    white-space: nowrap;
+}
+
+.sched-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    background: transparent;
+    border: 1px solid rgba(255, 197, 47, 0.3);
+    border-radius: 6px;
+    color: rgba(255, 255, 255, 0.75);
+    font: inherit;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1;
+    padding: 0.2rem 0.35rem;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.sched-link:hover,
+.sched-link:focus-visible {
+    color: #12284B;
+    background: #FFC52F;
+    border-color: #FFC52F;
+    outline: none;
+}
+
+.sched-link .mdi { font-size: 0.95rem; }
+.sched-link-label { display: none; }
+.sched-link-espn { letter-spacing: 0.03em; }
+
 .sched-win { border-left-color: #4CAF50; }
 .sched-win .sched-out { color: #4CAF50; }
 .sched-loss { border-left-color: #f44336; }
@@ -925,6 +965,8 @@ details:not([open]) > .collapsible-summary::before {
         font-size: 0.85rem;
     }
     .sched-tv { text-align: left; }
+    .sched-links { justify-content: flex-start; margin-top: 0.15rem; }
+    .sched-link-label { display: inline; }
 }
 
 /* --- Home page layout --- */

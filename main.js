@@ -459,6 +459,9 @@ displayCsvSchedule(games, season) {
       opp: g.OpponentNick || g.Opponent, state: res,
       text: `${res === 'win' ? 'W' : res === 'loss' ? 'L' : 'T'} ${parseInt(g.scoreFor) || 0}-${parseInt(g.scoreAgainst) || 0}`,
       tv: [], phase: phaseOf(g), clickable, title: clickable ? 'Line score' : '',
+      // Every Retrosheet game has its box score page; there is no ESPN id
+      // for a season Retrosheet covers.
+      links: g.gid ? { summary: clickable, box: `/game/${encodeURIComponent(g.gid)}` } : null,
     };
   });
   this.renderScheduleList(rows, {
@@ -536,11 +539,18 @@ wireSchedule() {
     const g = this._csvByGid?.get(key);
     if (g && this.lineScores?.has(g.gid)) this.openLinescoreModal(g);
   };
+  // A played game's row carries its own links (summary, box score, ESPN).
+  // A click on Box or ESPN follows the link and must not also open the
+  // summary behind it; the Summary button opens it like the row does. The
+  // row's keyboard handling leaves the links to their own Enter.
   grid.addEventListener('click', (e) => {
-    const row = e.target.closest('.sched-row.sched-click');
-    if (row) open(row);
+    const link = e.target.closest('.sched-link');
+    if (link && link.dataset.act !== 'summary') return;
+    const row = e.target.closest('.sched-row');
+    if (row && (row.classList.contains('sched-click') || link)) open(row);
   });
   grid.addEventListener('keydown', (e) => {
+    if (e.target.closest('.sched-link')) return;
     const row = e.target.closest('.sched-row.sched-click');
     if (row && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); open(row); }
   });
@@ -1069,6 +1079,13 @@ markActiveMonth() {
         home: mil?.homeAway === 'home',
         opp: opp.team?.shortDisplayName || opp.team?.name || opp.team?.displayName || '',
         state, text, tv, clickable,
+        // A game played or being played: its summary pop-up, the site's box
+        // score (built from ESPN's, /game/<id>), and ESPN's own page.
+        links: upcoming || state === 'postponed' ? null : {
+          summary: true,
+          box: `/game/${encodeURIComponent(event.id)}`,
+          espn: `https://www.espn.com/mlb/game/_/gameId/${encodeURIComponent(event.id)}`,
+        },
         title: state === 'live' || !upcoming ? 'Line score' : canWatch ? 'Where to watch' : '',
       };
     }
