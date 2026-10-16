@@ -17,6 +17,7 @@ import { parseGameDay, ballparkStats } from './ballparks-core.js';
 import { teamSplits, opposingStarterHands, opposingStarterIds } from './splits-core.js';
 import { parseSlots, slotsParam } from './compare-core.js';
 import { liveDetail } from './live-core.js';
+import { espnBoxscore } from './espn-box-core.js';
 import { buildCalendar } from './lib/calendar.js';
 import { records, recordsMeta, isRecordSlug, historyMeta, liveSeasonHistory, liveRecordsVersion, registerBattingFeats, registerPitcherEra, registerNoHitterPitchers, registerTriplePlayFielders } from './lib/records.js';
 import { coaches, coachesMeta } from './lib/coaches.js';
@@ -563,6 +564,15 @@ async function serveLiveApi(res, eventId) {
 }
 
 async function serveBoxscoreApi(req, res, gid) {
+  if (ESPN_GAME_ID.test(gid)) {
+    const box = await espnBox(gid);
+    if (!box) { res.writeHead(404, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ error: 'Game not found' })); }
+    // A finished game is settled and revalidates like any other box score;
+    // one in progress changes every pitch.
+    if (box.final) return sendData(req, res, box);
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=15' });
+    return res.end(JSON.stringify(box));
+  }
   const idx = await getBoxIndices();
   const box = buildBoxscore(gid, idx);
   if (!box) { res.writeHead(404, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ error: 'Game not found' })); }
@@ -826,9 +836,31 @@ function serveStatsHtml(req, res, yr) {
   });
 }
 
+// A current-season game's box score, from ESPN: /game/<ESPN event id>. The
+// ids are all digits, where Retrosheet's start with the home team's code.
+const ESPN_GAME_ID = /^\d{6,12}$/;
+async function espnBox(eventId) {
+  const target = espnTarget('apis/site/v2/sports/baseball/mlb/summary', `event=${eventId}`);
+  const got = target && await espnFetch(target);
+  if (!got || got.status !== 200) return null;
+  try { return espnBoxscore(JSON.parse(got.body)); } catch { return null; }
+}
+
 async function serveGameHtml(req, res, gid) {
   const origin = originOf(req);
   const canonical = `${origin}/game/${gid}`;
+  if (ESPN_GAME_ID.test(gid)) {
+    const box = await espnBox(gid);
+    if (!box) return notFound(res);
+    const g = box.game;
+    const score = `${g.visName} ${g.visScore}, ${g.homeName} ${g.homeScore}`;
+    return sendPage(res, GAME_VERSIONED, {
+      title: `${g.visName} @ ${g.homeName} — ${g.date}`,
+      desc: box.final ? `Box score: ${score} (${g.date}).` : `Live box score: ${score}, ${box.status}.`,
+      img: `${origin}/og/default.png`,
+      canonical,
+    });
+  }
   // Never block the page on the index build — the shell renders its own
   // loading state and the /api/boxscore fetch waits instead. Only a cold
   // start serves generic meta tags here.

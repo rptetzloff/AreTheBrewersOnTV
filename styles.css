@@ -1239,6 +1239,11 @@ details:not([open]) > .collapsible-summary::before {
     font-size: 0.82em;
 }
 
+.live-pos {
+    color: rgba(255, 255, 255, 0.85);
+    font-weight: 600;
+}
+
 /* A stat line moves to the next row whole rather than breaking mid-line,
    and wraps within itself only when it is wider than the card. (nowrap
    here once made the whole detail box wider than a phone's card.) */
@@ -4029,6 +4034,18 @@ details:not([open]) > .collapsible-summary::before {
 
 /* ── Box score page (/game/:gid) ── */
 
+/* The box score page's column takes the screen's width, not its content's.
+   body is a centered flex column, so .container is otherwise as wide as
+   its widest line, and a 12-inning line score (567px) made a phone lay the
+   page out 489px wide and shrink it all to fit; the line score now scrolls
+   in its own box as it was meant to. */
+.boxscore-container {
+    width: 100%;
+    max-width: 800px;
+    box-sizing: border-box;
+    min-width: 0;
+}
+
 #boxscore-root {
     display: flex;
     flex-direction: column;
@@ -4160,6 +4177,14 @@ details:not([open]) > .collapsible-summary::before {
     gap: 1rem;
 }
 
+/* Batting and pitching tables scroll sideways in their own box on a narrow
+   phone. Unwrapped, the 11-column batting table (473px) set the page's
+   width, and the phone laid the whole page out wider and shrank it. */
+.boxscore-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
 .boxscore-table {
     width: 100%;
     border-collapse: collapse;
@@ -4205,6 +4230,20 @@ details:not([open]) > .collapsible-summary::before {
     color: rgba(255, 255, 255, 0.92) !important;
     white-space: normal;
     min-width: 110px;
+}
+
+/* A substitute, indented under the starter whose lineup spot he took. */
+.boxscore-sub .boxscore-player {
+    padding-left: 1.4rem;
+    font-weight: 500;
+}
+
+/* A current-season game still being played: its inning under the date. */
+.boxscore-live {
+    color: #ff4d4d;
+    font-weight: 700;
+    font-size: 0.9rem;
+    margin-top: 0.2rem;
 }
 
 .boxscore-totals td {

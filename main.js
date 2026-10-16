@@ -2707,7 +2707,9 @@ openLinescoreFromEvent(event) {
   const date = new Date(event.date);
   const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
   const title = `${visLabel} @ ${homLabel} — ${dateStr}`;
-  const boxScoreUrl = event.id ? `https://www.espn.com/mlb/game/_/gameId/${event.id}` : '';
+  // The site's own box score page, built from ESPN's summary for a game this
+  // season (espn-box-core.js): lineups, batting and pitching lines, notes.
+  const boxScoreUrl = event.id ? `/game/${encodeURIComponent(event.id)}` : '';
 
   // Show a loading state while we fetch the full linescore from the summary endpoint.
   // The schedule endpoint omits inning-by-inning runs and H/E; the summary endpoint has them.

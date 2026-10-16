@@ -168,3 +168,9 @@ test('a ground-rule double is a hit; a double play is not', () => {
 	assert.equal(hit('Grounded Into Double Play'), false)
 	assert.equal(hit('Fly Out'), false)
 })
+
+test("the batter's position and spot in the order, as the box score has them", () => {
+	assert.deepEqual([mid.batter.pos, mid.batter.order], ['PH', 7])   // Muncy, sent up for Rojas
+	assert.deepEqual([over.batter.pos, over.batter.order], ['CF', 8])  // Pages
+	assert.match(liveDetailHtml(mid), /<span class="live-pos">PH · batting 7th<\/span>/)
+})
