@@ -49,6 +49,7 @@ import {
 	parseCurrentNamesCsv,
 	parseTeamstatsLineScores,
 } from '../records-core.js';
+import { createHandSplitsCollector } from '../hand-splits-core.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 /** One newline-delimited file per index, and both halves of that were learned
@@ -110,8 +111,11 @@ export const reviver = (key, value) =>
  *  function as its fallback, rather than keeping a second copy of the order
  *  these are built in. */
 export async function buildIndices() {
+	// One pass over the play-by-play feeds both: scoring plays and pitch
+	// counts for box scores, and the Brewers' splits by opposing hand.
 	const collector = createScoringPlaysCollector();
-	for await (const line of lines('plays.lfs.csv')) collector.line(line);
+	const hands = createHandSplitsCollector();
+	for await (const line of lines('plays.lfs.csv')) { collector.line(line); hands.line(line); }
 
 	const [namesRaw, teamstatsRaw, parksRaw] = await Promise.all([
 		read('CurrentNames.csv'),
@@ -121,6 +125,7 @@ export async function buildIndices() {
 
 	return {
 		...collector.result(),
+		...hands.result(),
 		games: await buildGameIndex(lines('gameinfo.csv')),
 		pitching: await buildPitchingIndex(lines('pitching.csv')),
 		batting: await buildBattingIndex(lines('batting.csv')),

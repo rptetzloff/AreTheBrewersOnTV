@@ -2932,6 +2932,16 @@ details:not([open]) > .collapsible-summary::before {
     margin: 0 0 0.5rem;
 }
 
+/* Batting and Pitching inside a section, like the splits vs right/left. */
+.player-subsection-title {
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 0.75rem 0 0.35rem;
+    text-align: left;
+}
+
 .player-career td {
     font-weight: 700;
     border-top: 1px solid rgba(255, 197, 47, 0.4);

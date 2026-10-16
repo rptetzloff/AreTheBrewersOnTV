@@ -24,6 +24,7 @@ import { coaches, coachesMeta } from './lib/coaches.js';
 import { h2h, h2hMeta, isOpponentSlug } from './lib/h2h.js';
 import { getCurrentSeasonCsvs } from './lib/espn-current.js';
 import { seasonBatting, seasonPitching, seasonFielding, seasonFieldingTotals, regularGidsBySeason, buildLeaders, playerSeasons, playerGameLog, playerDirectory, bornOn, parseBios, PLAYER_ID } from './stats-core.js';
+import { playerHandSplits } from './hand-splits-core.js';
 import { espnTarget } from './lib/espn-target.js';
 import { esc, parseCurrentNamesCsv, parseBallparksCsv, parseTeamstatsLineScores, BREWERS_IDS } from './records-core.js';
 import { buildGameIndex, buildPitchingIndex, buildBattingIndex, buildFieldingIndex, buildPlayerNameMap, buildBoxscore, createScoringPlaysCollector, computeBattingFeats, computeFieldingFeats, POS_NAMES } from './boxscore-core.js';
@@ -728,7 +729,10 @@ async function playerData(id) {
   if (!PLAYER_ID.test(id)) return null;
   const p = playerSeasons(await allSeasonStats(), id);
   if (!p) return null;
-  return { ...p, bio: (await bios()).get(id) || null };
+  // His splits by the opposing hand, from the handSplits index (built from
+  // the play-by-play with the others); null on an older artifact without it.
+  const idx = await getBoxIndices();
+  return { ...p, bio: (await bios()).get(id) || null, handSplits: playerHandSplits(idx.handSplits, id) };
 }
 
 // The player search's list: every Brewer once — 1,074 through 2025, 85KB.

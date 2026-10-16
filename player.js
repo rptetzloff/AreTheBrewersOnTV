@@ -147,6 +147,56 @@ function mountGameLog(seasons, lead) {
 	show(start ? { season: start.season, side: start.side || lead } : current, { scroll: Boolean(start) });
 }
 
+// --- Splits by the opposing hand ---
+
+// The columns of a split table, for a batter or for the line against a
+// pitcher: plate appearances (batters faced, for a pitcher) through the rates.
+const HAND_COLUMNS = [
+	['pa', 'PA', 'Plate appearances'], ['ab', 'AB', 'At-bats'], ['h', 'H', 'Hits'], ['d', '2B', 'Doubles'],
+	['t', '3B', 'Triples'], ['hr', 'HR', 'Home runs'], ['rbi', 'RBI', 'Runs batted in'], ['bb', 'BB', 'Walks'],
+	['k', 'SO', 'Strikeouts'], ['avg', 'AVG', 'Batting average', rate], ['obp', 'OBP', 'On-base percentage', rate],
+	['slg', 'SLG', 'Slugging percentage', rate], ['ops', 'OPS', 'On-base plus slugging', rate],
+];
+
+function handTableHtml(title, rowsBySide, labels, pitcher) {
+	// A pitcher's table has no RBI column (runs batted in off him are not a
+	// pitching stat) and calls PA what a box score calls it, batters faced.
+	const cols = HAND_COLUMNS.filter(([k]) => !(pitcher && k === 'rbi'))
+		.map(([k, label, t, fmt]) => (pitcher && k === 'pa' ? [k, 'BF', 'Batters faced', fmt] : [k, label, t, fmt]));
+	const head = cols.map(([, label, t]) => `<th class="h2h-num" title="${esc(t)}">${esc(label)}</th>`).join('');
+	const body = ['R', 'L'].filter((vs) => rowsBySide[vs]?.pa > 0).map((vs) => `<tr><td>${esc(labels[vs])}</td>${cols
+		.map(([k, , , fmt]) => `<td class="h2h-num">${esc(fmt ? fmt(rowsBySide[vs][k]) : String(rowsBySide[vs][k]))}</td>`).join('')}</tr>`).join('');
+	if (!body) return '';
+	return `<h3 class="player-subsection-title">${esc(title)}</h3>
+		<div class="h2h-table-wrap stats-table-wrap"><table class="h2h-table stats-table hands-table">
+			<thead><tr><th>Vs</th>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+}
+
+/** The splits section: career or one season, batting against each pitching
+ *  hand and the line against a pitcher by each batting side. */
+function mountHandSplits(hs, pitcherFirst) {
+	const section = document.getElementById('player-hands');
+	const select = document.getElementById('hands-season');
+	const out = document.getElementById('hands-tables');
+	const seasons = [...new Set([...(hs.batting?.rows || []), ...(hs.pitching?.rows || [])].map((r) => r.season))].sort((a, b) => b - a);
+	select.innerHTML = ['<option value="">Career</option>', ...seasons.map((y) => `<option value="${y}">${y}</option>`)].join('');
+	const sideRows = (side, season) => {
+		if (!side) return null;
+		if (!season) return side.career;
+		const rows = side.rows.filter((r) => r.season === season);
+		return Object.fromEntries(rows.map((r) => [r.vs, r]));
+	};
+	const render = () => {
+		const season = Number(select.value) || null;
+		const bat = handTableHtml('Batting', sideRows(hs.batting, season) || {}, { R: 'vs RHP', L: 'vs LHP' }, false);
+		const pit = handTableHtml('Pitching, opponents', sideRows(hs.pitching, season) || {}, { R: 'vs RHB', L: 'vs LHB' }, true);
+		out.innerHTML = (pitcherFirst ? [pit, bat] : [bat, pit]).join('') || '<p class="record-empty">No plate appearances that season.</p>';
+	};
+	select.addEventListener('change', render);
+	render();
+	section.hidden = false;
+}
+
 const POS_ORDER = ['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'DH'];
 
 /** Career fielding is per position too: summed across seasons, FPCT again. */
@@ -233,6 +283,7 @@ async function init() {
 		// (a pinch-runner who never came to the plate) has no log to show.
 		const logSeasons = [...new Set([...p.batting, ...p.pitching].map((l) => l.season))].sort((a, b) => a - b);
 		if (logSeasons.length) mountGameLog(logSeasons, pitcherFirst ? 'pitching' : 'batting');
+		if (p.handSplits) mountHandSplits(p.handSplits, pitcherFirst);
 
 		const share = document.getElementById('player-share');
 		share.innerHTML = labeledShareButtonsHtml('footer-share-item');
