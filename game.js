@@ -1,7 +1,13 @@
 // Renders the box score page at /game/:gid. Fetches structured box score data
-// from /api/boxscore/:gid (assembled server-side from the Retrosheet CSVs).
+// from /api/boxscore/:gid (assembled server-side from the Retrosheet CSVs,
+// or from ESPN for the season being played). A game in progress also shows
+// the live card's detail — the count, the pitchers, the at-bat pitch by
+// pitch, the last ball in play, the last plays — from /api/live/:gid, and
+// refreshes every 15 seconds until it is final.
+import { liveSituation, isBetweenInnings, situationHtml } from './situation-core.js';
+import { liveDetailHtml } from './live-core.js';
 
-const esc = (s) => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const esc =(s) => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
 function gidFromPath() {
   const m = window.location.pathname.match(/^\/game\/(.+)$/);
@@ -266,7 +272,21 @@ function teamPanel(box, teamId, isVisitor, hidden, npMode) {
   return html;
 }
 
-function render(box) {
+// The team tab the reader picked, kept across a live game's refreshes.
+let selectedTeam = null;
+
+// The live panel: the scorebug and the live card's detail, for a game in
+// progress. Between half-innings the scorebug goes (ESPN still holds the last
+// at-bat's runners), as on the home page.
+function livePanel(box, live) {
+  if (!live || live.state !== 'in' || box.final) return '';
+  const bug = isBetweenInnings(live.detail) ? '' : situationHtml(liveSituation(live.situation));
+  const detail = liveDetailHtml(live);
+  if (!bug && !detail) return '';
+  return `<section class="boxscore-livepanel" aria-label="Live">${bug}${detail}</section>`;
+}
+
+function render(box, live = null) {
   const g = box.game;
   const loading = document.getElementById('boxscore-loading');
   if (loading) loading.hidden = true;
@@ -296,6 +316,7 @@ function render(box) {
       ${box.source === 'espn' && !box.final && box.status ? `<div class="boxscore-live"><span class="live-indicator-small"></span>${esc(box.status)}</div>` : ''}
       ${gameMeta(g)}
     </div>
+    ${livePanel(box, live)}
     ${lineScoreTable(box.linescore, g.brewIsHome)}
     ${pitchersLine(g)}
     ${umpiresLine(g)}
@@ -304,8 +325,8 @@ function render(box) {
 
   if (box.batting || box.fielding || box.pitching) {
     // Team tabs: away team on the left, home team on the right. Default to
-    // the Brewers' side of the box.
-    const defaultTeam = g.brewAbbr;
+    // the Brewers' side of the box, or the side the reader last picked.
+    const defaultTeam = selectedTeam && [visAbbr, homeAbbr].includes(selectedTeam) ? selectedTeam : g.brewAbbr;
     html += `
       <div class="boxscore-teamtabs" role="tablist">
         <button type="button" class="boxscore-teamtab${defaultTeam === visAbbr ? ' active' : ''}" data-team="${esc(visAbbr)}" role="tab" aria-selected="${defaultTeam === visAbbr}">${esc(g.visName)}</button>
@@ -337,6 +358,7 @@ function render(box) {
   root.querySelectorAll('.boxscore-teamtab').forEach(btn => {
     btn.addEventListener('click', () => {
       const team = btn.dataset.team;
+      selectedTeam = team;
       root.querySelectorAll('.boxscore-teamtab').forEach(b => {
         const on = b === btn;
         b.classList.toggle('active', on);
@@ -366,17 +388,55 @@ async function main() {
       try { return new URL(document.querySelector('script[src*="game.js"]').src, location.href).searchParams.get('v') || ''; }
       catch { return ''; }
     })();
-    const res = await fetch(`/api/boxscore/${encodeURIComponent(gid)}${scriptV ? `?v=${scriptV}` : ''}`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const box = await res.json();
-    if (box.error) throw new Error(box.error);
-    render(box);
+    const load = async () => {
+      const res = await fetch(`/api/boxscore/${encodeURIComponent(gid)}${scriptV ? `?v=${scriptV}` : ''}`, { cache: 'no-cache' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const box = await res.json();
+      if (box.error) throw new Error(box.error);
+      // A game in progress (ESPN, not final) also gets the live detail.
+      let live = null;
+      if (box.source === 'espn' && !box.final) {
+        try {
+          const lr = await fetch(`/api/live/${encodeURIComponent(gid)}`, { cache: 'no-cache' });
+          live = lr.ok ? await lr.json() : null;
+        } catch { /* the box score still shows without it */ }
+      }
+      return { box, live };
+    };
+    const first = await load();
+    render(first.box, first.live);
+    if (first.box.source === 'espn' && !first.box.final) followLive(load);
   } catch (err) {
     loading.hidden = true;
     errorEl.hidden = false;
     errorEl.textContent = 'Could not load this box score. The game may not exist or detailed data is unavailable.';
     console.error('Box score error:', err);
   }
+}
+
+// A game in progress: load and redraw every 15 seconds — the server holds a
+// live game for 15 too — keeping the reader's place, until it goes final.
+// A hidden tab skips its turns and catches up when it is shown again.
+function followLive(load) {
+  let timer = null;
+  const tick = async () => {
+    timer = null;
+    if (document.visibilityState === 'hidden') return;
+    try {
+      const { box, live } = await load();
+      const y = window.scrollY;
+      render(box, live);
+      window.scrollTo(0, y);
+      if (box.final) return;
+    } catch (err) {
+      console.error('Live box score refresh failed:', err);
+    }
+    timer = setTimeout(tick, 15000);
+  };
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && !timer) tick();
+  });
+  timer = setTimeout(tick, 15000);
 }
 
 main();

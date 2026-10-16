@@ -2698,6 +2698,15 @@ details:not([open]) > .collapsible-summary::before {
     justify-content: flex-start;
 }
 
+/* Splits over many seasons: five-digit run totals do not fit a phone
+   beside everything else, so RS and RA step aside there and the
+   differential stays. */
+@media (max-width: 480px) {
+    .splits-span-table .splits-runs {
+        display: none;
+    }
+}
+
 /* Two classes: the shared phone rule for .h2h-table cells comes later in
    the file and would win a tie. */
 @media (max-width: 600px) {
@@ -2921,6 +2930,16 @@ details:not([open]) > .collapsible-summary::before {
     color: #FFC52F;
     font-size: 1.1rem;
     margin: 0 0 0.5rem;
+}
+
+/* Batting and Pitching inside a section, like the splits vs right/left. */
+.player-subsection-title {
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 0.75rem 0 0.35rem;
+    text-align: left;
 }
 
 .player-career td {
@@ -4236,6 +4255,18 @@ details:not([open]) > .collapsible-summary::before {
 .boxscore-sub .boxscore-player {
     padding-left: 1.4rem;
     font-weight: 500;
+}
+
+/* A game in progress on the box score page: the scorebug and the live
+   card's detail, at a card's width in the middle of the page. */
+.boxscore-livepanel {
+    width: 100%;
+    max-width: 560px;
+    margin: 0 auto;
+}
+
+.boxscore-livepanel .situation {
+    margin-bottom: 0.25rem;
 }
 
 /* A current-season game still being played: its inning under the date. */
