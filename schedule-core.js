@@ -25,7 +25,8 @@ export const monthShort = (key) => SHORT[monthIndex(key)];
  * where state is 'win' | 'loss' | 'tie' | 'live' | 'next' | 'upcoming' |
  * 'postponed', and text the result ("W 6-2"), the score of a live game, or
  * the start time. `key` becomes data-key (and the id, for Retrosheet's g-<gid>
- * anchors when given as `anchor`).
+ * anchors when given as `anchor`). A played game may carry `links`
+ * (summary, box score, ESPN; see rowLinksHtml).
  */
 export function scheduleRowHtml(row) {
 	const d = row.date;
@@ -43,7 +44,20 @@ export function scheduleRowHtml(row) {
 		+ `<span class="sched-opp">${row.home ? 'vs' : '@'} ${esc(row.opp)}</span>`
 		+ `<span class="sched-out">${row.state === 'live' ? '<span class="live-indicator-small"></span>' : ''}${esc(row.text)}</span>`
 		+ `<span class="sched-tv">${esc(tv.join(' · '))}</span>`
+		+ rowLinksHtml(row.links)
 		+ '</div>';
+}
+
+/** A played game's links: its summary (the line score pop-up), its box
+ *  score page, and ESPN's page for it when the game came from ESPN. `links`
+ *  is { summary: true, box: '/game/…', espn: 'https://…' }, any of them. */
+function rowLinksHtml(links) {
+	if (!links) return '';
+	const out = [];
+	if (links.summary) out.push('<button type="button" class="sched-link" data-act="summary" title="Summary: line score and scoring plays" aria-label="Summary"><i class="mdi mdi-text-box-outline" aria-hidden="true"></i><span class="sched-link-label">Summary</span></button>');
+	if (links.box) out.push(`<a class="sched-link" href="${esc(links.box)}" title="Box score" aria-label="Box score"><i class="mdi mdi-table" aria-hidden="true"></i><span class="sched-link-label">Box</span></a>`);
+	if (links.espn) out.push(`<a class="sched-link sched-link-espn" href="${esc(links.espn)}" target="_blank" rel="noopener noreferrer" title="This game on ESPN" aria-label="ESPN">ESPN</a>`);
+	return out.length ? `<span class="sched-links">${out.join('')}</span>` : '';
 }
 
 /** The list: phase labels where the phase changes (Preseason, Regular
