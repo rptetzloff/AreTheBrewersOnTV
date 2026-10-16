@@ -36,10 +36,17 @@ const PORT = process.env.PORT || 3000;
 // carries the version of the whole tree below it (lib/browser-modules.js).
 const browserModule = browserModules(ROOT);
 
+// Files do not change while the server runs, so each is hashed once; the
+// static handler asks on every versioned request.
+const assetVersions = new Map();
 function assetVersion(file) {
   if (file.endsWith('.js')) return browserModule(file)?.version ?? null;
-  try { return hash8(readFileSync(join(ROOT, file))); }
-  catch { return null; }
+  if (!assetVersions.has(file)) {
+    let v = null;
+    try { v = hash8(readFileSync(join(ROOT, file))); } catch { /* not a file */ }
+    assetVersions.set(file, v);
+  }
+  return assetVersions.get(file);
 }
 
 // A page shell: the HTML with its per-page meta stripped (sendPage adds
@@ -913,10 +920,18 @@ async function serveStatic(req, res, pathname) {
     const st = await stat(file);
     if (st.isDirectory()) throw new Error('dir');
     const ext = extname(file).toLowerCase();
+    const rel = safe.replace(/\\/g, '/').replace(/^\//, '');
     // A browser module goes out with its imports versioned (browserModule).
-    const body = ext === '.js' ? (browserModule(safe.replace(/\\/g, '/').replace(/^\//, ''))?.body ?? await readFile(file)) : await readFile(file);
-    const versioned = /[?&]v=/.test(req.url);
-    const cache = versioned ? 'public, max-age=31536000, immutable'
+    const body = ext === '.js' ? (browserModule(rel)?.body ?? await readFile(file)) : await readFile(file);
+    // Cached for good only when the version asked for is the one this server
+    // has. During a rolling deploy the old server still answers requests for
+    // the new release's URLs; it used to send its old file marked immutable,
+    // and Cloudflare kept that old game.js under the new URL (October 2026).
+    // A version this server does not have goes out with no-store, so neither
+    // a browser nor the edge keeps it, and the next request finds the new one.
+    const asked = new URL(req.url, 'http://x').searchParams.get('v');
+    const cache = asked
+      ? (asked === assetVersion(rel) ? 'public, max-age=31536000, immutable' : 'no-store')
       : ext === '.js' ? 'no-cache'
       : 'public, max-age=3600';
     res.writeHead(200, {
