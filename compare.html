@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compare Brewers</title>
+    <meta name="description" content="Compare Milwaukee Brewers side by side: careers or single seasons, batting and pitching.">
+    <meta property="og:title" content="Compare Brewers">
+    <meta property="og:description" content="Compare Milwaukee Brewers side by side: careers or single seasons, batting and pitching.">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <div class="container records-container stats-container">
+        <a href="/" class="records-back"><i class="mdi mdi-arrow-left"></i> Are the Brewers On TV?</a>
+        <h1 class="records-title">Compare</h1>
+        <p class="records-subtitle">Milwaukee Brewers side by side · a Brewers career or one season each</p>
+        <nav class="stats-views" aria-label="Stats views">
+            <a id="view-season" class="stats-view-link" href="/stats">By Season</a>
+            <a class="stats-view-link" href="/stats/career">Career Leaders</a>
+            <a class="stats-view-link" href="/stats/single-season">Single-Season Leaders</a>
+            <a class="stats-view-link" href="/compare" aria-current="page">Compare</a>
+        </nav>
+        <div id="compare-search"></div>
+        <p id="compare-hint" class="record-empty" hidden>Add up to four Brewers with the search above. Each can be his Brewers career or a single season.</p>
+        <div id="compare-tables"></div>
+        <p class="history-legend">
+            <span class="history-legend-item">Brewers seasons only · regular season, including tiebreaker games · the better number in each row is highlighted; games, plate appearances and starts are playing time and are not</span>
+        </p>
+    </div>
+
+    <footer class="site-footer">
+        <nav class="footer-nav">
+            <a href="/" class="footer-nav-link"><i class="mdi mdi-home-outline"></i><span class="footer-nav-label">Home</span></a>
+            <a href="/records.html" class="footer-nav-link"><i class="mdi mdi-trophy-outline"></i><span class="footer-nav-label">Records</span></a>
+            <a href="/ballparks" class="footer-nav-link"><i class="mdi mdi-stadium"></i><span class="footer-nav-label footer-label-full">Ballparks</span><span class="footer-nav-label footer-label-short">Parks</span></a>
+            <a href="/stats" class="footer-nav-link" aria-current="page"><i class="mdi mdi-table-large"></i><span class="footer-nav-label">Stats</span></a>
+            <a href="/vs.html" class="footer-nav-link"><i class="mdi mdi-sword-cross"></i><span class="footer-nav-label footer-label-full">Head-to-Head</span><span class="footer-nav-label footer-label-short">H2H</span></a>
+            <a href="/history.html" class="footer-nav-link"><i class="mdi mdi-chart-line"></i><span class="footer-nav-label">History</span></a>
+            <a href="/managers.html" class="footer-nav-link"><i class="mdi mdi-whistle-outline"></i><span class="footer-nav-label">Managers</span></a>
+            <div class="footer-share-wrap">
+                <button id="footer-share-trigger" class="footer-nav-link footer-share-trigger" type="button" aria-haspopup="true" aria-expanded="false">
+                    <i class="mdi mdi-share-variant"></i><span class="footer-nav-label">Share</span> <i class="mdi mdi-chevron-down footer-share-caret"></i>
+                </button>
+                <div class="footer-share record-share" id="compare-share" role="menu" hidden></div>
+            </div>
+            <a href="https://github.com/rptetzloff/AreTheBrewersOnTV" target="_blank" rel="noopener noreferrer" class="footer-nav-link footer-github"><i class="mdi mdi-github"></i><span class="footer-nav-label">GitHub</span></a>
+        </nav>
+    </footer>
+
+    <script src="/compare.js" type="module"></script>
+    <script src="/license-modal.js" defer></script>
+</body>
+</html>

@@ -14,6 +14,7 @@ import { originOf } from './lib/origin.js';
 import { getSeasonState, defaultSeason, allGames, teamstatsRaw, fetchEspn, tvLookup, simulcasts } from './lib/seasons.js';
 import { parseGameDay, ballparkStats } from './ballparks-core.js';
 import { teamSplits, opposingStarterHands, opposingStarterIds } from './splits-core.js';
+import { parseSlots, slotsParam } from './compare-core.js';
 import { buildCalendar } from './lib/calendar.js';
 import { records, recordsMeta, isRecordSlug, historyMeta, liveSeasonHistory, liveRecordsVersion, registerBattingFeats, registerPitcherEra, registerNoHitterPitchers, registerTriplePlayFielders } from './lib/records.js';
 import { coaches, coachesMeta } from './lib/coaches.js';
@@ -60,6 +61,7 @@ const MANAGERS_VERSIONED = loadShell('managers.html', ['managers.js', 'styles.cs
 const BALLPARKS_VERSIONED = loadShell('ballparks.html', ['ballparks.js', 'styles.css']);
 const STATS_VERSIONED = loadShell('stats.html', ['stats.js', 'styles.css']);
 const PLAYER_VERSIONED = loadShell('player.html', ['player.js', 'styles.css']);
+const COMPARE_VERSIONED = loadShell('compare.html', ['compare.js', 'styles.css']);
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
@@ -693,6 +695,28 @@ async function servePlayerLogApi(req, res, id, season) {
   return sendData(req, res, { id, season, ...log });
 }
 
+// A shared comparison reads as its players: "Robin Yount 1982 vs Christian
+// Yelich 2018". Like the player page, a cold start serves the generic title
+// rather than make the page wait on the indices.
+async function serveCompareHtml(req, res, param) {
+  const origin = originOf(req);
+  const slots = parseSlots(param);
+  const query = slots.length ? `?p=${slotsParam(slots)}` : '';
+  let named = [];
+  if (_boxIndicesReady && slots.length) {
+    const found = await Promise.all(slots.map((s) => playerData(s.id)));
+    named = slots.map((s, i) => (found[i] ? `${found[i].name} ${s.season || 'career'}` : null)).filter(Boolean);
+  }
+  sendPage(res, COMPARE_VERSIONED, {
+    title: named.length ? `${named.join(' vs ')} — Compare Brewers` : 'Compare Milwaukee Brewers',
+    desc: named.length
+      ? `${named.join(' vs ')}: Milwaukee Brewers batting and pitching side by side.`
+      : 'Compare Milwaukee Brewers side by side: careers or single seasons, batting and pitching.',
+    img: `${origin}/og/records/overview.png`,
+    canonical: `${origin}/compare${query}`,
+  });
+}
+
 // The title and description name the player and his Brewers line, so a
 // shared link reads as him. They need the indices, so a cold start serves
 // the generic ones rather than make the page wait, as box scores do.
@@ -902,6 +926,10 @@ const server = http.createServer(async (req, res) => {
       if (historyCard.key !== key) historyCard = { key, png: renderHistoryPng(history) };
       res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' });
       return res.end(historyCard.png);
+    }
+
+    if (pathname === '/compare' || pathname === '/compare/' || pathname === '/compare.html') {
+      return await serveCompareHtml(req, res, url.searchParams.get('p'));
     }
 
     if (pathname === '/api/ballparks') {
