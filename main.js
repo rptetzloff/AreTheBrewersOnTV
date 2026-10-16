@@ -3,6 +3,7 @@
         import { buildChartSvg } from './history-chart.js';
         import { liveSituation, isBetweenInnings, situationHtml } from './situation-core.js';
         import { liveDetailHtml, probablesHtml, probableStarters, scoringPlays, scoringPlaysHtml } from './live-core.js';
+        import { scheduleListHtml, monthChipsHtml } from './schedule-core.js';
         import { espnPostseasonGames, postseasonPanelHtml, standingsRows, raceNumbers, racePanelHtml, RACE_WINDOW_GAMES } from './playoff-core.js';
         import { intentUrls, copyText, flashCopied, wireShareDropdown } from './share-core.js';
         import { parseTvLookup, resolveChannel, tvStatus, primaryBroadcast, providerChannel, formatChannelNum, channelNumberFor, parseSimulcasts, broadcastsWithSimulcasts, dayCT, EMPTY_LOOKUP } from './tv-core.js';
@@ -435,56 +436,35 @@ h2hNote(franchiseOrName) {
   return note;
 }
 
+// A past season (Retrosheet): every game a compact row (schedule-core.js),
+// a click on one opening its line score.
 displayCsvSchedule(games, season) {
-  const scheduleGrid = document.getElementById('schedule-grid');
-  scheduleGrid.innerHTML = '';
-
-  // Head-to-head notes show on the current season's schedule. When ESPN
-  // reports a future season (e.g. 2026) that has no games yet, the latest
-  // CSV season (2025) is the most recent one with real game data, so show
-  // notes there too.
-  const showH2h = season === this.latestSeason || season === this.csvMaxSeason;
-
-        		// Sort by date
   const sorted = [...games].sort((a, b) => new Date(a.date) - new Date(b.date));
-
-  let currentSection = null;
-  sorted.forEach(g => {
-     const isPlayoff = g.playoff === '1';
-     const isRegular = g.regular_season === '1';
-     let section;
-     if (isRegular) {
-        section = 'regular';
-     } else if (isPlayoff) {
-        const gt = (g.gametype || '').toUpperCase();
-        if (gt === 'W') section = 'ws';
-        else if (gt === 'L' || gt === 'C') section = 'lcs';
-        else if (gt === 'D') section = 'ds';
-        else if (gt === 'F') section = 'wc';
-        else section = 'post';
-     } else {
-        section = 'other';
-     }
-     const sectionLabels = {
-        regular: 'Regular Season',
-        wc: 'Wild Card',
-        ds: 'Division Series',
-        lcs: 'League Championship Series',
-        ws: 'World Series',
-        post: 'Playoffs',
-        other: 'Preseason / Exhibition',
-     };
-
-     if (section !== currentSection) {
-        currentSection = section;
-        const divider = document.createElement('div');
-        divider.className = 'season-divider';
-        divider.textContent = sectionLabels[section] || section;
-        scheduleGrid.appendChild(divider);
-    }
-
-    scheduleGrid.appendChild(this.createCsvGameItem(g, showH2h));
-});
+  const phaseOf = (g) => {
+    if (g.regular_season === '1') return 'regular';
+    if (g.playoff !== '1') return 'other';
+    const gt = (g.gametype || '').toUpperCase();
+    return gt === 'W' ? 'ws' : gt === 'L' || gt === 'C' ? 'lcs' : gt === 'D' ? 'ds' : gt === 'F' ? 'wc' : 'post';
+  };
+  this._csvByGid = new Map(sorted.map((g) => [g.gid, g]));
+  this._eventsById = null;
+  const rows = sorted.map((g) => {
+    const res = g.result === 'WIN' ? 'win' : g.result === 'LOSS' ? 'loss' : 'tie';
+    const clickable = Boolean(g.gid && this.lineScores?.has(g.gid));
+    return {
+      key: g.gid, anchor: g.gid ? `g-${g.gid}` : '', date: parseLocalDate(g.date),
+      // Retrosheet's rows say 'home' / 'away' in lower case; the card this
+      // replaced compared against 'AWAY' and showed every road game as "vs".
+      home: String(g.location || '').toLowerCase() !== 'away',
+      opp: g.OpponentNick || g.Opponent, state: res,
+      text: `${res === 'win' ? 'W' : res === 'loss' ? 'L' : 'T'} ${parseInt(g.scoreFor) || 0}-${parseInt(g.scoreAgainst) || 0}`,
+      tv: [], phase: phaseOf(g), clickable, title: clickable ? 'Line score' : '',
+    };
+  });
+  this.renderScheduleList(rows, {
+    regular: 'Regular Season', wc: 'Wild Card', ds: 'Division Series', lcs: 'League Championship Series',
+    ws: 'World Series', post: 'Playoffs', other: 'Preseason / Exhibition',
+  }, { season, featured: null, scrollTo: null });
 }
 
 scrollToGameAnchor() {
@@ -492,87 +472,111 @@ scrollToGameAnchor() {
   if (!hash || !hash.startsWith('#g-')) return;
   const el = document.getElementById(hash.slice(1));
   if (!el) return;
-  const grid = document.getElementById('schedule-grid');
-  const top = el.offsetTop - (grid.clientHeight / 2) + (el.offsetHeight / 2);
-  grid.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+  this.centerInSchedule(el, 'smooth');
   el.classList.add('highlight');
   setTimeout(() => el.classList.remove('highlight'), 2500);
 }
 
-createCsvGameItem(g, showH2h = false) {
-        		const result = g['result']; // WIN / LOSS / TIE
-        		const opponent = g.Opponent;
-        		const location = g.location; // HOME / AWAY / NEUTRAL
-        		const brewersScore = parseInt(g.scoreFor) || 0;
-        		const opponentScore = parseInt(g.scoreAgainst) || 0;
-        		const date = parseLocalDate(g.date);
-        		const isWorldSeries = g.championship && g.championship.trim() !== '';
+// Scroll the schedule list so `el` sits in its middle.
+centerInSchedule(el, behavior = 'auto') {
+  const grid = document.getElementById('schedule-grid');
+  const top = el.offsetTop - (grid.clientHeight / 2) + (el.offsetHeight / 2);
+  grid.scrollTo({ top: Math.max(0, top), behavior });
+}
 
-        		const gameItem = document.createElement('div');
-        		gameItem.className = 'game-item completed';
+/**
+ * Draw the schedule list: the pinned game (live, else next) above it, a
+ * chip a month, and the compact rows. The first time a season is drawn the
+ * list scrolls to `scrollTo` (the latest game); a redraw of the same season
+ * — the 15-second live refresh — keeps the reader's place.
+ */
+renderScheduleList(rows, phaseLabels, { season, featured, scrollTo }) {
+  const grid = document.getElementById('schedule-grid');
+  const chips = document.getElementById('schedule-months');
+  const pinned = document.getElementById('schedule-featured');
+  const sameSeason = this._scheduleSeason === season;
+  const keep = grid.scrollTop;
 
-        		if (g.gid) gameItem.id = `g-${g.gid}`;
-        		if (result === 'WIN') gameItem.classList.add('win');
-        		else if (result === 'LOSS') gameItem.classList.add('loss');
+  pinned.innerHTML = '';
+  if (featured) pinned.appendChild(featured);
+  pinned.hidden = !featured;
 
-        		const gameInfo = document.createElement('div');
-        		gameInfo.className = 'game-info';
+  grid.innerHTML = rows.length ? scheduleListHtml(rows, phaseLabels) : '<div class="loading">No games scheduled.</div>';
+  chips.innerHTML = monthChipsHtml(rows);
+  chips.hidden = !chips.innerHTML;
+  this.wireSchedule();
 
-        		const gameDetails = document.createElement('div');
-        		gameDetails.className = 'game-details';
+  if (sameSeason) {
+    grid.scrollTop = keep;
+  } else {
+    this._scheduleSeason = season;
+    const target = scrollTo && grid.querySelector(`.sched-row[data-key="${CSS.escape(String(scrollTo))}"]`);
+    if (target) this.centerInSchedule(target);
+    else grid.scrollTop = 0;
+  }
+  this.markActiveMonth();
+}
 
-        		const opponentDiv = document.createElement('div');
-        		opponentDiv.className = 'game-opponent';
-        		const prefix = location === 'HOME' ? 'vs' : location === 'AWAY' ? '@' : 'vs';
-        		opponentDiv.textContent = `${prefix} ${opponent}`;
+// Clicks on rows and month chips, wired once: the list is redrawn, its
+// container is not.
+wireSchedule() {
+  if (this._scheduleWired) return;
+  this._scheduleWired = true;
+  const grid = document.getElementById('schedule-grid');
+  const chips = document.getElementById('schedule-months');
+  const open = (row) => {
+    const key = row.dataset.key;
+    const event = this._eventsById?.get(key);
+    if (event) {
+      const st = event.competitions?.[0]?.status?.type;
+      if (st?.state === 'post' || st?.state === 'in') this.openLinescoreFromEvent(event);
+      else this.openWatchModal(event);
+      return;
+    }
+    const g = this._csvByGid?.get(key);
+    if (g && this.lineScores?.has(g.gid)) this.openLinescoreModal(g);
+  };
+  grid.addEventListener('click', (e) => {
+    const row = e.target.closest('.sched-row.sched-click');
+    if (row) open(row);
+  });
+  grid.addEventListener('keydown', (e) => {
+    const row = e.target.closest('.sched-row.sched-click');
+    if (row && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); open(row); }
+  });
+  chips.addEventListener('click', (e) => {
+    const chip = e.target.closest('.sched-chip');
+    if (!chip) return;
+    const group = grid.querySelector(`.sched-group[data-month="${chip.dataset.month}"]`);
+    if (group) grid.scrollTo({ top: group.offsetTop, behavior: 'smooth' });
+  });
+  let ticking = false;
+  grid.addEventListener('scroll', () => {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => { ticking = false; this.markActiveMonth(); });
+  });
+}
 
-        		const dateDiv = document.createElement('div');
-        		dateDiv.className = 'game-date';
-        		dateDiv.textContent = date.toLocaleDateString('en-US', {
-        			weekday: 'short', month: 'short', day: 'numeric'
-        		});
-
-        		gameDetails.appendChild(opponentDiv);
-        		gameDetails.appendChild(dateDiv);
-
-        		if (showH2h) {
-        			const h2h = this.h2hNote(g.franchise);
-        			if (h2h) gameDetails.appendChild(h2h);
-        		}
-
-        		if (isWorldSeries) {
-        			const sbLabel = document.createElement('div');
-        			sbLabel.className = 'game-status';
-        			sbLabel.textContent = `World Series ${g.championship.toUpperCase()}`;
-        			gameDetails.appendChild(sbLabel);
-        		}
-
-        		gameInfo.appendChild(gameDetails);
-        		gameItem.appendChild(gameInfo);
-
-        		const scoreDiv = document.createElement('div');
-        		scoreDiv.className = 'game-score';
-        		if (result === 'WIN') scoreDiv.classList.add('win');
-        		else if (result === 'LOSS') scoreDiv.classList.add('loss');
-
-        		const resultPrefix = result === 'WIN' ? 'W ' : result === 'LOSS' ? 'L ' : 'T ';
-        		scoreDiv.textContent = `${resultPrefix}${brewersScore}-${opponentScore}`;
-        		scoreDiv.style.textAlign = 'center';
-        		scoreDiv.style.marginTop = '0.5rem';
-        		scoreDiv.style.width = '100%';
-
-        		if (this.lineScores?.has(g.gid)) {
-        			scoreDiv.classList.add('linescore-trigger');
-        			scoreDiv.title = 'Click for line score';
-        			scoreDiv.addEventListener('click', (e) => {
-        				e.stopPropagation();
-        				this.openLinescoreModal(g);
-        			});
-        		}
-
-        		gameItem.appendChild(scoreDiv);
-        		return gameItem;
-        	}
+// The chip for the month at the top of the list, kept in view in the chip row.
+markActiveMonth() {
+  const grid = document.getElementById('schedule-grid');
+  const chips = document.getElementById('schedule-months');
+  // The first month whose group has not scrolled fully past the top of the
+  // list — so a phase divider at the top marks the month below it, not the
+  // one that just ended. (A group's offsetTop, unlike its sticky heading's,
+  // does not move as the list scrolls.)
+  let current = null;
+  for (const group of grid.querySelectorAll('.sched-group')) {
+    if (group.offsetTop + group.offsetHeight > grid.scrollTop + 8) { current = group.dataset.month; break; }
+  }
+  chips.querySelectorAll('.sched-chip').forEach((c) => {
+    const on = c.dataset.month === current;
+    // Scroll the chip row only (scrollIntoView would move the page too).
+    if (on && !c.classList.contains('active')) chips.scrollLeft = c.offsetLeft - (chips.clientWidth - c.offsetWidth) / 2;
+    c.classList.toggle('active', on);
+  });
+}
 
         	async fetchLiveGameScore(liveGame, scheduleData) {
         		// The server's reduced live detail first: score, base-out state,
@@ -984,7 +988,6 @@ createCsvGameItem(g, showH2h = false) {
          }
 
          displaySchedule(events, isPastSeason = false) {
-          const scheduleGrid = document.getElementById('schedule-grid');
           const now = new Date();
 
           const sortedEvents = events.sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -1006,71 +1009,69 @@ createCsvGameItem(g, showH2h = false) {
              status === 'STATUS_RAIN_DELAY';
          });
 
-          scheduleGrid.innerHTML = '';
-
           // Cache so the schedule can be re-rendered when the selected TV
           // provider changes (channel numbers depend on the provider).
           this._lastScheduleEvents = sortedEvents;
           this._lastIsPastSeason = isPastSeason;
+          this._eventsById = new Map(sortedEvents.map((e) => [String(e.id), e]));
+          this._csvByGid = null;
 
-          const sectionLabels = { pre: 'Preseason', regular: 'Regular Season', post: 'Playoffs' };
-          let currentSection = null;
-          sortedEvents.forEach(event => {
-             const section = event._seasonType;
-             if (section && section !== currentSection) {
-                currentSection = section;
-                const divider = document.createElement('div');
-                divider.className = 'season-divider';
-                divider.textContent = sectionLabels[section] || section;
-                scheduleGrid.appendChild(divider);
-            }
-            const gameItem = this.createGameItem(event, nextGame, liveGame, now);
-            scheduleGrid.appendChild(gameItem);
-        });
+          const rows = sortedEvents.map((event) => this.espnScheduleRow(event, nextGame, liveGame, isPastSeason));
+          // The live game, else the next one, as the full card above the list:
+          // the live detail, the countdown, the probables.
+          const pinnedEvent = !isPastSeason ? (liveGame || nextGame) : null;
+          const featured = pinnedEvent ? this.createGameItem(pinnedEvent, nextGame, liveGame, now) : null;
+          // The latest game played (or the one being played) is where the
+          // list opens.
+          const latest = [...sortedEvents].reverse().find((e) => ['post', 'in'].includes(e.competitions?.[0]?.status?.type?.state));
+          this.renderScheduleList(rows, { pre: 'Preseason', regular: 'Regular Season', post: 'Playoffs' }, {
+             season: `${this.currentSeason}`, featured, scrollTo: latest?.id ?? null,
+          });
 
-          if (!isPastSeason) {
-             setTimeout(() => {
-                this.autoScrollToRecentGame(scheduleGrid, sortedEvents, now);
-            }, 500);
-
-             if (liveGame) {
-                this.startLiveUpdates();
-            }
-        }
+          if (!isPastSeason && liveGame) this.startLiveUpdates();
     }
 
-    autoScrollToRecentGame(scheduleGrid, sortedEvents, now) {
-      let mostRecentCompletedIndex = -1;
-
-      for (let i = sortedEvents.length - 1; i >= 0; i--) {
-         const event = sortedEvents[i];
-         const status = event.competitions?.[0]?.status?.type?.name;
-
-         if (status === 'STATUS_IN_PROGRESS' ||
-            status === 'STATUS_HALFTIME' ||
-            status === 'STATUS_DELAYED' ||
-            status === 'STATUS_FINAL') {
-            mostRecentCompletedIndex = i;
-        break;
+    // One ESPN game as a schedule row: result, live score or start time, and
+    // its TV for games still to come.
+    espnScheduleRow(event, nextGame, liveGame, isPastSeason) {
+      const comp = event.competitions[0];
+      const st = comp.status?.type || {};
+      const mil = comp.competitors.find((c) => c.team.abbreviation === 'MIL');
+      const opp = comp.competitors.find((c) => c !== mil) || {};
+      const score = (c) => parseInt(c?.score?.value ?? c?.score?.displayValue ?? c?.score ?? 0) || 0;
+      const date = new Date(event.date);
+      const isLive = liveGame && event.id === liveGame.id;
+      let state;
+      let text;
+      if (st.state === 'post' && st.name === 'STATUS_FINAL') {
+        const [b, o] = [score(mil), score(opp)];
+        state = b > o ? 'win' : b < o ? 'loss' : 'tie';
+        text = `${state === 'win' ? 'W' : state === 'loss' ? 'L' : 'T'} ${b}-${o}`;
+      } else if (isLive || st.state === 'in') {
+        state = 'live';
+        text = `${score(mil)}-${score(opp)} ${st.shortDetail || ''}`.trim();
+      } else if (st.state === 'post') {
+        state = 'postponed';
+        text = st.shortDetail || st.description || 'Postponed';
+      } else {
+        state = nextGame && event.id === nextGame.id ? 'next' : 'upcoming';
+        text = event.timeValid === false ? 'TBD' : date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      }
+      const upcoming = state === 'next' || state === 'upcoming';
+      const tv = upcoming ? this.scheduleBroadcasts(event).map((b) => {
+        const num = this.scheduleChannelNumber(b);
+        return `${b.media.shortName}${num ? ` ${num}` : ''}`;
+      }) : [];
+      const canWatch = upcoming && !isPastSeason && this.broadcastsFor(event).some((b) => b.media?.shortName);
+      const clickable = state === 'win' || state === 'loss' || state === 'tie' || state === 'live' || canWatch;
+      return {
+        key: String(event.id), date, phase: event._seasonType,
+        home: mil?.homeAway === 'home',
+        opp: opp.team?.shortDisplayName || opp.team?.name || opp.team?.displayName || '',
+        state, text, tv, clickable,
+        title: state === 'live' || !upcoming ? 'Line score' : canWatch ? 'Where to watch' : '',
+      };
     }
-}
-
-if (mostRecentCompletedIndex >= 0) {
-  const targetEvent = sortedEvents[mostRecentCompletedIndex];
-  const gameItem = scheduleGrid.querySelector(`[data-event-id="${targetEvent.id}"]`);
-  if (gameItem) {
-    const containerHeight = scheduleGrid.clientHeight;
-    const itemHeight = gameItem.offsetHeight;
-    const itemTop = gameItem.offsetTop;
-    const scrollTop = itemTop - (containerHeight / 2) + (itemHeight / 2);
-
-    scheduleGrid.scrollTo({
-       top: Math.max(0, scrollTop),
-       behavior: 'smooth'
-   });
-  }
-}
-}
 
 createGameItem(event, nextGame, liveGame, now) {
   const competition = event.competitions[0];
