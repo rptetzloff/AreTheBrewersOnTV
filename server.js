@@ -8,12 +8,15 @@ import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, normalize, extname } from 'node:path';
+import { browserModules, hash8 } from './lib/browser-modules.js';
 import { renderPng, renderRecordsPng, renderH2hPng, renderHistoryPng, renderCoachesPng, renderGamePng, renderBallparksPng } from './lib/cards.js';
 import { indexLoadOutcome, isLfsPointer } from './lib/indices-health.js';
 import { originOf } from './lib/origin.js';
 import { getSeasonState, defaultSeason, allGames, teamstatsRaw, fetchEspn, tvLookup, simulcasts } from './lib/seasons.js';
 import { parseGameDay, ballparkStats } from './ballparks-core.js';
 import { teamSplits, opposingStarterHands, opposingStarterIds } from './splits-core.js';
+import { parseSlots, slotsParam } from './compare-core.js';
+import { liveDetail } from './live-core.js';
 import { buildCalendar } from './lib/calendar.js';
 import { records, recordsMeta, isRecordSlug, historyMeta, liveSeasonHistory, liveRecordsVersion, registerBattingFeats, registerPitcherEra, registerNoHitterPitchers, registerTriplePlayFielders } from './lib/records.js';
 import { coaches, coachesMeta } from './lib/coaches.js';
@@ -28,38 +31,41 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = __dirname;
 const PORT = process.env.PORT || 3000;
 
+// Every script goes out with its local imports versioned, and its own URL
+// carries the version of the whole tree below it (lib/browser-modules.js).
+const browserModule = browserModules(ROOT);
+
 function assetVersion(file) {
-  try { return createHash('sha1').update(readFileSync(join(ROOT, file))).digest('hex').slice(0, 8); }
+  if (file.endsWith('.js')) return browserModule(file)?.version ?? null;
+  try { return hash8(readFileSync(join(ROOT, file))); }
   catch { return null; }
 }
 
-function loadShell(file, assets) {
+// A page shell: the HTML with its per-page meta stripped (sendPage adds
+// them) and every local script and stylesheet versioned, license-modal.js
+// included.
+function loadShell(file) {
   const raw = readFileSync(join(ROOT, file), 'utf8');
   const stripped = [
     /<title>[\s\S]*?<\/title>\s*/i,
     /<meta[^>]*\b(?:property=["']og:[^"']*["']|name=["']twitter:[^"']*["']|name=["']description["'])[^>]*>\s*/gi,
     /<link[^>]*\brel=["']canonical["'][^>]*>\s*/gi,
   ].reduce((html, re) => html.replace(re, ''), raw);
-  return assets.reduce((html, asset) => {
+  return stripped.replace(/\b(src|href)="(\/?)([\w./-]+\.(?:js|css))"/g, (whole, attr, slash, asset) => {
     const v = assetVersion(asset);
-    if (!v) return html;
-    for (const attr of ['src', 'href']) {
-      html = html
-        .replace(`${attr}="${asset}"`, `${attr}="${asset}?v=${v}"`)
-        .replace(`${attr}="/${asset}"`, `${attr}="/${asset}?v=${v}"`);
-    }
-    return html;
-  }, stripped);
+    return v ? `${attr}="${slash}${asset}?v=${v}"` : whole;
+  });
 }
-const INDEX_VERSIONED = loadShell('index.html', ['main.js', 'styles.css']);
-const RECORDS_VERSIONED = loadShell('records.html', ['records.js', 'styles.css']);
-const VS_VERSIONED = loadShell('vs.html', ['vs.js', 'styles.css']);
-const GAME_VERSIONED = loadShell('game.html', ['game.js', 'styles.css']);
-const HISTORY_VERSIONED = loadShell('history.html', ['history.js', 'styles.css']);
-const MANAGERS_VERSIONED = loadShell('managers.html', ['managers.js', 'styles.css']);
-const BALLPARKS_VERSIONED = loadShell('ballparks.html', ['ballparks.js', 'styles.css']);
-const STATS_VERSIONED = loadShell('stats.html', ['stats.js', 'styles.css']);
-const PLAYER_VERSIONED = loadShell('player.html', ['player.js', 'styles.css']);
+const INDEX_VERSIONED = loadShell('index.html');
+const RECORDS_VERSIONED = loadShell('records.html');
+const VS_VERSIONED = loadShell('vs.html');
+const GAME_VERSIONED = loadShell('game.html');
+const HISTORY_VERSIONED = loadShell('history.html');
+const MANAGERS_VERSIONED = loadShell('managers.html');
+const BALLPARKS_VERSIONED = loadShell('ballparks.html');
+const STATS_VERSIONED = loadShell('stats.html');
+const PLAYER_VERSIONED = loadShell('player.html');
+const COMPARE_VERSIONED = loadShell('compare.html');
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
@@ -438,8 +444,10 @@ function finishIndices(indices) {
 // schedules whose games are all final) is held for a day; a mid-season
 // schedule with no game underway refreshes hourly, since season-to-date
 // results can't change until the next game starts; anything near or during
-// a live game refreshes every 60s.
+// a live game refreshes every 60s, and a game in progress's summary every
+// 15s — the live card shows pitch by pitch from it (/api/live).
 const espnProxyCache = new Map(); // target url -> { at, status, body, ttl }
+const ESPN_PROXY_LIVE_TTL = 15 * 1000;
 const ESPN_PROXY_TTL = 60 * 1000;
 const ESPN_PROXY_IDLE_TTL = 60 * 60 * 1000;
 const ESPN_PROXY_FINAL_TTL = 24 * 60 * 60 * 1000;
@@ -450,8 +458,8 @@ function espnTtlFor(target, status, body) {
   if (status !== 200) return ESPN_PROXY_TTL;
   try {
     if (target.includes('/summary?')) {
-      const done = JSON.parse(body)?.header?.competitions?.[0]?.status?.type?.completed;
-      return done ? ESPN_PROXY_FINAL_TTL : ESPN_PROXY_TTL;
+      const st = JSON.parse(body)?.header?.competitions?.[0]?.status?.type;
+      return st?.completed ? ESPN_PROXY_FINAL_TTL : st?.state === 'in' ? ESPN_PROXY_LIVE_TTL : ESPN_PROXY_TTL;
     }
     if (target.includes('/schedule')) {
       const events = JSON.parse(body)?.events || [];
@@ -476,36 +484,82 @@ async function serveEspnProxy(res, path, search) {
   // Only the endpoints and numeric parameters the site uses; see espn-target.js.
   const target = espnTarget(path, search);
   if (!target) return notFound(res);
-  const sendJson = (status, body, cacheState, ttl) => {
-    const maxAge = cacheState === 'stale' || ttl === ESPN_PROXY_TTL ? 15
-      : ttl === ESPN_PROXY_IDLE_TTL ? 300 : 3600;
-    res.writeHead(status, {
-      'Content-Type': 'application/json; charset=utf-8',
-      'Cache-Control': `public, max-age=${maxAge}`,
-      'X-Proxy-Cache': cacheState,
-    });
-    res.end(body);
-  };
-  const hit = espnProxyCache.get(target);
-  if (hit && Date.now() - hit.at < hit.ttl) return sendJson(hit.status, hit.body, 'hit', hit.ttl);
-  try {
-    const r = await fetch(target);
-    const body = await r.text();
-    if (espnProxyCache.size >= ESPN_PROXY_MAX_ENTRIES) {
-      // Drop expired entries first so long-lived ones survive routine churn.
-      for (const [k, v] of espnProxyCache) {
-        if (Date.now() - v.at >= v.ttl) espnProxyCache.delete(k);
-      }
-      if (espnProxyCache.size >= ESPN_PROXY_MAX_ENTRIES) espnProxyCache.clear();
-    }
-    const ttl = espnTtlFor(target, r.status, body);
-    espnProxyCache.set(target, { at: Date.now(), status: r.status, body, ttl });
-    return sendJson(r.status, body, 'miss', ttl);
-  } catch {
-    if (hit) return sendJson(hit.status, hit.body, 'stale', hit.ttl);
+  const got = await espnFetch(target);
+  if (!got) {
     res.writeHead(502, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({ error: 'ESPN unreachable' }));
   }
+  const { status, body, cacheState, ttl } = got;
+  const maxAge = cacheState === 'stale' || ttl <= ESPN_PROXY_TTL ? 15
+    : ttl === ESPN_PROXY_IDLE_TTL ? 300 : 3600;
+  res.writeHead(status, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': `public, max-age=${maxAge}`,
+    'X-Proxy-Cache': cacheState,
+  });
+  res.end(body);
+}
+
+// One ESPN response through the cache: { status, body, ttl, at, cacheState }
+// ('hit', 'miss' or 'stale'), or null when ESPN is unreachable and nothing
+// is cached. Requests that arrive while the same URL is being fetched share
+// that fetch, so a live game's viewers make one ESPN call per refresh between
+// them, not one each.
+const espnInFlight = new Map();
+async function espnFetch(target) {
+  const hit = espnProxyCache.get(target);
+  if (hit && Date.now() - hit.at < hit.ttl) return { ...hit, cacheState: 'hit' };
+  if (!espnInFlight.has(target)) {
+    espnInFlight.set(target, (async () => {
+      try {
+        const r = await fetch(target);
+        const body = await r.text();
+        if (espnProxyCache.size >= ESPN_PROXY_MAX_ENTRIES) {
+          // Drop expired entries first so long-lived ones survive routine churn.
+          for (const [k, v] of espnProxyCache) {
+            if (Date.now() - v.at >= v.ttl) espnProxyCache.delete(k);
+          }
+          if (espnProxyCache.size >= ESPN_PROXY_MAX_ENTRIES) espnProxyCache.clear();
+        }
+        const entry = { at: Date.now(), status: r.status, body, ttl: espnTtlFor(target, r.status, body) };
+        espnProxyCache.set(target, entry);
+        return { ...entry, cacheState: 'miss' };
+      } catch {
+        return hit ? { ...hit, cacheState: 'stale' } : null;
+      } finally {
+        espnInFlight.delete(target);
+      }
+    })());
+  }
+  return espnInFlight.get(target);
+}
+
+// The live card's detail (live-core.js): a few KB boiled down from the game's
+// ESPN summary, which is half a megabyte to a megabyte. Reduced once per
+// summary fetched, however many viewers ask in between.
+const liveDetailCache = new Map(); // event id -> { at, json }
+async function serveLiveApi(res, eventId) {
+  const target = espnTarget('apis/site/v2/sports/baseball/mlb/summary', `event=${eventId}`);
+  const got = target && await espnFetch(target);
+  if (!got || got.status !== 200) {
+    res.writeHead(got ? got.status : 502, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ error: 'No live data for that game' }));
+  }
+  let cached = liveDetailCache.get(eventId);
+  if (!cached || cached.at !== got.at) {
+    let detail = null;
+    try { detail = liveDetail(JSON.parse(got.body)); } catch { /* unparseable: no detail */ }
+    cached = { at: got.at, json: JSON.stringify(detail) };
+    if (liveDetailCache.size > 50) liveDetailCache.clear();
+    liveDetailCache.set(eventId, cached);
+  }
+  res.writeHead(200, {
+    'Content-Type': 'application/json; charset=utf-8',
+    // The page asks every 15s during a game; a browser copy older than that
+    // would show a pitch the server has already moved past.
+    'Cache-Control': 'public, max-age=5',
+  });
+  return res.end(cached.json);
 }
 
 async function serveBoxscoreApi(req, res, gid) {
@@ -693,6 +747,28 @@ async function servePlayerLogApi(req, res, id, season) {
   return sendData(req, res, { id, season, ...log });
 }
 
+// A shared comparison reads as its players: "Robin Yount 1982 vs Christian
+// Yelich 2018". Like the player page, a cold start serves the generic title
+// rather than make the page wait on the indices.
+async function serveCompareHtml(req, res, param) {
+  const origin = originOf(req);
+  const slots = parseSlots(param);
+  const query = slots.length ? `?p=${slotsParam(slots)}` : '';
+  let named = [];
+  if (_boxIndicesReady && slots.length) {
+    const found = await Promise.all(slots.map((s) => playerData(s.id)));
+    named = slots.map((s, i) => (found[i] ? `${found[i].name} ${s.season || 'career'}` : null)).filter(Boolean);
+  }
+  sendPage(res, COMPARE_VERSIONED, {
+    title: named.length ? `${named.join(' vs ')} — Compare Brewers` : 'Compare Milwaukee Brewers',
+    desc: named.length
+      ? `${named.join(' vs ')}: Milwaukee Brewers batting and pitching side by side.`
+      : 'Compare Milwaukee Brewers side by side: careers or single seasons, batting and pitching.',
+    img: `${origin}/og/records/overview.png`,
+    canonical: `${origin}/compare${query}`,
+  });
+}
+
 // The title and description name the player and his Brewers line, so a
 // shared link reads as him. They need the indices, so a cold start serves
 // the generic ones rather than make the page wait, as box scores do.
@@ -804,9 +880,10 @@ async function serveStatic(req, res, pathname) {
   try {
     const st = await stat(file);
     if (st.isDirectory()) throw new Error('dir');
-    const body = await readFile(file);
-    const versioned = /[?&]v=/.test(req.url);
     const ext = extname(file).toLowerCase();
+    // A browser module goes out with its imports versioned (browserModule).
+    const body = ext === '.js' ? (browserModule(safe.replace(/\\/g, '/').replace(/^\//, ''))?.body ?? await readFile(file)) : await readFile(file);
+    const versioned = /[?&]v=/.test(req.url);
     const cache = versioned ? 'public, max-age=31536000, immutable'
       : ext === '.js' ? 'no-cache'
       : 'public, max-age=3600';
@@ -904,6 +981,10 @@ const server = http.createServer(async (req, res) => {
       return res.end(historyCard.png);
     }
 
+    if (pathname === '/compare' || pathname === '/compare/' || pathname === '/compare.html') {
+      return await serveCompareHtml(req, res, url.searchParams.get('p'));
+    }
+
     if (pathname === '/api/ballparks') {
       return sendData(req, res, ballparks());
     }
@@ -945,6 +1026,8 @@ const server = http.createServer(async (req, res) => {
     if (pathname.startsWith('/api/espn/')) {
       return await serveEspnProxy(res, pathname.slice('/api/espn/'.length), url.search);
     }
+    const liveApi = pathname.match(/^\/api\/live\/(\d{1,12})$/);
+    if (liveApi) return await serveLiveApi(res, liveApi[1]);
 
     // Current-season games as Retrosheet-shaped CSV data lines (no header),
     // for the h2h/history/managers pages to append to the real CSVs. Empty

@@ -194,6 +194,10 @@ async function init() {
 		document.getElementById('player-subtitle').innerHTML =
 			`Milwaukee Brewers · ${span} · ${p.seasons} season${p.seasons === 1 ? '' : 's'}${p.bio?.hof ? ' · <span class="player-hof">Hall of Fame</span>' : ''}`;
 		document.getElementById('player-bio').textContent = bioText(p.bio);
+		// Opens the compare page with him in the first column, as his career.
+		const compare = document.getElementById('player-compare');
+		compare.href = `/compare?p=${encodeURIComponent(p.id)}`;
+		compare.hidden = false;
 
 		const sections = [];
 		const batted = p.batting.length > 0;
