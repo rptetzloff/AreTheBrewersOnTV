@@ -103,7 +103,10 @@ test('the tracker: who the Brewers could face, the live score, and the wins', ()
 
 test('between games, the tracker says when the next one is', () => {
 	const after5 = games.map((g) => (g.n === 5 && g.code === 'L' ? { ...g, state: 'post', final: true, teams: g.teams.map((t) => ({ ...t, winner: t.abbr === 'TB' })) } : g))
-	const html = opponentTrackerHtml(bracketSeries(after5), 'MIL', { now: new Date('2026-10-19T15:00:00Z') })
+	// "Today" is the viewer's own calendar day: Game 6 at 8 PM EDT is
+	// tomorrow in UTC. Its start instant is the same day everywhere.
+	const game6 = games.find((g) => g.code === 'L' && g.n === 6)
+	const html = opponentTrackerHtml(bracketSeries(after5), 'MIL', { now: new Date(game6.date) })
 	assert.match(html, /Rays lead 3-2/)
 	assert.match(html, /Game 6 · Today/)
 })
