@@ -1077,7 +1077,8 @@ export function recentFormParts(sorted, now = new Date()) {
 const ROUND_PATTERNS = [
 	[/tiebreaker/i, 'T'],
 	[/world series/i, 'W'],
-	[/wild ?card/i, 'F'],
+	// ESPN's notes abbreviate it: "NLWC - Game 2".
+	[/wild ?card|\b[an]lwc\b/i, 'F'],
 	[/\b(?:[an]lds|division)\b/i, 'D'],
 	[/\b(?:[an]?lcs|championship)\b/i, 'L'],
 ];
