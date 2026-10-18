@@ -5,6 +5,7 @@
         import { liveDetailHtml, probablesHtml, probableStarters, scoringPlays, scoringPlaysHtml } from './live-core.js';
         import { scheduleListHtml, monthChipsHtml } from './schedule-core.js';
         import { espnPostseasonGames, postseasonPanelHtml, standingsRows, raceNumbers, racePanelHtml, RACE_WINDOW_GAMES } from './playoff-core.js';
+        import { bracketSeries, bracketHtml, opponentTrackerHtml, bracketRefreshMs } from './bracket-core.js';
         import { intentUrls, copyText, flashCopied, wireShareDropdown } from './share-core.js';
         import { parseTvLookup, resolveChannel, tvStatus, primaryBroadcast, providerChannel, formatChannelNum, channelNumberFor, parseSimulcasts, broadcastsWithSimulcasts, dayCT, EMPTY_LOOKUP } from './tv-core.js';
 
@@ -1673,7 +1674,14 @@ async updatePlayoffPanel(postGames, gamesPlayed, { settled = false } = {}) {
     details.hidden = false;
   };
 
-  if (postGames.length) return show('Postseason', postseasonPanelHtml(postGames, { settled }));
+  if (postGames.length) {
+    show('Postseason', postseasonPanelHtml(postGames, { settled }));
+    // The rest of the bracket is the season being played's only.
+    if (settled) this.stopBracket();
+    else this.loadBracket();
+    return;
+  }
+  this.stopBracket();
   if (gamesPlayed == null || 162 - gamesPlayed > RACE_WINDOW_GAMES) return show(null, null);
   try {
     const nl = await fetch('/api/espn/apis/v2/sports/baseball/mlb/standings?group=8').then(r => r.json());
@@ -1681,6 +1689,58 @@ async updatePlayoffPanel(postGames, gamesPlayed, { settled = false } = {}) {
   } catch {
     show(null, null);
   }
+}
+
+// The rest of the postseason (bracket-core.js): under the Brewers' series,
+// the one deciding who they play next, and the whole bracket folded below.
+// Fetched a minute apart while any playoff game is on, else when the next
+// one starts (bracketRefreshMs). The panel is redrawn with every schedule
+// load; a redraw within a minute of the last fetch reuses it.
+async loadBracket() {
+  this._bracketOn = true;
+  if (this._bracket && Date.now() - this._bracket.at < 60 * 1000) return this.renderBracket();
+  clearTimeout(this._bracketTimer);
+  let wait = 5 * 60 * 1000;
+  try {
+    const res = await fetch('/api/bracket');
+    if (!res.ok) throw new Error(`bracket ${res.status}`);
+    const { games } = await res.json();
+    this._bracket = { at: Date.now(), series: bracketSeries(games) };
+    wait = bracketRefreshMs(this._bracket.series);
+  } catch { /* keep the last copy, and try again in five minutes */ }
+  if (!this._bracketOn) return;
+  this.renderBracket();
+  this._bracketTimer = setTimeout(() => {
+    if (this._bracket) this._bracket.at = 0;
+    this.loadBracket();
+  }, wait);
+}
+
+stopBracket() {
+  this._bracketOn = false;
+  clearTimeout(this._bracketTimer);
+}
+
+renderBracket() {
+  const body = document.getElementById('playoff-panel');
+  if (!this._bracketOn || !body || !this._bracket) return;
+  body.querySelectorAll('.po-tracker, .po-bracket').forEach(el => el.remove());
+  const { series } = this._bracket;
+  const tracker = opponentTrackerHtml(series, 'MIL');
+  if (tracker) {
+    // Right under the current series, above the ones already played.
+    const earlier = body.querySelector('.po-earlier');
+    if (earlier) earlier.insertAdjacentHTML('beforebegin', tracker);
+    else body.insertAdjacentHTML('beforeend', tracker);
+  }
+  const bracket = bracketHtml(series, 'MIL');
+  if (!bracket) return;
+  let open = false;
+  try { open = localStorage.getItem('bracketOpen') === '1'; } catch { /* closed */ }
+  body.insertAdjacentHTML('beforeend', `<details class="po-bracket"${open ? ' open' : ''}><summary>Playoff bracket</summary>${bracket}</details>`);
+  body.querySelector('.po-bracket').addEventListener('toggle', (e) => {
+    try { localStorage.setItem('bracketOpen', e.currentTarget.open ? '1' : '0'); } catch { /* not kept */ }
+  });
 }
 
 updateStreakBanner(completedGames, isPastSeason, nextGame) {
@@ -3039,7 +3099,7 @@ showError(message) {
   const recordEl = document.getElementById('record');
 
   if (answerEl) {
-     answerEl.innerHTML = `<div style="color: #ff6b6b;">${message}</div>`;
+     answerEl.innerHTML = `<div style="color: var(--loss-light, #ff6b6b);">${message}</div>`;
      answerEl.className = 'answer error';
  }
 
