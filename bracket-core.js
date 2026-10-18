@@ -171,7 +171,11 @@ export function opponentTrackerHtml(series, team, { now = new Date() } = {}) {
 		`<span class="po-wins">${t.wins}</span></div>`).join('');
 	let next = '';
 	const g = s.live || s.next;
-	if (s.live) next = `${esc(gameLabel(g))} · <span class="live-indicator-small"></span>Live · ${esc(liveScore(g))}`;
+	// The live game links to ESPN's page for it, as the schedule's rows do.
+	if (s.live) {
+		next = `${esc(gameLabel(g))} · <span class="live-indicator-small"></span>Live · ${esc(liveScore(g))}` +
+			` · <a class="po-espn" href="https://www.espn.com/mlb/game/_/gameId/${encodeURIComponent(g.id)}" target="_blank" rel="noopener">ESPN</a>`;
+	}
 	else if (g) next = `${esc(gameLabel(g))} · ${esc(whenText(g.date, now))}`;
 	return `<div class="po-tracker">` +
 		`<div class="po-tracker-head">${esc(title)}</div>` +

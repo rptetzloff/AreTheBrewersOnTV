@@ -97,6 +97,7 @@ test('the tracker: who the Brewers could face, the live score, and the wins', ()
 	assert.match(html, /Series tied 2-2/)
 	// Away first: Game 5 was in Cleveland.
 	assert.match(html, /Game 5 · <span class="live-indicator-small"><\/span>Live · TB 3, CLE 1 · Top 8th/)
+	assert.match(html, /<a class="po-espn" href="https:\/\/www\.espn\.com\/mlb\/game\/_\/gameId\/401930515" target="_blank" rel="noopener">ESPN<\/a>/)
 	assert.equal((html.match(/po-pip on other/g) || []).length, 4)
 	assert.equal(opponentTrackerHtml(series, 'LAD'), null)
 })
@@ -109,6 +110,7 @@ test('between games, the tracker says when the next one is', () => {
 	const html = opponentTrackerHtml(bracketSeries(after5), 'MIL', { now: new Date(game6.date) })
 	assert.match(html, /Rays lead 3-2/)
 	assert.match(html, /Game 6 · Today/)
+	assert.doesNotMatch(html, /po-espn/, 'only a live game is linked')
 })
 
 test('the bracket: both leagues, the live series marked, the open World Series slot', () => {
