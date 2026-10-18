@@ -18,6 +18,7 @@ import { teamSplits, opposingStarterHands, opposingStarterIds, splitSpans } from
 import { parseSlots, slotsParam } from './compare-core.js';
 import { liveDetail } from './live-core.js';
 import { espnBoxscore } from './espn-box-core.js';
+import { bracketGames } from './bracket-core.js';
 import { buildCalendar } from './lib/calendar.js';
 import { records, recordsMeta, isRecordSlug, historyMeta, liveSeasonHistory, liveRecordsVersion, registerBattingFeats, registerPitcherEra, registerNoHitterPitchers, registerTriplePlayFielders } from './lib/records.js';
 import { coaches, coachesMeta } from './lib/coaches.js';
@@ -473,7 +474,11 @@ function espnTtlFor(target, status, body) {
       const st = JSON.parse(body)?.header?.competitions?.[0]?.status?.type;
       return st?.completed ? ESPN_PROXY_FINAL_TTL : st?.state === 'in' ? ESPN_PROXY_LIVE_TTL : ESPN_PROXY_TTL;
     }
-    if (target.includes('/schedule')) {
+    // A postseason's dates (/api/bracket) are set a season ahead.
+    if (target.includes('/types/3')) return ESPN_PROXY_FINAL_TTL;
+    // A schedule, or one day's scoreboard (/api/bracket): settled once every
+    // game in it is.
+    if (target.includes('/schedule') || target.includes('/scoreboard?dates=')) {
       const events = JSON.parse(body)?.events || [];
       let allDone = events.length > 0;
       for (const e of events) {
@@ -572,6 +577,41 @@ async function serveLiveApi(res, eventId) {
     'Cache-Control': 'public, max-age=5',
   });
   return res.end(cached.json);
+}
+
+// The postseason bracket's games (bracket-core.js), every series in both
+// leagues. ESPN's scoreboard takes one day at a time, so this reads each day
+// from the postseason's first to three days ahead (the next games are listed
+// a day or two out); a day whose games are all final is cached for a day by
+// espnFetch, so after the first request only today's and the days ahead are
+// fetched again. The URLs are built here from dates, never from the request.
+const ESPN_SITE = 'https://site.api.espn.com/apis/site/v2/sports/baseball/mlb';
+const ESPN_CORE = 'https://sports.core.api.espn.com/v2/sports/baseball/leagues/mlb';
+const DAY_MS = 24 * 60 * 60 * 1000;
+const ymd = (t) => new Date(t).toISOString().slice(0, 10).replace(/-/g, '');
+let bracketCache = null; // { at, json }
+async function serveBracketApi(req, res) {
+  if (bracketCache && Date.now() - bracketCache.at < 30 * 1000) return sendData(req, res, bracketCache.json);
+  const year = new Date().getUTCFullYear();
+  const type = await espnFetch(`${ESPN_CORE}/seasons/${year}/types/3`);
+  let span = null;
+  try { span = type?.status === 200 ? JSON.parse(type.body) : null; } catch { /* below */ }
+  const start = Date.parse(span?.startDate || '');
+  const end = Math.min(Date.parse(span?.endDate || ''), Date.now() + 3 * DAY_MS);
+  const days = [];
+  for (let t = start; t <= end && days.length < 60; t += DAY_MS) days.push(ymd(t));
+  const events = [];
+  // A handful at a time: the first request after a restart reads the
+  // whole postseason.
+  for (let i = 0; i < days.length; i += 8) {
+    const got = await Promise.all(days.slice(i, i + 8).map((d) => espnFetch(`${ESPN_SITE}/scoreboard?dates=${d}`)));
+    for (const g of got) {
+      if (g?.status !== 200) continue;
+      try { events.push(...(JSON.parse(g.body).events || [])); } catch { /* skip the day */ }
+    }
+  }
+  bracketCache = { at: Date.now(), json: JSON.stringify({ season: year, games: bracketGames(events) }) };
+  return sendData(req, res, bracketCache.json);
 }
 
 async function serveBoxscoreApi(req, res, gid) {
@@ -1111,6 +1151,7 @@ const server = http.createServer(async (req, res) => {
     }
     const liveApi = pathname.match(/^\/api\/live\/(\d{1,12})$/);
     if (liveApi) return await serveLiveApi(res, liveApi[1]);
+    if (pathname === '/api/bracket') return await serveBracketApi(req, res);
 
     // Current-season games as Retrosheet-shaped CSV data lines (no header),
     // for the h2h/history/managers pages to append to the real CSVs. Empty

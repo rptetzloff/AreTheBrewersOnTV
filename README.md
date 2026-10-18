@@ -22,6 +22,12 @@ The schedule is one compact row a game — date, opponent, result or start time,
 
 From 1100px the page splits into two columns: the answer and the season's story on the left, the schedule on the right as a panel the height of the screen with its list scrolling inside. Narrower, the blocks stack — answer and pinned game, the season's story, the schedule, the notes — and the TV moves under the opponent on a phone.
 
+## Playoff Bracket
+
+In the season being played, the home page's postseason panel also follows the rest of the bracket (`bracket-core.js`). Under the Brewers' current series is the one deciding who they play next: the other league's LCS once they are in or past their own, or the other division series of their league while they play one. It shows the wins, the live game's score, or when the next game is. Below the panels, a folding "Playoff bracket" shows both leagues — wild card, division series, LCS — and the World Series between them, each wild card beside the division series its winner went to.
+
+`/api/bracket` builds it from ESPN's scoreboard, which takes one day at a time: the server reads each day from the postseason's first (ESPN's core API gives its dates) to three days ahead, about 11KB of games out. A day whose games are all final is cached for a day, so after the first request only today's and the days ahead are fetched again. The page fetches it once a minute while any playoff game is on, otherwise when the next one starts.
+
 ## Light, Dark and System
 
 A button in the footer steps through System, Light and Dark (`theme.js`). System follows the device's setting; the other two set `data-theme` on `<html>` and are kept in localStorage. A one-line script in each page's `<head>` applies a saved choice before the stylesheet paints, so a light page never flashes navy.

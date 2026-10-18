@@ -593,6 +593,148 @@ details:not([open]) > .collapsible-summary::before {
 .po-result.po-won { color: var(--win-light, #9BD7A3); }
 .po-result.po-lost { color: var(--loss-light, #f28b82); }
 
+/* The series deciding the next opponent (bracket-core.js), under the
+   team's own: the same scoreboard, its pips in blue. */
+.po-tracker {
+    margin-top: 0.5rem;
+    padding-top: 0.45rem;
+    border-top: 1px solid rgb(var(--accent-rgb) / 0.2);
+}
+
+.po-tracker-head {
+    font-size: 0.85rem;
+    font-weight: bold;
+    color: var(--accent-text);
+}
+
+.po-tracker .po-board {
+    margin: 0.35rem 0 0.2rem;
+}
+
+.po-pip.on.other {
+    background: var(--info-light, #7fc4ff);
+    border-color: var(--info-light, #7fc4ff);
+}
+
+.po-row.po-out > * {
+    opacity: 0.5;
+}
+
+.po-tracker-status {
+    font-weight: bold;
+    font-size: 0.85rem;
+}
+
+/* The full bracket, folded under the panel. */
+.po-bracket {
+    margin-top: 0.5rem;
+    padding-top: 0.4rem;
+    border-top: 1px solid rgb(var(--accent-rgb) / 0.2);
+}
+
+.po-bracket > summary {
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--accent-text);
+}
+
+.bk {
+    display: grid;
+    gap: 0.6rem;
+    margin-top: 0.5rem;
+}
+
+/* A league: wild card, division series, LCS in three columns, the LCS
+   centered across the rows that feed it. */
+.bk-league {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    column-gap: 0.4rem;
+    row-gap: 0.35rem;
+    align-items: center;
+}
+
+.bk-col {
+    grid-row: 1;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgb(var(--fg-rgb) / 0.55);
+}
+
+.bk-cell {
+    min-width: 0;
+}
+
+.bk-ws {
+    display: grid;
+    justify-items: center;
+    gap: 0.2rem;
+}
+
+.bk-ws .bk-s {
+    width: min(100%, 9rem);
+}
+
+.bk-s {
+    border: 1px solid rgb(var(--fg-rgb) / 0.15);
+    border-radius: 6px;
+    background: rgb(var(--fg-rgb) / 0.04);
+    padding: 0.15rem 0.4rem;
+    font-size: 0.8rem;
+    text-align: left;
+}
+
+.bk-s.bk-on {
+    border-color: rgb(var(--accent-rgb) / 0.6);
+}
+
+.bk-tbd {
+    text-align: center;
+    color: rgb(var(--fg-rgb) / 0.4);
+    border-style: dashed;
+}
+
+.bk-t {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.4rem;
+    line-height: 1.5;
+}
+
+.bk-abbr {
+    font-weight: 600;
+}
+
+.bk-w {
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+}
+
+.bk-won {
+    color: var(--fg);
+}
+
+.bk-lost {
+    opacity: 0.45;
+}
+
+.bk-us .bk-abbr {
+    color: var(--accent-text);
+}
+
+.bk-live {
+    font-size: 0.7rem;
+    color: rgb(var(--fg-rgb) / 0.75);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .last-undefeated {
     margin-top: 1.25rem;
     font-size: 0.95rem;
