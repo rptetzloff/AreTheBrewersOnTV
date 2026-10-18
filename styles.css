@@ -620,6 +620,13 @@ details:not([open]) > .collapsible-summary::before {
     opacity: 0.5;
 }
 
+.po-espn {
+    color: var(--accent-text);
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
 .po-tracker-status {
     font-weight: bold;
     font-size: 0.85rem;
