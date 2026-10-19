@@ -163,6 +163,9 @@ export function opponentTrackerHtml(series, team, { now = new Date() } = {}) {
 	if (!s) return null;
 	const ours = series.filter((x) => x.teams.some((t) => t.abbr === team));
 	const cur = ours[ours.length - 1];
+	// Both sides decided: the next series is set, and the team's own panel
+	// already names the opponent ("World Series vs Rays").
+	if (s.winner && cur.winner) return null;
 	const nextRound = cur.code === 'L' ? 'World Series' : `${cur.league}CS`;
 	const title = s.winner ? `${nextRound} opponent` : `${nextRound} opponent: winner of the ${s.round}`;
 	const rows = s.teams.map((t) =>

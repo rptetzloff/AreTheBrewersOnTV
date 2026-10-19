@@ -4,7 +4,7 @@
         import { liveSituation, isBetweenInnings, situationHtml } from './situation-core.js';
         import { liveDetailHtml, probablesHtml, probableStarters, scoringPlays, scoringPlaysHtml } from './live-core.js';
         import { scheduleListHtml, monthChipsHtml } from './schedule-core.js';
-        import { espnPostseasonGames, postseasonPanelHtml, standingsRows, raceNumbers, racePanelHtml, RACE_WINDOW_GAMES } from './playoff-core.js';
+        import { espnPostseasonGames, postseasonPanelHtml, worldSeriesTitle, standingsRows, raceNumbers, racePanelHtml, RACE_WINDOW_GAMES } from './playoff-core.js';
         import { bracketSeries, bracketHtml, opponentTrackerHtml, bracketRefreshMs } from './bracket-core.js';
         import { intentUrls, copyText, flashCopied, wireShareDropdown } from './share-core.js';
         import { parseTvLookup, resolveChannel, tvStatus, primaryBroadcast, providerChannel, formatChannelNum, channelNumberFor, parseSimulcasts, broadcastsWithSimulcasts, dayCT, EMPTY_LOOKUP } from './tv-core.js';
@@ -714,7 +714,10 @@ markActiveMonth() {
         		}
 
         		const isPastSeason = this.currentSeason && this.latestSeason && this.currentSeason < this.latestSeason;
-        		if (!isPastSeason && this.isOffseason(events)) {
+        		// A title outlasts the offseason: a Series won on Oct 31 would
+        		// otherwise give way to "offseason" at midnight, for the winter.
+        		const wonTitle = worldSeriesTitle(events.filter(e => e._seasonType === 'post'));
+        		if (!isPastSeason && !wonTitle && this.isOffseason(events)) {
         			this.displayOffseasonMessage();
         			this.updatePlayoffPanel([], null);
         			this.displaySchedule(events, true);
@@ -765,26 +768,8 @@ markActiveMonth() {
         		const postRecord = countRecord(completedPost);
 
         		// World Series champions only once the Brewers have won the
-        		// series: four wins. This was "more wins than losses", which a
-        		// 1-0 lead satisfies, so Game 1 would have put CHAMPIONS on the
-        		// front page. The name is the note's round, not the whole note,
-        		// which reads "World Series - Game 4".
-        		let wsWins = 0, wsLosses = 0, wsName = null;
-        		completedPost.forEach(event => {
-        			const notes = event.competitions?.[0]?.notes || [];
-        			const sbNote = notes.find(n => /world series/i.test(n.headline || ''));
-        			if (!sbNote) return;
-        			const competitors = event.competitions[0].competitors;
-        			let brewersScore = 0, opponentScore = 0;
-        			competitors.forEach(c => {
-        				if (c.team.abbreviation === 'MIL') brewersScore = parseInt(c.score?.value) || 0;
-        				else opponentScore = parseInt(c.score?.value) || 0;
-        			});
-        			wsName = wsName || sbNote.headline.split(' - ')[0].trim();
-        			if (brewersScore > opponentScore) wsWins++;
-        			else if (brewersScore < opponentScore) wsLosses++;
-        		});
-        		const worldSeriesName = wsWins >= 4 ? wsName : null;
+        		// series: four wins (playoff-core.js, shared with the server).
+        		const worldSeriesName = worldSeriesTitle(completedPost);
 
         		// Every postseason game, played or not: a series that has not
         		// started still has to show, as 0-0. ESPN names the round in the
