@@ -82,8 +82,16 @@ export function titleBannerHtml(state) {
 	return `<a class="title-banner" href="/${yr}"><span aria-hidden="true">🏆</span> ${yr} ${esc(SITE.championship)} Champions <span aria-hidden="true">🏆</span></a>`;
 }
 
-/** A page with the banner as the first thing in its body. */
-export const withTitleBanner = (html, banner) => (banner ? html.replace(/<body([^>]*)>/, (tag) => `${tag}\n${banner}`) : html);
+/** A page with the banner as the first thing in its body. Found by indexOf,
+ *  not a regex: CodeQL flagged /<body([^>]*)>/ as slow on a page full of
+ *  "<body=" with no ">" (a regex scan from each one to the end). */
+export function withTitleBanner(html, banner) {
+	if (!banner) return html;
+	const open = html.indexOf('<body');
+	const close = open === -1 ? -1 : html.indexOf('>', open);
+	if (close === -1) return html;
+	return `${html.slice(0, close + 1)}\n${banner}${html.slice(close + 1)}`;
+}
 
 // What winning each round earns.
 const NEXT = { T: 'the postseason', F: 'the Division Series', D: 'the LCS', L: 'the World Series', W: 'a World Series title' };
