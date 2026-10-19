@@ -47,6 +47,52 @@ export function espnPostseasonGames(events, team = TEAM) {
 		});
 }
 
+/** The World Series' name ("World Series") once `team` has won it — four
+ *  final wins in games whose note names the Series — else null. ESPN events,
+ *  either the schedule's shape (score.value) or the scoreboard's (score). The
+ *  home page and the server's share cards both ask; they had a copy each,
+ *  and each was once fooled by a 1-0 lead (#57). */
+export function worldSeriesTitle(events, team = TEAM) {
+	let wins = 0;
+	let name = null;
+	for (const e of events || []) {
+		const comp = e?.competitions?.[0];
+		if (comp?.status?.type?.name !== 'STATUS_FINAL') continue;
+		const note = (comp.notes || []).find((n) => /world series/i.test(n.headline || ''));
+		if (!note) continue;
+		let us = 0;
+		let them = 0;
+		for (const c of comp.competitors || []) {
+			const s = parseInt(c.score?.value ?? c.score ?? 0, 10) || 0;
+			if (c.team?.abbreviation === team) us = s;
+			else them = s;
+		}
+		name = name || note.headline.split(' - ')[0].trim();
+		if (us > them) wins++;
+	}
+	return wins >= 4 ? name : null;
+}
+
+/** The headline banner every page carries while the season being played is a
+ *  title season: "2026 World Series Champions", linking to that season. From
+ *  the server's season state (lib/seasons.js); '' for any other state. */
+export function titleBannerHtml(state) {
+	if (state?.kind !== 'champions' || !state.season) return '';
+	const yr = esc(String(state.season));
+	return `<a class="title-banner" href="/${yr}"><span aria-hidden="true">🏆</span> ${yr} ${esc(SITE.championship)} Champions <span aria-hidden="true">🏆</span></a>`;
+}
+
+/** A page with the banner as the first thing in its body. Found by indexOf,
+ *  not a regex: CodeQL flagged /<body([^>]*)>/ as slow on a page full of
+ *  "<body=" with no ">" (a regex scan from each one to the end). */
+export function withTitleBanner(html, banner) {
+	if (!banner) return html;
+	const open = html.indexOf('<body');
+	const close = open === -1 ? -1 : html.indexOf('>', open);
+	if (close === -1) return html;
+	return `${html.slice(0, close + 1)}\n${banner}${html.slice(close + 1)}`;
+}
+
 // What winning each round earns.
 const NEXT = { T: 'the postseason', F: 'the Division Series', D: 'the LCS', L: 'the World Series', W: 'a World Series title' };
 const leagueOf = (round) => (/^\s*A/i.test(round) ? 'AL' : /^\s*N/i.test(round) ? 'NL' : '');

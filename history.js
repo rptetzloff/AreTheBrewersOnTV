@@ -3,7 +3,7 @@
 // (records-core.js). Multiple metrics can be plotted at once, playoffs can be
 // folded in, manager-era strips carry each manager's record, hover shows a
 // season's numbers, and clicking a season opens its page.
-import { parseGameinfoCsv, computeSeasonHistory, historyCopy, parseBallparksCsv, computeFranchiseMilestones, esc } from './records-core.js';
+import { parseGameinfoCsv, computeSeasonHistory, historyCopy, parseBallparksCsv, computeFranchiseMilestones, esc, championships } from './records-core.js';
 import { parseBiofile, parseTeamstatsMgr, parseManagersCsv, computeCoachesFromData } from './coaches-core.js';
 import { buildChartSvg, METRICS, POSTSEASON, postseasonTier } from './history-chart.js';
 import { shareButtonsHtml, labeledShareButtonsHtml, wireShareRow, wireShareDropdown } from './share-core.js';
@@ -208,7 +208,7 @@ async function init() {
 		const titles = histories.regular.filter((s) => s.champion).length;
 		const range = `${histories.regular[0].season}–${histories.regular[histories.regular.length - 1].season}`;
 		document.getElementById('history-subtitle').textContent =
-			`Milwaukee Brewers · ${range} · ${titles} championships · ${officialCoaches.length} managers`;
+			`Milwaukee Brewers · ${range} · ${championships(titles)} · ${officialCoaches.length} managers`;
 
 		let metrics;
 		try { metrics = JSON.parse(localStorage.getItem('historyMetrics') || '[]'); } catch { metrics = []; }

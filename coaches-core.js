@@ -9,7 +9,7 @@ const cap = (w) => w.charAt(0).toUpperCase() + w.slice(1);
 // data/managers.csv (name, start_year, end_year); any game managed by someone
 // not listed, or outside their official year range, is interim. Pure
 // functions only.
-import { rec, splitCsvLine, BREWERS_IDS } from './records-core.js';
+import { rec, splitCsvLine, BREWERS_IDS, championships } from './records-core.js';
 
 // Parses data/managers.csv → [{ mgrId, startDate, endDate }] in file order.
 // Dates are M/D/YYYY and normalized to ISO YYYY-MM-DD for exact comparison.
@@ -130,7 +130,7 @@ export function coachesCopy(data) {
 	const titles = coaches.reduce((s, c) => s + c.titles, 0);
 	return {
 		title: `${SITE.team} ${cap(SITE.leaderPlural)}, ${coaches[0].firstSeason}–present`,
-		desc: `Every ${SITE.fullName} ${SITE.leaderNoun} and their record — ${coaches.length} of them, ${titles} championships. Most wins: ${wins.name} (${wins.record}).`,
+		desc: `Every ${SITE.fullName} ${SITE.leaderNoun} and their record — ${coaches.length} of them, ${championships(titles)}. Most wins: ${wins.name} (${wins.record}).`,
 	};
 }
 

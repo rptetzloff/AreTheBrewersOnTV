@@ -102,6 +102,18 @@ test('the tracker: who the Brewers could face, the live score, and the wins', ()
 	assert.equal(opponentTrackerHtml(series, 'LAD'), null)
 })
 
+test('once both LCS are decided, the tracker steps aside; with ours still going, it names the opponent', () => {
+	// The Rays win games 5 and 6.
+	const tbWins = (g) => ({ ...g, state: 'post', final: true, teams: g.teams.map((t) => ({ ...t, winner: t.abbr === 'TB' })) })
+	const decided = games.filter((g) => !(g.code === 'L' && g.n === 7)).map((g) => (g.code === 'L' && g.league === 'AL' && g.n >= 5 ? tbWins(g) : g))
+	assert.equal(opponentTrackerHtml(bracketSeries(decided), 'MIL'), null)
+	// The same, with the NLCS at 3-0 instead of over.
+	const midNlcs = decided.filter((g) => !(g.code === 'L' && g.league === 'NL' && g.n === 4))
+	const html = opponentTrackerHtml(bracketSeries(midNlcs), 'MIL')
+	assert.match(html, /<div class="po-tracker-head">World Series opponent<\/div>/)
+	assert.match(html, /Rays won 4-2/)
+})
+
 test('between games, the tracker says when the next one is', () => {
 	const after5 = games.map((g) => (g.n === 5 && g.code === 'L' ? { ...g, state: 'post', final: true, teams: g.teams.map((t) => ({ ...t, winner: t.abbr === 'TB' })) } : g))
 	// "Today" is the viewer's own calendar day: Game 6 at 8 PM EDT is

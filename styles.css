@@ -113,6 +113,40 @@ body {
     justify-content: center;
 }
 
+/* The headline every page carries in a title season (playoff-core.js,
+   added by the server): gold, edge to edge, above everything. Navy on gold
+   in both themes. */
+.title-banner {
+    align-self: stretch;
+    display: block;
+    box-sizing: border-box;
+    padding: 0.55rem 1rem;
+    background: #FFC52F;
+    color: #12284B;
+    text-align: center;
+    text-decoration: none;
+    font-weight: 800;
+    font-size: clamp(0.85rem, 0.6rem + 1.2vw, 1.15rem);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    box-shadow: 0 2px 8px rgb(0 0 0 / 0.25);
+}
+
+/* One line on a phone: at 360px the spacing pushed the second trophy onto
+   its own. */
+@media (max-width: 480px) {
+    .title-banner {
+        letter-spacing: 0.03em;
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+}
+
+.title-banner:hover,
+.title-banner:focus-visible {
+    background: #ffd45e;
+    outline: none;
+}
 
 body.undefeated {
     background: var(--bg) !important;

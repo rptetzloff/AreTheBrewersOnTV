@@ -19,9 +19,10 @@ import { parseSlots, slotsParam } from './compare-core.js';
 import { liveDetail } from './live-core.js';
 import { espnBoxscore } from './espn-box-core.js';
 import { bracketGames } from './bracket-core.js';
+import { titleBannerHtml, withTitleBanner } from './playoff-core.js';
 import { buildCalendar } from './lib/calendar.js';
 import { records, recordsMeta, isRecordSlug, historyMeta, liveSeasonHistory, liveRecordsVersion, registerBattingFeats, registerPitcherEra, registerNoHitterPitchers, registerTriplePlayFielders } from './lib/records.js';
-import { coaches, coachesMeta } from './lib/coaches.js';
+import { liveCoaches, coachesMeta } from './lib/coaches.js';
 import { h2h, h2hMeta, isOpponentSlug } from './lib/h2h.js';
 import { getCurrentSeasonCsvs } from './lib/espn-current.js';
 import { seasonBatting, seasonPitching, seasonFielding, seasonFieldingTotals, regularGidsBySeason, buildLeaders, playerSeasons, playerGameLog, playerDirectory, bornOn, parseBios, PLAYER_ID } from './stats-core.js';
@@ -93,7 +94,7 @@ function copy(state) {
   switch (state.kind) {
     case 'champions':
       return { title: `${s} Milwaukee Brewers — World Series Champions`,
-        desc: `The ${s} Milwaukee Brewers won ${state.worldSeriesName || 'the World Series'}.` };
+        desc: `The ${s} Milwaukee Brewers won the World Series.` };
     case 'offseason':
       return { title: `Are the Brewers On TV? — ${s} offseason`,
         desc: `The ${s} season hasn't started yet. Check back for the schedule.` };
@@ -166,8 +167,24 @@ function sendData(req, res, value) {
   return res.end(body);
 }
 
+// The headline banner (titleBannerHtml) every page carries while the season
+// being played is a title season: from the Series' last out through the
+// winter, until the new season's year begins. Kept here and refreshed in the
+// background, at most once a minute, so a page never waits on ESPN for it;
+// the season state underneath is cached by seasons.js.
+let headline = { at: 0, html: '' };
+function refreshHeadline() {
+  if (Date.now() - headline.at < 60 * 1000) return;
+  headline.at = Date.now();
+  getSeasonState().then((state) => { headline.html = titleBannerHtml(state); }).catch(() => { /* keep the last */ });
+}
+refreshHeadline();
+
 function sendPage(res, shell, meta) {
-  const html = shell.replace('</head>', `${metaBlock(meta)}\n</head>`);
+  refreshHeadline();
+  // The banner goes into the shell before the request's meta does, so it
+  // never searches text a request supplied.
+  const html = withTitleBanner(shell, headline.html).replace('</head>', `${metaBlock(meta)}\n</head>`);
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
   res.end(html);
 }
@@ -950,6 +967,7 @@ async function serveGameHtml(req, res, gid) {
 
 const staticImgCache = new Map();
 let historyCard = { key: null, png: null };
+let managersCard = { version: -1, png: null };
 let recordsCardsVersion = null;
 function serveCachedPng(res, key, render) {
   let buf = staticImgCache.get(key);
@@ -1092,7 +1110,9 @@ const server = http.createServer(async (req, res) => {
     if (pathname === '/og/history.png') {
       const history = await liveSeasonHistory();
       const last = history[history.length - 1];
-      const key = `${last.season}:${last.record}:${last.postseason}`;
+      // `champion` too: the deepest round is already W from Series Game 1, so
+      // without it the card kept "0 championships" after the title.
+      const key = `${last.season}:${last.record}:${last.postseason}:${last.champion}`;
       if (historyCard.key !== key) historyCard = { key, png: renderHistoryPng(history) };
       res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' });
       return res.end(historyCard.png);
@@ -1121,13 +1141,19 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === '/managers' || pathname === '/managers/' || pathname === '/managers.html') {
       const origin = originOf(req);
-      const { title, desc } = coachesMeta();
+      const { title, desc } = coachesMeta((await liveCoaches()).coaches);
       return sendPage(res, MANAGERS_VERSIONED, {
         title, desc, img: `${origin}/og/managers.png`, canonical: `${origin}/managers`,
       });
     }
-    if (pathname === '/og/managers.png')
-      return serveCachedPng(res, 'managers', () => renderCoachesPng(coaches));
+    if (pathname === '/og/managers.png') {
+      // Rendered again when the season being played changes the managers'
+      // lines or titles, as the history card is.
+      const { version, coaches } = await liveCoaches();
+      if (managersCard.version !== version) managersCard = { version, png: renderCoachesPng(coaches) };
+      res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' });
+      return res.end(managersCard.png);
+    }
 
     if (pathname === '/vs' || pathname === '/vs/' || pathname === '/vs.html')
       return serveVsHtml(req, res, undefined);
