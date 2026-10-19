@@ -94,4 +94,13 @@ test('the banner goes first in the body, and a page without one is untouched', (
 	const page = '<html><head></head><body>\n<main>x</main></body></html>'
 	assert.equal(withTitleBanner(page, '<a>B</a>'), '<html><head></head><body>\n<a>B</a>\n<main>x</main></body></html>')
 	assert.equal(withTitleBanner(page, ''), page)
+	assert.equal(withTitleBanner('<body class="x">', '<a>B</a>'), '<body class="x">\n<a>B</a>')
+	assert.equal(withTitleBanner('<p>no body</p>', '<a>B</a>'), '<p>no body</p>')
+})
+
+test('placing the banner stays fast on a page of unclosed body tags', () => {
+	const hostile = '<body='.repeat(200000)
+	const t = performance.now()
+	assert.equal(withTitleBanner(hostile, '<a>B</a>'), hostile)
+	assert.ok(performance.now() - t < 200, 'linear, not a scan from every "<body"')
 })

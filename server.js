@@ -182,7 +182,9 @@ refreshHeadline();
 
 function sendPage(res, shell, meta) {
   refreshHeadline();
-  const html = withTitleBanner(shell.replace('</head>', `${metaBlock(meta)}\n</head>`), headline.html);
+  // The banner goes into the shell before the request's meta does, so it
+  // never searches text a request supplied.
+  const html = withTitleBanner(shell, headline.html).replace('</head>', `${metaBlock(meta)}\n</head>`);
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
   res.end(html);
 }
