@@ -388,6 +388,11 @@ export function formatDate(iso) {
 
 export const rec = (w, l, t) => (t > 0 ? `${w}–${l}–${t}` : `${w}–${l}`);
 
+/** "1 championship", "2 championships": the counts on the history and
+ *  managers pages and their cards, which read "1 championships" after a
+ *  first title. */
+export const championships = (n) => `${n} championship${n === 1 ? '' : 's'}`;
+
 export const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 const RESULTS = new Set(['WIN', 'LOSS', 'TIE']);
@@ -1155,7 +1160,7 @@ export function historyCopy(history, site = SITE) {
 	const winning = history.filter((s) => s.winPct > 0.5).length;
 	return {
 		title: `${site.team} Season-by-Season History, ${first}–${last}`,
-		desc: `Every ${site.fullName} season since ${first} in one chart: ${titles} championships and ${winning} winning seasons across ${history.length} years.`,
+		desc: `Every ${site.fullName} season since ${first} in one chart: ${championships(titles)} and ${winning} winning seasons across ${history.length} years.`,
 	};
 }
 

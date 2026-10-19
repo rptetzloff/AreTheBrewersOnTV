@@ -28,6 +28,16 @@ In the season being played, the home page's postseason panel also follows the re
 
 `/api/bracket` builds it from ESPN's scoreboard, which takes one day at a time: the server reads each day from the postseason's first (ESPN's core API gives its dates) to three days ahead, about 11KB of games out. A day whose games are all final is cached for a day, so after the first request only today's and the days ahead are fetched again. The page fetches it once a minute while any playoff game is on, otherwise when the next one starts.
 
+## A World Series Title
+
+A title is four World Series wins (`worldSeriesTitle` in `playoff-core.js`, which the home page and the server's share cards both use). From the last out:
+
+- every page opens with a gold "2026 World Series Champions" banner linking to the season. The server adds it to each page as it sends it (`titleBannerHtml`), so it is there without a flash and without JavaScript. It stays through the winter, until the new season's year begins in March;
+- the home page's answer reads WORLD SERIES CHAMPIONS, and the season's share card CHAMPIONS. Both win over the offseason: a Series won on Oct 31 would otherwise have given way to "offseason" at midnight, and in UTC at the last out;
+- the history and managers pages, their link previews and their cards count it ("1 championship"), credited to the manager of the final game. The server's managers data follows the season being played as the history data does (`liveCoaches` in `lib/coaches.js`).
+
+`test/world-series.test.js` runs a Series through ESPN's games to the history and managers counts.
+
 ## Light, Dark and System
 
 A button in the footer steps through System, Light and Dark (`theme.js`). System follows the device's setting; the other two set `data-theme` on `<html>` and are kept in localStorage. A one-line script in each page's `<head>` applies a saved choice before the stylesheet paints, so a light page never flashes navy.
