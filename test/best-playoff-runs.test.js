@@ -2,7 +2,8 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { records } from '../lib/records.js'
 import { bestPlayoffRuns, playoffRunsByEra, eraYears, pct3, recordsCopy, RECORD_SLUGS } from '../records-core.js'
-import { buildRecordsSvg } from '../lib/cards.js'
+// Not lib/cards.js: it loads a native module the test job does not install.
+// test/cards-source.test.js holds every slug to a share card of its own.
 
 // Best Playoff Runs, ported from are-they-sports (#123, #124): each finished
 // postseason by winning percentage, then wins, then the earlier year, a
@@ -48,15 +49,12 @@ test('a perfect record reads 1.000, not .1000', () => {
 	assert.equal(pct3(0.0625), '.063')
 })
 
-test('the card has its own link preview and share picture', () => {
+test('the card has its own link preview', () => {
 	assert.ok(RECORD_SLUGS.includes('best-playoff-runs'))
 	assert.equal(RECORD_SLUGS.at(-1), 'best-playoff-runs', 'last, so the side-by-side pairs above it stay pairs')
 	const copy = recordsCopy('best-playoff-runs', records)
 	assert.equal(copy.title, 'Best Brewers Playoff Runs — 6–4 in 2018')
 	assert.match(copy.desc, /Wild-card era \(1995 on\), 2018 at 6–4, Lost LCS; LCS era \(1969–1994\), 1982 at 6–6, Lost World Series\./)
-	const svg = buildRecordsSvg('best-playoff-runs', records)
-	assert.match(svg, /BEST PLAYOFF RUNS/)
-	assert.doesNotMatch(svg, /ARE THE BREWERS/, 'its own picture, not the overview one')
 	const none = recordsCopy('best-playoff-runs', { ...records, playoffAppearances: [] })
 	assert.equal(none.desc, 'The Brewers have not yet reached the playoffs.')
 })
