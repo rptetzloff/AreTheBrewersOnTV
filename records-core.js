@@ -1166,6 +1166,51 @@ export function historyCopy(history, site = SITE) {
 
 // Per-card copy shared by server OG meta and client share messages.
 // slug 'overview' covers the /records landing URL.
+/** Each finished postseason's record, best first: winning percentage, then
+ *  more wins, then the earlier year. A postseason is over when the club was
+ *  knocked out or won the title; one still going is left out, as a season
+ *  being played is left out of Best Seasons. Every series decided is not
+ *  enough: the 2026 Brewers were 7-1 and "Won LCS" with the World Series
+ *  still to play. `reached` is how it ended: the title, or the last series
+ *  and its result. Ported from are-they-sports (#123, #124). */
+export function bestPlayoffRuns(appearances = [], top = 5, site = SITE) {
+	const over = (a) => {
+		const last = a.series.at(-1);
+		return Boolean(last) && (last.result === 'Lost' || (last.round === 'W' && last.result === 'Won'));
+	};
+	return appearances
+		.filter(over)
+		.map((a) => {
+			const w = a.series.reduce((n, s) => n + s.wins, 0);
+			const l = a.series.reduce((n, s) => n + s.losses, 0);
+			const last = a.series.at(-1);
+			const champion = last.round === 'W' && last.result === 'Won';
+			return {
+				season: a.season, wins: w, losses: l, record: `${w}–${l}`,
+				winPct: w + l ? w / (w + l) : 0,
+				reached: champion ? `Won the ${site.championship}` : `${last.result} ${last.roundLabel}`,
+			};
+		})
+		.sort((a, b) => b.winPct - a.winPct || b.wins - a.wins || a.season - b.season)
+		.slice(0, top);
+}
+
+const inEra = (season, era) => (era.from == null || season >= era.from) && (era.to == null || season <= era.to);
+/** "1969–1994", "1995 on", "to 1968": an era's years for its heading. */
+export const eraYears = (era) => (era.from == null ? `to ${era.to}` : era.to == null ? `${era.from} on` : `${era.from}–${era.to}`);
+
+/** Best Playoff Runs a playoff era at a time (SITE.playoffEras), each era's
+ *  best `top`; an era with none is left out. */
+export function playoffRunsByEra(appearances = [], { top = 5, site = SITE } = {}) {
+	return (site.playoffEras ?? [{}])
+		.map((era) => ({ era, runs: bestPlayoffRuns(appearances.filter((a) => inEra(a.season, era)), top, site) }))
+		.filter((g) => g.runs.length);
+}
+
+/** ".938", and "1.000" for a perfect one, which padding the thousandths
+ *  printed as ".1000" (are-they-sports #123). */
+export const pct3 = (p) => p.toFixed(3).replace(/^0/, '');
+
 export function recordsCopy(slug, data, site = SITE) {
 	const range = `${data.seasonRange.first}–${data.seasonRange.last}`;
 	switch (slug) {
@@ -1183,6 +1228,17 @@ export function recordsCopy(slug, data, site = SITE) {
 				desc: w.length
 					? `World Series results by the ${site.fullName}: ${w.map((x) => `${x.season}: ${x.result} ${x.record} vs the ${x.opponent}`).join('; ')}.`
 					: site.copy.noWorldSeries,
+			};
+		}
+		case 'best-playoff-runs': {
+			// The best run of each era, latest era first.
+			const tops = playoffRunsByEra(data.playoffAppearances, { site }).reverse().map((g) => ({ era: g.era, run: g.runs[0] }));
+			if (!tops.length) return { title: `Best ${site.team} Playoff Runs`, desc: site.copy.noPlayoffs };
+			const [first] = tops;
+			return {
+				title: `Best ${site.team} Playoff Runs — ${first.run.record} in ${first.run.season}`,
+				desc: `The ${site.fullName}' best postseason of each era, by winning percentage: ${tops
+					.map((t) => `${t.era.label} (${eraYears(t.era)}), ${t.run.season} at ${t.run.record}, ${t.run.reached}`).join('; ')}.`,
 			};
 		}
 		case 'playoff-appearances': {
