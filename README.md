@@ -16,6 +16,13 @@ That classification, the provider channel numbers and the local simulcasts (`dat
 
 Channel information is based on publicly available channel listings — the site reminds visitors to check their local channel guide for the most accurate broadcast information.
 
+The live card (and the box score page's live panel) also follows challenges (`gameChallenges` in `live-core.js`). It shows:
+- **Each team's ABS challenges left**, as two pips. A team has two a game and keeps one that succeeds; across the 2026 postseason's 35 games no team lost more than two in nine innings. Extra innings have their own allowance, so from the 10th on the card shows challenges won and lost instead of how many are left.
+- **The latest three challenges, newest first:** pitch challenges, manager replay challenges and umpire reviews, e.g. "TB challenged a called ball on B. Turang: overturned, now a strike".
+- **A tag on a challenged pitch** in the at-bat's list.
+
+ESPN names a challenged pitch by the call after review ("Strike Looking - Overturned" was called a ball), and does not say who challenged. The call does: only the batter's side gains from a strike becoming a ball, and only the fielders from a ball becoming a strike. Manager challenges and umpire reviews are sentences in the play's text ("Tampa Bay Rays challenged: call on the field was upheld.").
+
 ## Home Page Layout
 
 The schedule is one compact row a game — date, opponent, result or start time, TV — under a heading a month, with chips above the list to jump to it (`schedule-core.js`): one for the preseason ("Spring"), one a month for the regular season, and one for the postseason ("Playoffs") — or for a past season one a round played (WC, DS, LCS, WS) — each phase's chips in a group of their own, so a narrow row breaks between phases. The chip for the part of the list at its top is lit as it scrolls. It used to be a ~110px card a game, about 23,000px of scrolling in a 400px box. A click on a finished or live game opens its line score; on one still to come, where to watch. A played game also carries its links: Summary (that line score pop-up, with the scoring plays), Box (its box score page, `/game/<id>`), and ESPN (ESPN's page for it) for this season's games, the ones that came from ESPN. Icons on a wide row, labeled buttons on a phone's second line. The live game, else the next one, is pinned as its full card just under the answer, with the live detail, countdown and probables. The list opens at the latest game and keeps its place when the live game refreshes.
