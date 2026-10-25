@@ -99,6 +99,8 @@ When the override is active, a small reset link appears in the card header to cl
 
 `/records` is a standalone page of franchise superlatives computed from the Retrosheet game data: best and worst seasons, best and worst season starts, longest win streaks, most lopsided wins, worst losses, no-hitters, perfect games, World Series and playoff appearances, and ties. Each superlative is its own shareable card with a deep link (`/records/best-seasons`, `/records/win-streaks`, `/records/no-hitters`, …) and its own server-rendered social card at `/og/records/<slug>.png`, following the same pattern as the per-season cards. Season years in the tables link to their season pages.
 
+**Best Playoff Runs** (`/records/best-playoff-runs`, ported from are-they-sports #123 and #124) ranks each finished postseason by its combined record: winning percentage, then wins, then the earlier year. It ranks within each playoff era (`SITE.playoffEras`: the LCS era 1969–1994 and the wild-card era 1995 on for the Brewers), because a four-round run and a two-round one are not the same thing to have done. A postseason counts once it is over, knocked out or champion, so a run still being played stays off the list. It is the last card, alone on its row, since anywhere else it would split the side-by-side pairs after it.
+
 The computation lives in `records-core.js`, a dependency-free module shared verbatim by the browser page (`records.html` + `records.js`) and the web service (`lib/records.js`), so the page and the link previews can never disagree.
 
 ## Head-to-Head

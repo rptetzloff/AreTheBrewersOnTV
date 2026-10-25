@@ -1,6 +1,6 @@
 // Records & Superlatives page: computes superlatives from the games CSV
 // (records-core.js, shared with the server) and renders one shareable card each.
-import { parseGameinfoCsv, computeSuperlatives, computeTeamstatsRecords, recordsCopy, formatDate, formatEra, RECORD_SLUGS, BOX_SCORE_RECORDS, esc } from './records-core.js';
+import { parseGameinfoCsv, computeSuperlatives, computeTeamstatsRecords, recordsCopy, formatDate, formatEra, RECORD_SLUGS, BOX_SCORE_RECORDS, esc, playoffRunsByEra, eraYears, pct3 } from './records-core.js';
 import { shareButtonsHtml, labeledShareButtonsHtml, wireShareRow, wireShareDropdown } from './share-core.js';
 
 const yearLink = (yr) => `<a href="/${yr}">${yr}</a>`;
@@ -42,7 +42,7 @@ const pitcherEraEntry = (s) => ({
 const seasonEntry = (s) => ({
 	main: s.record,
 	subHtml: yearLink(s.season),
-	detailHtml: `.${String(Math.round(s.winPct * 1000)).padStart(3, '0')} winning percentage`,
+	detailHtml: `${pct3(s.winPct)} winning percentage`,
 });
 
 // Card order pairs related records side by side in the two-column grid:
@@ -233,6 +233,20 @@ const CARDS = [
 		entries: (d) => d.ties.map(blowoutEntry),
 		empty: 'The Brewers have never tied a game.',
 	},
+	{
+		slug: 'best-playoff-runs', icon: 'mdi-chart-line-variant', title: 'Best Playoff Runs',
+		note: 'Brewers postseasons by winning percentage, then wins, in each era',
+		// A list a playoff era (SITE.playoffEras), each under its heading.
+		groups: (d) => playoffRunsByEra(d.playoffAppearances).map((g) => ({
+			label: `${g.era.label} · ${eraYears(g.era)}`,
+			entries: g.runs.map((r) => ({
+				main: r.record,
+				subHtml: yearLink(r.season),
+				detailHtml: `${pct3(r.winPct)} · ${esc(r.reached)}`,
+			})),
+		})),
+		empty: 'The Brewers have not yet finished a postseason.',
+	},
 ];
 
 function entryHtml(e, i, highlightTop) {
@@ -257,11 +271,20 @@ function throughNote(slug, data) {
 	return ` · through ${box.last}`;
 }
 
+function listHtml(card, entries) {
+	return `<ol class="record-list">${entries.map((e, i) => entryHtml(e, i, card.highlightTop !== false)).join('')}</ol>`;
+}
+
 function cardHtml(card, data) {
-	const entries = card.entries(data);
-	const body = entries.length
-		? `<ol class="record-list">${entries.map((e, i) => entryHtml(e, i, card.highlightTop !== false)).join('')}</ol>`
-		: `<p class="record-empty">${esc(card.empty || 'Nothing here yet.')}</p>`;
+	// A card of several lists (Best Playoff Runs, by era) has a heading over
+	// each; an era with nothing in it is already left out.
+	const groups = card.groups ? card.groups(data) : null;
+	const entries = groups ? groups.flatMap((g) => g.entries) : card.entries(data);
+	const body = !entries.length
+		? `<p class="record-empty">${esc(card.empty || 'Nothing here yet.')}</p>`
+		: groups
+			? groups.map((g) => `<h3 class="record-group-title">${esc(g.label)}</h3>${listHtml(card, g.entries)}`).join('')
+			: listHtml(card, entries);
 	return `<section class="record-card" id="card-${card.slug}">
 		<h2 class="record-card-title"><i class="mdi ${card.icon}"></i> ${esc(card.title)}</h2>
 		<p class="record-note">${esc(card.note)}${esc(throughNote(card.slug, data))}</p>
